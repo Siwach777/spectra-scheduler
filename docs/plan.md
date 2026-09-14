@@ -54,10 +54,14 @@ that each strategy regenerated the same scenario truth, so comparisons now gener
 it once per seed and reuse it across strategies. Independent seeds can also run in
 separate worker processes. Native code is still unnecessary at this scale.
 
+The comparison environment now includes a late-arriving emitter, an emitter that
+leaves, and a radar that changes band and repetition interval. The next scheduler
+iteration should detect that its older timing evidence has become stale.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.
-- Add scanning and changing emitters.
+- Add a scanning emitter that sweeps adjacent bands.
 - Replace the recency strategy with probabilistic beliefs and change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.

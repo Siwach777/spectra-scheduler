@@ -110,3 +110,26 @@ seeds, one worker took 5.26 seconds and four workers took 2.15 seconds, a 2.45x 
 Processes are used because the simulation is CPU-bound; Python threads would still
 contend on the interpreter lock. Results from sequential and parallel execution are
 checked for exact equality.
+
+## Dynamic-emitter comparison
+
+Date: 14 September 2026
+
+The 60-step scenario was changed so the search emitter stops at step 36, the burst
+emitter begins at step 20, and the tracking emitter changes from band 4 with a
+seven-step period to band 0 with a four-step period at step 30. The other settings
+were kept unchanged and the comparison used 100 seeds.
+
+| Strategy | Interception ratio | Emitter discovery | Mean max gap | Mean first delay |
+|---|---:|---:|---:|---:|
+| Round-robin | 14.3% ± 8.6% | 57.6% | 5.0 | 28.7 |
+| Random | 14.7% ± 4.1% | 83.2% | 24.5 | 21.8 |
+| Shuffled sweep | 13.9% ± 4.4% | 83.2% | 9.8 | 22.3 |
+| Revisit on hit | 13.8% ± 5.0% | 80.4% | 8.7 | 23.4 |
+| UCB bandit | 15.0% ± 4.5% | 75.8% | 13.7 | 25.7 |
+| Period-aware probe | 16.2% ± 5.0% | 76.8% | 12.5 | 25.9 |
+
+The period-aware policy still has the best average interception, but the existing
+metrics cannot isolate how quickly it reacts after the tracking radar changes mode.
+The next evaluation change should measure post-change reacquisition separately from
+initial emitter discovery.
