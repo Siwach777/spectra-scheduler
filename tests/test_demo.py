@@ -13,7 +13,14 @@ class DemoTests(unittest.TestCase):
 
         self.assertEqual(
             set(results),
-            {"round-robin", "random", "revisit-on-hit", "ucb-bandit", "period-aware"},
+            {
+                "round-robin",
+                "random",
+                "shuffled-sweep",
+                "revisit-on-hit",
+                "ucb-bandit",
+                "period-aware",
+            },
         )
         totals = {metrics.total_transmissions for metrics in results.values()}
         self.assertEqual(len(totals), 1)

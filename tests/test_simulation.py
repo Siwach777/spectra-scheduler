@@ -7,6 +7,7 @@ from spectra_scheduler.schedulers import (
     PeriodAwareScheduler,
     RevisitOnHitScheduler,
     RoundRobinScheduler,
+    ShuffledSweepScheduler,
     UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
@@ -23,6 +24,25 @@ class SchedulerTests(unittest.TestCase):
 
     def test_random_scheduler_restarts_from_same_seed(self) -> None:
         scheduler = RandomScheduler(seed=42)
+        scheduler.reset(num_bands=4)
+        first_run = [scheduler.choose_band(step) for step in range(8)]
+
+        scheduler.reset(num_bands=4)
+        second_run = [scheduler.choose_band(step) for step in range(8)]
+
+        self.assertEqual(first_run, second_run)
+
+    def test_shuffled_sweep_visits_every_band_once_per_cycle(self) -> None:
+        scheduler = ShuffledSweepScheduler(seed=6)
+        scheduler.reset(num_bands=4)
+
+        bands = [scheduler.choose_band(step) for step in range(8)]
+
+        self.assertEqual(set(bands[:4]), {0, 1, 2, 3})
+        self.assertEqual(set(bands[4:]), {0, 1, 2, 3})
+
+    def test_shuffled_sweep_is_repeatable(self) -> None:
+        scheduler = ShuffledSweepScheduler(seed=6)
         scheduler.reset(num_bands=4)
         first_run = [scheduler.choose_band(step) for step in range(8)]
 

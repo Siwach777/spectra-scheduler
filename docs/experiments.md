@@ -79,3 +79,20 @@ Round-robin visits every band regularly but can repeatedly miss a periodic signa
 the sweep cadence and emitter phase never align. Random scanning breaks this phase lock
 and discovers more emitters, but has poor worst-band coverage. A useful next baseline is
 a shuffled sweep: visit every band once per cycle while changing the order each cycle.
+
+## Shuffled sweep baseline
+
+Date: 14 September 2026
+
+The shuffled sweep was evaluated with the same 100 seeds. It visits every band once
+per cycle but changes the order between cycles.
+
+| Strategy | Interception ratio | Emitter discovery | Mean max gap | Mean first delay |
+|---|---:|---:|---:|---:|
+| Round-robin | 14.1% ± 7.3% | 60.2% | 5.0 | 30.0 |
+| Random | 14.5% ± 4.0% | 86.4% | 24.5 | 22.2 |
+| Shuffled sweep | 14.3% ± 3.7% | 88.2% | 9.8 | 20.9 |
+
+Changing the order is enough to break the repeated phase alignment while retaining a
+coverage guarantee. It does not increase total interceptions, but it is currently the
+best discovery baseline and is a better reference than fixed round-robin alone.

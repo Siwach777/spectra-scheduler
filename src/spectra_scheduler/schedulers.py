@@ -61,6 +61,41 @@ class RandomScheduler:
 
 
 @dataclass
+class ShuffledSweepScheduler:
+    """Visit every band once per cycle, in a newly shuffled order."""
+
+    seed: int = 0
+    _num_bands: int = field(init=False, default=0)
+    _order: list[int] = field(init=False, default_factory=list)
+    _position: int = field(init=False, default=0)
+    _random: random.Random = field(init=False)
+
+    def reset(self, num_bands: int) -> None:
+        if num_bands <= 0:
+            raise ValueError("num_bands must be positive")
+        self._num_bands = num_bands
+        self._random = random.Random(self.seed)
+        self._start_cycle()
+
+    def _start_cycle(self) -> None:
+        self._order = list(range(self._num_bands))
+        self._random.shuffle(self._order)
+        self._position = 0
+
+    def choose_band(self, time_step: int) -> int:
+        if self._num_bands == 0:
+            raise RuntimeError("scheduler must be reset before use")
+        if self._position == self._num_bands:
+            self._start_cycle()
+        band = self._order[self._position]
+        self._position += 1
+        return band
+
+    def observe(self, observation: Observation) -> None:
+        pass
+
+
+@dataclass
 class RevisitOnHitScheduler:
     """Sweep normally, but revisit a band immediately after detecting something."""
 

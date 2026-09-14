@@ -41,6 +41,10 @@ Discovery and coverage measurements now show that a fixed sweep can become phase
 with periodic emitters. A shuffled sweep is the next baseline before changing the
 period-aware policy again.
 
+The shuffled sweep now provides a stronger discovery baseline. Before adding another
+scheduler, receiver truth annotations should be separated from the observation object
+passed to policies so future strategies cannot accidentally distinguish false alarms.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.
