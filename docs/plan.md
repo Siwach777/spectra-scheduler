@@ -51,8 +51,8 @@ separate record used by the evaluation code.
 
 Repeated experiments are now large enough for runtime to matter. Profiling showed
 that each strategy regenerated the same scenario truth, so comparisons now generate
-it once per seed and reuse it across strategies. Parallel runs are the next small
-optimization; native code is still unnecessary at this scale.
+it once per seed and reuse it across strategies. Independent seeds can also run in
+separate worker processes. Native code is still unnecessary at this scale.
 
 ## Later stages
 
