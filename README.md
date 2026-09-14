@@ -17,3 +17,18 @@ how quickly transmissions are detected.
 - Build a graphical interface after the experiments are reliable.
 
 See [docs/plan.md](docs/plan.md) for the working plan.
+
+## Run the prototype
+
+The current simulation uses perfect detections so that scan behavior can be checked
+before receiver noise is introduced.
+
+```bash
+PYTHONPATH=src python3 -m spectra_scheduler.demo
+```
+
+Run the tests with:
+
+```bash
+PYTHONPATH=src python3 -m unittest discover -s tests -v
+```
