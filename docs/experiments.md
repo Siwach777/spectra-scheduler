@@ -1,6 +1,6 @@
 # Experiment notes
 
-## Initial noisy comparison
+## Initial noisy comparison with fixed emitter phases
 
 Date: 14 September 2026
 
@@ -28,10 +28,30 @@ does not imply a good scan strategy.
   coverage of the remaining spectrum and can estimate a period from false alarms.
 - Several emitter phases are fixed in this scenario. Their alignment with round-robin
   may account for part of its advantage and must be randomized before drawing a strong
-  conclusion.
+conclusion.
 
 ### Next check
 
 Randomize emitter phases with the scenario seed, retain the same receiver settings,
 and rerun the comparison. After that, constrain timing probes with a maximum coverage
 gap rather than tuning the scheduler against the current fixed scenario.
+
+## Randomized-phase comparison
+
+Date: 14 September 2026
+
+The emitter phases were then generated from each scenario seed. The comparison was
+expanded to 100 seeds; receiver settings and the 60-step duration remained unchanged.
+
+| Strategy | Interception ratio | Receiver P(detect) | False alarms | Mean first delay |
+|---|---:|---:|---:|---:|
+| Round-robin | 14.1% ± 7.3% | 84.2% | 2.6 | 30.0 |
+| Random | 14.5% ± 4.0% | 84.5% | 2.5 | 22.2 |
+| Revisit on hit | 13.8% ± 4.8% | 82.9% | 2.6 | 24.6 |
+| UCB bandit | 15.5% ± 4.0% | 84.1% | 2.5 | 24.3 |
+| Period-aware probe | 17.3% ± 4.6% | 86.4% | 2.2 | 28.1 |
+
+Random phases remove much of round-robin's earlier advantage. The period-aware policy
+now has the highest average interception ratio, but its long probing periods still
+delay discovery of other emitters. The next change should limit how long any band can
+go unvisited and should evaluate emitter discovery separately from event interception.
