@@ -27,6 +27,12 @@ before receiver noise is introduced.
 PYTHONPATH=src python3 scripts/run_comparison.py
 ```
 
+Use several seeds for a more useful comparison:
+
+```bash
+PYTHONPATH=src python3 scripts/run_comparison.py --runs 30
+```
+
 Run the tests with:
 
 ```bash
