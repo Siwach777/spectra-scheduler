@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from math import isfinite
 
 
 @dataclass(frozen=True, order=True)
@@ -8,6 +9,7 @@ class Transmission:
     time_step: int
     band: int
     emitter_id: str
+    power_dbm: float = -60.0
 
     def __post_init__(self) -> None:
         if self.time_step < 0:
@@ -16,6 +18,8 @@ class Transmission:
             raise ValueError("band cannot be negative")
         if not self.emitter_id:
             raise ValueError("emitter_id cannot be empty")
+        if not isfinite(self.power_dbm):
+            raise ValueError("power_dbm must be finite")
 
 
 @dataclass(frozen=True, order=True)
@@ -58,6 +62,7 @@ class DetectionRecord:
     """Evaluation details that are not exposed to a scheduler."""
 
     observation: Observation
+    detectable_emitters: tuple[str, ...] = ()
     detected_emitters: tuple[str, ...] = ()
     false_alarm: bool = False
 

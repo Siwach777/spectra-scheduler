@@ -153,3 +153,28 @@ Discarding old evidence improves every reported UCB outcome except maximum cover
 gap. It nearly matches the period-aware policy's interception ratio while reacquiring
 more changed emitters. The window size is still a fixed assumption; it should later be
 compared with explicit change detection rather than tuned only on this scenario.
+
+## Signal strength and sensitivity
+
+Date: 14 September 2026
+
+Each emitter was assigned a received power between -72 and -92 dBm. The receiver used
+a -90 dBm sensitivity threshold, 3 dB seeded measurement variation, 85% detection
+probability above the threshold, and a 5% false-alarm probability. Results below use
+1,000 seeds.
+
+| Strategy | Interception | Receiver P(detect) | Sensitivity loss | Discovery |
+|---|---:|---:|---:|---:|
+| Round-robin | 11.4% ± 7.7% | 83.4% | 22.6% | 47.4% |
+| Random | 11.7% ± 4.0% | 84.7% | 18.4% | 69.3% |
+| Shuffled sweep | 11.4% ± 3.7% | 85.0% | 18.8% | 69.4% |
+| Revisit on hit | 10.5% ± 3.9% | 85.3% | 20.6% | 68.7% |
+| UCB bandit | 12.1% ± 4.2% | 85.2% | 19.1% | 65.1% |
+| Sliding-window UCB | 12.5% ± 4.0% | 85.3% | 19.1% | 70.0% |
+| Period-aware probe | 13.4% ± 5.3% | 84.6% | 17.1% | 64.3% |
+
+Receiver P(detect) remains close to its configured 85% once a tuned signal crosses the
+sensitivity threshold. The lower interception ratios therefore have two distinct
+causes: scanning the wrong band and correctly tuning to a signal that is too weak.
+Keeping these counts separate prevents scheduler quality from being confused with
+receiver sensitivity.

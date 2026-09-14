@@ -24,10 +24,10 @@ The simulator will keep the complete generated events separate from the observat
 given to a scan strategy. This prevents a strategy from accidentally using future or
 hidden information.
 
-The first prototype is now working. It has perfect and noisy receiver modes, four
-emitter patterns, four scan strategies, hand-checked metrics, and repeated seeded
-comparisons. The simple adaptive strategies currently remain baselines rather than
-final solutions.
+The first prototype is now working. It has perfect and noisy receiver modes, dynamic
+emitter patterns, seven scan strategies, hand-checked metrics, and repeated seeded
+comparisons. The simple adaptive strategies currently remain baselines rather than a
+final solution.
 
 Current measurements and failed approaches are recorded in
 [experiments.md](experiments.md). This keeps changes to the scenario or metrics from
@@ -66,9 +66,13 @@ A sliding-window UCB baseline now forgets observations after 20 receiver steps. 
 improves reacquisition over the all-history UCB policy without knowing when a simulated
 mode change occurs. Explicit change detection remains a later experiment.
 
+Transmissions now carry received power in dBm. The receiver applies a sensitivity
+threshold with seeded measurement noise, and evaluation separates sensitivity losses
+from missed detections after the signal was detectable.
+
 ## Later stages
 
-- Add signal strength, sensitivity, retuning time, and variable dwell.
+- Add retuning time and variable dwell.
 - Add a scanning emitter that sweeps adjacent bands.
 - Add probabilistic beliefs and explicit change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.

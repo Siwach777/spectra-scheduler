@@ -1,5 +1,6 @@
 import hashlib
 from dataclasses import dataclass
+from math import cos, log, pi, sqrt
 
 from spectra_scheduler.models import DetectionRecord, Observation, Transmission
 
@@ -10,6 +11,8 @@ class Receiver:
 
     detection_probability: float = 1.0
     false_alarm_probability: float = 0.0
+    sensitivity_dbm: float = -90.0
+    noise_std_db: float = 0.0
     seed: int = 0
 
     def __post_init__(self) -> None:
@@ -17,6 +20,8 @@ class Receiver:
             raise ValueError("detection_probability must be between 0 and 1")
         if not 0.0 <= self.false_alarm_probability <= 1.0:
             raise ValueError("false_alarm_probability must be between 0 and 1")
+        if self.noise_std_db < 0.0:
+            raise ValueError("noise_std_db cannot be negative")
 
     def listen(
         self,
@@ -24,13 +29,20 @@ class Receiver:
         band: int,
         visible_events: list[Transmission],
     ) -> DetectionRecord:
+        detectable_events = [
+            event
+            for event_number, event in enumerate(visible_events)
+            if event.power_dbm
+            + self._noise_db(time_step, band, event.emitter_id, event_number)
+            >= self.sensitivity_dbm
+        ]
         detected_emitters = tuple(
             event.emitter_id
-            for event_number, event in enumerate(visible_events)
+            for event_number, event in enumerate(detectable_events)
             if self._sample("detection", time_step, band, event.emitter_id, event_number)
             < self.detection_probability
         )
-        false_alarm = not visible_events and (
+        false_alarm = not detectable_events and (
             self._sample("false-alarm", time_step, band) < self.false_alarm_probability
         )
         return DetectionRecord(
@@ -39,9 +51,18 @@ class Receiver:
                 band=band,
                 detections=len(detected_emitters) + int(false_alarm),
             ),
+            detectable_emitters=tuple(event.emitter_id for event in detectable_events),
             detected_emitters=detected_emitters,
             false_alarm=false_alarm,
         )
+
+    def _noise_db(self, *parts: object) -> float:
+        if self.noise_std_db == 0.0:
+            return 0.0
+        first = max(self._sample("noise-a", *parts), 1e-15)
+        second = self._sample("noise-b", *parts)
+        standard_normal = sqrt(-2.0 * log(first)) * cos(2.0 * pi * second)
+        return standard_normal * self.noise_std_db
 
     def _sample(self, *parts: object) -> float:
         key = ":".join(str(part) for part in (self.seed, *parts)).encode()
