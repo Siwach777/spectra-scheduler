@@ -1,6 +1,11 @@
 from collections.abc import Callable
 
-from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
+from spectra_scheduler.emitters import (
+    BurstEmitter,
+    FrequencyHoppingEmitter,
+    JitteredPeriodicEmitter,
+    PeriodicEmitter,
+)
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
@@ -13,7 +18,7 @@ from spectra_scheduler.schedulers import (
 from spectra_scheduler.simulation import Simulation
 
 
-def build_demo_scenario() -> Simulation:
+def build_comparison_scenario() -> Simulation:
     return Simulation(
         num_bands=6,
         duration=60,
@@ -21,13 +26,15 @@ def build_demo_scenario() -> Simulation:
             PeriodicEmitter("search", band=1, period=4, phase=1),
             PeriodicEmitter("tracking", band=4, period=7, phase=2),
             FrequencyHoppingEmitter("agile", bands=(0, 3, 5, 2), period=3),
+            BurstEmitter("burst", band=5, burst_period=12, pulses_per_burst=3, phase=4),
+            JitteredPeriodicEmitter("jittered", band=2, period=6, jitter=2, seed=4, phase=2),
         ),
         receiver=Receiver(detection_probability=0.85, false_alarm_probability=0.05, seed=12),
     )
 
 
-def run_demo() -> dict[str, ScanMetrics]:
-    simulation = build_demo_scenario()
+def run_comparison() -> dict[str, ScanMetrics]:
+    simulation = build_comparison_scenario()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
         "random": lambda: RandomScheduler(seed=7),
@@ -41,8 +48,7 @@ def run_demo() -> dict[str, ScanMetrics]:
     }
 
 
-def main() -> None:
-    results = run_demo()
+def print_comparison(results: dict[str, ScanMetrics]) -> None:
     print("Spectra Scheduler - basic simulation")
     print("strategy          detected  intercept ratio  P(detect)  false alarms  first delay")
     for name, metrics in results.items():
@@ -54,7 +60,3 @@ def main() -> None:
             f"{metrics.false_alarms:>13} "
             f"{metrics.mean_first_detection_delay:>12.1f}"
         )
-
-
-if __name__ == "__main__":
-    main()

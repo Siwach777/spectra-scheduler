@@ -24,7 +24,7 @@ The current simulation uses perfect detections so that scan behavior can be chec
 before receiver noise is introduced.
 
 ```bash
-PYTHONPATH=src python3 -m spectra_scheduler.demo
+PYTHONPATH=src python3 scripts/run_comparison.py
 ```
 
 Run the tests with:
