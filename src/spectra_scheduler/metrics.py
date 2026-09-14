@@ -43,12 +43,8 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     eligible_transmissions = sum(
         tuned_band_by_time.get(event.time_step) == event.band for event in result.transmissions
     )
-    active_observation_slots = {
-        (event.time_step, event.band) for event in result.transmissions
-    }
     inactive_observations = sum(
-        (observation.time_step, observation.band) not in active_observation_slots
-        for observation in result.observations
+        not record.detectable_emitters for record in result.detection_records
     )
 
     first_transmission: dict[str, int] = {}

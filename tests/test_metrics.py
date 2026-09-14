@@ -109,6 +109,24 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.sensitivity_loss_rate, 1.0)
         self.assertEqual(metrics.probability_of_detection, 0.0)
 
+    def test_weak_signal_is_an_opportunity_for_a_false_alarm(self) -> None:
+        simulation = Simulation(
+            num_bands=1,
+            duration=3,
+            emitters=(
+                PeriodicEmitter("weak", band=0, period=1, power_dbm=-95.0),
+            ),
+            receiver=Receiver(
+                sensitivity_dbm=-90.0,
+                false_alarm_probability=1.0,
+            ),
+        )
+
+        metrics = calculate_metrics(simulation.run(RoundRobinScheduler()))
+
+        self.assertEqual(metrics.false_alarms, 3)
+        self.assertEqual(metrics.false_alarm_rate, 1.0)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -37,7 +37,8 @@ class DemoTests(unittest.TestCase):
         self.assertNotEqual(first_truth, second_truth)
 
     def test_scenario_contains_entry_exit_and_mode_change(self) -> None:
-        truth = build_comparison_scenario(seed=5).generate_truth()
+        scenario = build_comparison_scenario(seed=5)
+        truth = scenario.generate_truth()
         search_times = [event.time_step for event in truth if event.emitter_id == "search"]
         burst_times = [event.time_step for event in truth if event.emitter_id == "burst"]
         tracking_events = [event for event in truth if event.emitter_id == "tracking"]
@@ -48,6 +49,9 @@ class DemoTests(unittest.TestCase):
         self.assertGreaterEqual(min(burst_times), 20)
         self.assertTrue(all(event.band == 4 for event in tracking_events if event.time_step < 30))
         self.assertTrue(all(event.band == 0 for event in tracking_events if event.time_step >= 30))
+        self.assertEqual(scenario.receiver.sensitivity_dbm, -90.0)
+        self.assertGreater(scenario.receiver.noise_std_db, 0.0)
+        self.assertGreater(len({event.power_dbm for event in truth}), 1)
 
     def test_repeated_comparison_summarizes_each_strategy(self) -> None:
         summary = run_repeated_comparison(runs=4, start_seed=8)
@@ -62,6 +66,9 @@ class DemoTests(unittest.TestCase):
         )
         self.assertTrue(
             all(0.0 <= stats.mean_reacquisition_ratio <= 1.0 for stats in summary.values())
+        )
+        self.assertTrue(
+            all(0.0 <= stats.mean_sensitivity_loss_rate <= 1.0 for stats in summary.values())
         )
         self.assertTrue(all(stats.mean_reacquisition_delay >= 0 for stats in summary.values()))
         self.assertTrue(all(stats.mean_max_band_gap >= 0 for stats in summary.values()))
