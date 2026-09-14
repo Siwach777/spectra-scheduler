@@ -7,6 +7,9 @@ from spectra_scheduler.models import SimulationResult
 class ScanMetrics:
     total_transmissions: int
     eligible_transmissions: int
+    detectable_transmissions: int
+    sensitivity_misses: int
+    sensitivity_loss_rate: float
     detected_transmissions: int
     probability_of_detection: float
     interception_ratio: float
@@ -30,6 +33,9 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     )
     hit_steps = sum(observation.hit for observation in result.observations)
     false_alarms = sum(record.false_alarm for record in result.detection_records)
+    detectable_transmissions = sum(
+        len(record.detectable_emitters) for record in result.detection_records
+    )
 
     tuned_band_by_time = {
         observation.time_step: observation.band for observation in result.observations
@@ -79,6 +85,7 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
 
     total_transmissions = len(result.transmissions)
     total_emitters = len(first_transmission)
+    sensitivity_misses = eligible_transmissions - detectable_transmissions
     max_band_gap = 0
     for band in range(result.num_bands):
         last_visit = -1
@@ -91,9 +98,16 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     return ScanMetrics(
         total_transmissions=total_transmissions,
         eligible_transmissions=eligible_transmissions,
+        detectable_transmissions=detectable_transmissions,
+        sensitivity_misses=sensitivity_misses,
+        sensitivity_loss_rate=(
+            sensitivity_misses / eligible_transmissions if eligible_transmissions else 0.0
+        ),
         detected_transmissions=detected_transmissions,
         probability_of_detection=(
-            detected_transmissions / eligible_transmissions if eligible_transmissions else 0.0
+            detected_transmissions / detectable_transmissions
+            if detectable_transmissions
+            else 0.0
         ),
         interception_ratio=(
             detected_transmissions / total_transmissions if total_transmissions else 0.0

@@ -23,6 +23,35 @@ class ReceiverTests(unittest.TestCase):
 
         self.assertFalse(record.observation.hit)
 
+    def test_signal_below_sensitivity_is_not_detectable(self) -> None:
+        receiver = Receiver(sensitivity_dbm=-80.0)
+        event = Transmission(
+            time_step=3,
+            band=2,
+            emitter_id="weak-radar",
+            power_dbm=-85.0,
+        )
+
+        record = receiver.listen(time_step=3, band=2, visible_events=[event])
+
+        self.assertEqual(record.detectable_emitters, ())
+        self.assertEqual(record.detected_emitters, ())
+        self.assertFalse(record.observation.hit)
+
+    def test_signal_at_sensitivity_is_detectable(self) -> None:
+        receiver = Receiver(sensitivity_dbm=-80.0)
+        event = Transmission(
+            time_step=3,
+            band=2,
+            emitter_id="radar",
+            power_dbm=-80.0,
+        )
+
+        record = receiver.listen(time_step=3, band=2, visible_events=[event])
+
+        self.assertEqual(record.detectable_emitters, ("radar",))
+        self.assertEqual(record.detected_emitters, ("radar",))
+
     def test_false_alarm_is_reported_on_empty_band(self) -> None:
         receiver = Receiver(false_alarm_probability=1.0)
 
@@ -33,7 +62,7 @@ class ReceiverTests(unittest.TestCase):
         self.assertEqual(record.detected_emitters, ())
 
     def test_noise_is_repeatable_for_same_event(self) -> None:
-        receiver = Receiver(detection_probability=0.5, seed=18)
+        receiver = Receiver(detection_probability=0.5, noise_std_db=3.0, seed=18)
         event = Transmission(time_step=6, band=1, emitter_id="radar")
 
         first = receiver.listen(time_step=6, band=1, visible_events=[event])
@@ -46,6 +75,8 @@ class ReceiverTests(unittest.TestCase):
             Receiver(detection_probability=1.1)
         with self.assertRaises(ValueError):
             Receiver(false_alarm_probability=-0.1)
+        with self.assertRaises(ValueError):
+            Receiver(noise_std_db=-0.1)
 
 
 if __name__ == "__main__":

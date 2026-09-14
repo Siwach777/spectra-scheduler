@@ -1,6 +1,7 @@
+import math
 import unittest
 
-from spectra_scheduler.models import Observation
+from spectra_scheduler.models import Observation, Transmission
 
 
 class ObservationTests(unittest.TestCase):
@@ -14,6 +15,10 @@ class ObservationTests(unittest.TestCase):
     def test_rejects_negative_detection_count(self) -> None:
         with self.assertRaises(ValueError):
             Observation(time_step=2, band=1, detections=-1)
+
+    def test_transmission_requires_finite_power(self) -> None:
+        with self.assertRaises(ValueError):
+            Transmission(2, 1, "radar", power_dbm=math.inf)
 
 
 if __name__ == "__main__":

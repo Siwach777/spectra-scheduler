@@ -26,6 +26,9 @@ class MetricsTests(unittest.TestCase):
 
         self.assertEqual(metrics.total_transmissions, 9)
         self.assertEqual(metrics.eligible_transmissions, 3)
+        self.assertEqual(metrics.detectable_transmissions, 3)
+        self.assertEqual(metrics.sensitivity_misses, 0)
+        self.assertEqual(metrics.sensitivity_loss_rate, 0.0)
         self.assertEqual(metrics.detected_transmissions, 3)
         self.assertEqual(metrics.probability_of_detection, 1.0)
         self.assertAlmostEqual(metrics.interception_ratio, 1 / 3)
@@ -87,6 +90,24 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.reacquired_changes, 1)
         self.assertEqual(metrics.reacquisition_ratio, 1.0)
         self.assertEqual(metrics.mean_reacquisition_delay, 1.0)
+
+    def test_counts_tuned_signals_below_receiver_sensitivity(self) -> None:
+        simulation = Simulation(
+            num_bands=1,
+            duration=4,
+            emitters=(
+                PeriodicEmitter("weak", band=0, period=1, power_dbm=-95.0),
+            ),
+            receiver=Receiver(sensitivity_dbm=-90.0),
+        )
+
+        metrics = calculate_metrics(simulation.run(RoundRobinScheduler()))
+
+        self.assertEqual(metrics.eligible_transmissions, 4)
+        self.assertEqual(metrics.detectable_transmissions, 0)
+        self.assertEqual(metrics.sensitivity_misses, 4)
+        self.assertEqual(metrics.sensitivity_loss_rate, 1.0)
+        self.assertEqual(metrics.probability_of_detection, 0.0)
 
 
 if __name__ == "__main__":

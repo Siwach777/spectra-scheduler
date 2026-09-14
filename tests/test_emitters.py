@@ -33,6 +33,18 @@ class PeriodicEmitterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             emitter.transmissions(duration=5, num_bands=4)
 
+    def test_attaches_received_power_to_events(self) -> None:
+        emitter = PeriodicEmitter(
+            "weak-radar",
+            band=1,
+            period=2,
+            power_dbm=-87.5,
+        )
+
+        events = emitter.transmissions(duration=3, num_bands=2)
+
+        self.assertTrue(all(event.power_dbm == -87.5 for event in events))
+
 
 class FrequencyHoppingEmitterTests(unittest.TestCase):
     def test_repeats_hop_sequence(self) -> None:
