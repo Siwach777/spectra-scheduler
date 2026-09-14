@@ -25,10 +25,11 @@ class Observation:
     time_step: int
     band: int
     detected_emitters: tuple[str, ...] = ()
+    false_alarm: bool = False
 
     @property
     def hit(self) -> bool:
-        return bool(self.detected_emitters)
+        return bool(self.detected_emitters) or self.false_alarm
 
 
 @dataclass(frozen=True)
