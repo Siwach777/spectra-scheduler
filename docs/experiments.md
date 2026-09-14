@@ -55,3 +55,27 @@ Random phases remove much of round-robin's earlier advantage. The period-aware p
 now has the highest average interception ratio, but its long probing periods still
 delay discovery of other emitters. The next change should limit how long any band can
 go unvisited and should evaluate emitter discovery separately from event interception.
+
+## Coverage-limited timing comparison
+
+Date: 14 September 2026
+
+Emitter discovery ratio and maximum unvisited-band gap were added to show the cost of
+staying on productive bands. The period-aware policy was limited to a configured
+12-step coverage gap.
+
+| Strategy | Interception ratio | Emitter discovery | Mean max gap | Mean first delay |
+|---|---:|---:|---:|---:|
+| Round-robin | 14.1% ± 7.3% | 60.2% | 5.0 | 30.0 |
+| Random | 14.5% ± 4.0% | 86.4% | 24.5 | 22.2 |
+| Revisit on hit | 13.8% ± 4.8% | 79.8% | 9.0 | 24.6 |
+| UCB bandit | 15.5% ± 4.0% | 80.0% | 13.7 | 24.3 |
+| Period-aware probe | 15.5% ± 5.1% | 78.4% | 12.4 | 27.5 |
+
+The tail of an episode can finish before a policy corrects an overdue band, so the
+reported mean maximum can be slightly above the period-aware scheduler's live limit.
+
+Round-robin visits every band regularly but can repeatedly miss a periodic signal when
+the sweep cadence and emitter phase never align. Random scanning breaks this phase lock
+and discovers more emitters, but has poor worst-band coverage. A useful next baseline is
+a shuffled sweep: visit every band once per cycle while changing the order each cycle.

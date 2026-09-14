@@ -78,13 +78,14 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
 
 def print_comparison(results: dict[str, ScanMetrics]) -> None:
     print("Spectra Scheduler - basic simulation")
-    print("strategy          detected  intercept ratio  P(detect)  false alarms  first delay")
+    print("strategy          detected  intercept  discovery  max gap  false alarms  first delay")
     for name, metrics in results.items():
         print(
             f"{name:<17} "
             f"{metrics.detected_transmissions:>3}/{metrics.total_transmissions:<3} "
-            f"{metrics.interception_ratio:>15.1%} "
-            f"{metrics.probability_of_detection:>10.1%} "
+            f"{metrics.interception_ratio:>10.1%} "
+            f"{metrics.emitter_discovery_ratio:>10.1%} "
+            f"{metrics.max_band_gap:>8} "
             f"{metrics.false_alarms:>13} "
             f"{metrics.mean_first_detection_delay:>12.1f}"
         )
@@ -96,8 +97,10 @@ class ComparisonStats:
     mean_interception_ratio: float
     interception_ratio_stddev: float
     mean_probability_of_detection: float
+    mean_emitter_discovery_ratio: float
     mean_false_alarms: float
     mean_first_detection_delay: float
+    mean_max_band_gap: float
 
 
 def run_repeated_comparison(runs: int, start_seed: int = 0) -> dict[str, ComparisonStats]:
@@ -119,10 +122,14 @@ def run_repeated_comparison(runs: int, start_seed: int = 0) -> dict[str, Compari
             mean_probability_of_detection=fmean(
                 sample.probability_of_detection for sample in samples
             ),
+            mean_emitter_discovery_ratio=fmean(
+                sample.emitter_discovery_ratio for sample in samples
+            ),
             mean_false_alarms=fmean(sample.false_alarms for sample in samples),
             mean_first_detection_delay=fmean(
                 sample.mean_first_detection_delay for sample in samples
             ),
+            mean_max_band_gap=fmean(sample.max_band_gap for sample in samples),
         )
     return summaries
 
@@ -130,13 +137,14 @@ def run_repeated_comparison(runs: int, start_seed: int = 0) -> dict[str, Compari
 def print_repeated_comparison(results: dict[str, ComparisonStats]) -> None:
     runs = next(iter(results.values())).runs if results else 0
     print(f"Spectra Scheduler - {runs} seeded simulation runs")
-    print("strategy          intercept ratio      P(detect)  false alarms  first delay")
+    print("strategy          intercept ratio      discovery  max gap  false alarms  first delay")
     for name, stats in results.items():
         print(
             f"{name:<17} "
             f"{stats.mean_interception_ratio:>9.1%} ± "
             f"{stats.interception_ratio_stddev:<7.1%} "
-            f"{stats.mean_probability_of_detection:>10.1%} "
+            f"{stats.mean_emitter_discovery_ratio:>10.1%} "
+            f"{stats.mean_max_band_gap:>8.1f} "
             f"{stats.mean_false_alarms:>13.1f} "
             f"{stats.mean_first_detection_delay:>12.1f}"
         )

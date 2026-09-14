@@ -36,6 +36,10 @@ class DemoTests(unittest.TestCase):
         self.assertTrue(
             all(0.0 <= stats.mean_interception_ratio <= 1.0 for stats in summary.values())
         )
+        self.assertTrue(
+            all(0.0 <= stats.mean_emitter_discovery_ratio <= 1.0 for stats in summary.values())
+        )
+        self.assertTrue(all(stats.mean_max_band_gap >= 0 for stats in summary.values()))
 
     def test_repeated_comparison_requires_a_run(self) -> None:
         with self.assertRaises(ValueError):
