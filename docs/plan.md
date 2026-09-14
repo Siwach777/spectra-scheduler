@@ -33,6 +33,10 @@ Current measurements and failed approaches are recorded in
 [experiments.md](experiments.md). This keeps changes to the scenario or metrics from
 silently replacing earlier results.
 
+Randomizing emitter phases exposed alignment bias in the first scenario. The current
+period-aware policy improves average interception but delays discovery, so the next
+iteration will add a coverage limit instead of only maximizing repeated hits.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.

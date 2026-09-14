@@ -1,6 +1,10 @@
 import unittest
 
-from spectra_scheduler.comparison import run_comparison, run_repeated_comparison
+from spectra_scheduler.comparison import (
+    build_comparison_scenario,
+    run_comparison,
+    run_repeated_comparison,
+)
 
 
 class DemoTests(unittest.TestCase):
@@ -17,6 +21,12 @@ class DemoTests(unittest.TestCase):
 
     def test_same_seed_reproduces_comparison(self) -> None:
         self.assertEqual(run_comparison(seed=17), run_comparison(seed=17))
+
+    def test_scenario_seed_changes_emitter_timing(self) -> None:
+        first_truth = build_comparison_scenario(seed=2).generate_truth()
+        second_truth = build_comparison_scenario(seed=3).generate_truth()
+
+        self.assertNotEqual(first_truth, second_truth)
 
     def test_repeated_comparison_summarizes_each_strategy(self) -> None:
         summary = run_repeated_comparison(runs=4, start_seed=8)
