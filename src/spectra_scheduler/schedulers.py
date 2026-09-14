@@ -57,3 +57,35 @@ class RandomScheduler:
 
     def observe(self, observation: Observation) -> None:
         pass
+
+
+@dataclass
+class RevisitOnHitScheduler:
+    """Sweep normally, but revisit a band immediately after detecting something."""
+
+    _num_bands: int = field(init=False, default=0)
+    _next_sweep_band: int = field(init=False, default=0)
+    _revisit_band: int | None = field(init=False, default=None)
+
+    def reset(self, num_bands: int) -> None:
+        if num_bands <= 0:
+            raise ValueError("num_bands must be positive")
+        self._num_bands = num_bands
+        self._next_sweep_band = 0
+        self._revisit_band = None
+
+    def choose_band(self, time_step: int) -> int:
+        if self._num_bands == 0:
+            raise RuntimeError("scheduler must be reset before use")
+        if self._revisit_band is not None:
+            band = self._revisit_band
+            self._revisit_band = None
+            return band
+
+        band = self._next_sweep_band
+        self._next_sweep_band = (self._next_sweep_band + 1) % self._num_bands
+        return band
+
+    def observe(self, observation: Observation) -> None:
+        if observation.hit:
+            self._revisit_band = observation.band

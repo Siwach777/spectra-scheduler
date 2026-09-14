@@ -1,7 +1,11 @@
 import unittest
 
 from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
-from spectra_scheduler.schedulers import RandomScheduler, RoundRobinScheduler
+from spectra_scheduler.schedulers import (
+    RandomScheduler,
+    RevisitOnHitScheduler,
+    RoundRobinScheduler,
+)
 from spectra_scheduler.simulation import Simulation
 
 
@@ -23,6 +27,17 @@ class SchedulerTests(unittest.TestCase):
         second_run = [scheduler.choose_band(step) for step in range(8)]
 
         self.assertEqual(first_run, second_run)
+
+    def test_revisit_scheduler_returns_to_a_band_after_a_hit(self) -> None:
+        simulation = Simulation(
+            num_bands=3,
+            duration=6,
+            emitters=(PeriodicEmitter("fixed", band=1, period=2, phase=1),),
+        )
+
+        result = simulation.run(RevisitOnHitScheduler())
+
+        self.assertEqual([item.band for item in result.observations], [0, 1, 1, 2, 0, 1])
 
 
 class SimulationTests(unittest.TestCase):
