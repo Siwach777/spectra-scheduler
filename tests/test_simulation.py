@@ -1,10 +1,12 @@
 import unittest
 
 from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
+from spectra_scheduler.models import Observation
 from spectra_scheduler.schedulers import (
     RandomScheduler,
     RevisitOnHitScheduler,
     RoundRobinScheduler,
+    UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
 
@@ -38,6 +40,18 @@ class SchedulerTests(unittest.TestCase):
         result = simulation.run(RevisitOnHitScheduler())
 
         self.assertEqual([item.band for item in result.observations], [0, 1, 1, 2, 0, 1])
+
+    def test_ucb_scheduler_tries_every_band_before_using_scores(self) -> None:
+        scheduler = UcbScheduler()
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(time_step=0, band=first_band, detected_emitters=("a",)))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(time_step=1, band=second_band))
+        third_band = scheduler.choose_band(time_step=2)
+
+        self.assertEqual([first_band, second_band, third_band], [0, 1, 0])
 
 
 class SimulationTests(unittest.TestCase):
