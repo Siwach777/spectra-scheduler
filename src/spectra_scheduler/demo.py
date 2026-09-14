@@ -1,6 +1,11 @@
 from collections.abc import Callable
 
-from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
+from spectra_scheduler.emitters import (
+    BurstEmitter,
+    FrequencyHoppingEmitter,
+    JitteredPeriodicEmitter,
+    PeriodicEmitter,
+)
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
@@ -21,6 +26,8 @@ def build_demo_scenario() -> Simulation:
             PeriodicEmitter("search", band=1, period=4, phase=1),
             PeriodicEmitter("tracking", band=4, period=7, phase=2),
             FrequencyHoppingEmitter("agile", bands=(0, 3, 5, 2), period=3),
+            BurstEmitter("burst", band=5, burst_period=12, pulses_per_burst=3, phase=4),
+            JitteredPeriodicEmitter("jittered", band=2, period=6, jitter=2, seed=4, phase=2),
         ),
         receiver=Receiver(detection_probability=0.85, false_alarm_probability=0.05, seed=12),
     )

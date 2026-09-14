@@ -1,6 +1,11 @@
 import unittest
 
-from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
+from spectra_scheduler.emitters import (
+    BurstEmitter,
+    FrequencyHoppingEmitter,
+    JitteredPeriodicEmitter,
+    PeriodicEmitter,
+)
 from spectra_scheduler.models import Transmission
 
 
@@ -41,6 +46,48 @@ class FrequencyHoppingEmitterTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             emitter.transmissions(duration=5, num_bands=3)
+
+
+class BurstEmitterTests(unittest.TestCase):
+    def test_generates_pulses_in_separate_bursts(self) -> None:
+        emitter = BurstEmitter(
+            "burst",
+            band=1,
+            burst_period=6,
+            pulses_per_burst=3,
+            pulse_spacing=1,
+            phase=1,
+        )
+
+        events = emitter.transmissions(duration=10, num_bands=3)
+
+        self.assertEqual([event.time_step for event in events], [1, 2, 3, 7, 8, 9])
+
+    def test_rejects_overlapping_bursts(self) -> None:
+        emitter = BurstEmitter("burst", band=1, burst_period=4, pulses_per_burst=3, pulse_spacing=2)
+
+        with self.assertRaises(ValueError):
+            emitter.transmissions(duration=10, num_bands=3)
+
+
+class JitteredPeriodicEmitterTests(unittest.TestCase):
+    def test_uses_repeatable_bounded_intervals(self) -> None:
+        emitter = JitteredPeriodicEmitter("jittered", band=2, period=5, jitter=2, seed=9)
+
+        first = emitter.transmissions(duration=30, num_bands=3)
+        second = emitter.transmissions(duration=30, num_bands=3)
+        intervals = [
+            later.time_step - earlier.time_step for earlier, later in zip(first, first[1:])
+        ]
+
+        self.assertEqual(first, second)
+        self.assertTrue(all(3 <= interval <= 7 for interval in intervals))
+
+    def test_requires_jitter_smaller_than_period(self) -> None:
+        emitter = JitteredPeriodicEmitter("jittered", band=2, period=4, jitter=4)
+
+        with self.assertRaises(ValueError):
+            emitter.transmissions(duration=10, num_bands=3)
 
 
 if __name__ == "__main__":
