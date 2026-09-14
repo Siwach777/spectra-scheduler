@@ -170,6 +170,8 @@ class UcbScheduler:
             raise RuntimeError("choose_band must be called before observe")
         if observation.band != self._selected_band:
             raise ValueError("observation does not match the selected band")
+        if not observation.listening:
+            return
         self._visits[observation.band] += 1
         self._hits[observation.band] += int(observation.hit)
 
@@ -221,6 +223,8 @@ class SlidingWindowUcbScheduler:
             raise RuntimeError("choose_band must be called before observe")
         if observation.band != self._selected_band:
             raise ValueError("observation does not match the selected band")
+        if not observation.listening:
+            return
 
         hit = int(observation.hit)
         self._history.append((observation.band, hit))

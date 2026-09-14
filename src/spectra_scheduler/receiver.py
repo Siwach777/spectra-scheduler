@@ -13,6 +13,7 @@ class Receiver:
     false_alarm_probability: float = 0.0
     sensitivity_dbm: float = -90.0
     noise_std_db: float = 0.0
+    retune_steps: int = 0
     seed: int = 0
 
     def __post_init__(self) -> None:
@@ -22,6 +23,8 @@ class Receiver:
             raise ValueError("false_alarm_probability must be between 0 and 1")
         if self.noise_std_db < 0.0:
             raise ValueError("noise_std_db cannot be negative")
+        if self.retune_steps < 0:
+            raise ValueError("retune_steps cannot be negative")
 
     def listen(
         self,
