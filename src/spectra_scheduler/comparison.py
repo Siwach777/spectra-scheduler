@@ -1,3 +1,4 @@
+import random
 from collections.abc import Callable
 from dataclasses import dataclass
 from statistics import fmean, pstdev
@@ -22,21 +23,33 @@ from spectra_scheduler.simulation import Simulation
 
 
 def build_comparison_scenario(seed: int = 0) -> Simulation:
+    generator = random.Random(seed)
     return Simulation(
         num_bands=6,
         duration=60,
         emitters=(
-            PeriodicEmitter("search", band=1, period=4, phase=1),
-            PeriodicEmitter("tracking", band=4, period=7, phase=2),
-            FrequencyHoppingEmitter("agile", bands=(0, 3, 5, 2), period=3),
-            BurstEmitter("burst", band=5, burst_period=12, pulses_per_burst=3, phase=4),
+            PeriodicEmitter("search", band=1, period=4, phase=generator.randrange(4)),
+            PeriodicEmitter("tracking", band=4, period=7, phase=generator.randrange(7)),
+            FrequencyHoppingEmitter(
+                "agile",
+                bands=(0, 3, 5, 2),
+                period=3,
+                phase=generator.randrange(3),
+            ),
+            BurstEmitter(
+                "burst",
+                band=5,
+                burst_period=12,
+                pulses_per_burst=3,
+                phase=generator.randrange(12),
+            ),
             JitteredPeriodicEmitter(
                 "jittered",
                 band=2,
                 period=6,
                 jitter=2,
                 seed=seed + 1,
-                phase=2,
+                phase=generator.randrange(6),
             ),
         ),
         receiver=Receiver(
