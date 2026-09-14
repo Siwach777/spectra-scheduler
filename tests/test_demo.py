@@ -1,11 +1,11 @@
 import unittest
 
-from spectra_scheduler.demo import run_demo
+from spectra_scheduler.comparison import run_comparison
 
 
 class DemoTests(unittest.TestCase):
     def test_runs_each_strategy_on_the_same_number_of_transmissions(self) -> None:
-        results = run_demo()
+        results = run_comparison()
 
         self.assertEqual(
             set(results),

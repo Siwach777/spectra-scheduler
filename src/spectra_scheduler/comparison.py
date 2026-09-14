@@ -18,7 +18,7 @@ from spectra_scheduler.schedulers import (
 from spectra_scheduler.simulation import Simulation
 
 
-def build_demo_scenario() -> Simulation:
+def build_comparison_scenario() -> Simulation:
     return Simulation(
         num_bands=6,
         duration=60,
@@ -33,8 +33,8 @@ def build_demo_scenario() -> Simulation:
     )
 
 
-def run_demo() -> dict[str, ScanMetrics]:
-    simulation = build_demo_scenario()
+def run_comparison() -> dict[str, ScanMetrics]:
+    simulation = build_comparison_scenario()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
         "random": lambda: RandomScheduler(seed=7),
@@ -48,8 +48,7 @@ def run_demo() -> dict[str, ScanMetrics]:
     }
 
 
-def main() -> None:
-    results = run_demo()
+def print_comparison(results: dict[str, ScanMetrics]) -> None:
     print("Spectra Scheduler - basic simulation")
     print("strategy          detected  intercept ratio  P(detect)  false alarms  first delay")
     for name, metrics in results.items():
@@ -61,7 +60,3 @@ def main() -> None:
             f"{metrics.false_alarms:>13} "
             f"{metrics.mean_first_detection_delay:>12.1f}"
         )
-
-
-if __name__ == "__main__":
-    main()
