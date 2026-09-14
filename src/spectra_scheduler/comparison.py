@@ -1,4 +1,6 @@
 from collections.abc import Callable
+from dataclasses import dataclass
+from statistics import fmean, pstdev
 
 from spectra_scheduler.emitters import (
     BurstEmitter,
@@ -70,4 +72,56 @@ def print_comparison(results: dict[str, ScanMetrics]) -> None:
             f"{metrics.probability_of_detection:>10.1%} "
             f"{metrics.false_alarms:>13} "
             f"{metrics.mean_first_detection_delay:>12.1f}"
+        )
+
+
+@dataclass(frozen=True)
+class ComparisonStats:
+    runs: int
+    mean_interception_ratio: float
+    interception_ratio_stddev: float
+    mean_probability_of_detection: float
+    mean_false_alarms: float
+    mean_first_detection_delay: float
+
+
+def run_repeated_comparison(runs: int, start_seed: int = 0) -> dict[str, ComparisonStats]:
+    if runs <= 0:
+        raise ValueError("runs must be positive")
+
+    collected: dict[str, list[ScanMetrics]] = {}
+    for seed in range(start_seed, start_seed + runs):
+        for name, metrics in run_comparison(seed).items():
+            collected.setdefault(name, []).append(metrics)
+
+    summaries: dict[str, ComparisonStats] = {}
+    for name, samples in collected.items():
+        ratios = [sample.interception_ratio for sample in samples]
+        summaries[name] = ComparisonStats(
+            runs=runs,
+            mean_interception_ratio=fmean(ratios),
+            interception_ratio_stddev=pstdev(ratios),
+            mean_probability_of_detection=fmean(
+                sample.probability_of_detection for sample in samples
+            ),
+            mean_false_alarms=fmean(sample.false_alarms for sample in samples),
+            mean_first_detection_delay=fmean(
+                sample.mean_first_detection_delay for sample in samples
+            ),
+        )
+    return summaries
+
+
+def print_repeated_comparison(results: dict[str, ComparisonStats]) -> None:
+    runs = next(iter(results.values())).runs if results else 0
+    print(f"Spectra Scheduler - {runs} seeded simulation runs")
+    print("strategy          intercept ratio      P(detect)  false alarms  first delay")
+    for name, stats in results.items():
+        print(
+            f"{name:<17} "
+            f"{stats.mean_interception_ratio:>9.1%} ± "
+            f"{stats.interception_ratio_stddev:<7.1%} "
+            f"{stats.mean_probability_of_detection:>10.1%} "
+            f"{stats.mean_false_alarms:>13.1f} "
+            f"{stats.mean_first_detection_delay:>12.1f}"
         )

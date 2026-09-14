@@ -24,13 +24,17 @@ The simulator will keep the complete generated events separate from the observat
 given to a scan strategy. This prevents a strategy from accidentally using future or
 hidden information.
 
+The first prototype is now working. It has perfect and noisy receiver modes, four
+emitter patterns, four scan strategies, hand-checked metrics, and repeated seeded
+comparisons. The simple adaptive strategies currently remain baselines rather than
+final solutions.
+
 ## Later stages
 
-- Add missed detections, false alarms, sensitivity, retuning time, and variable dwell.
-- Add burst, scanning, and changing emitters.
+- Add signal strength, sensitivity, retuning time, and variable dwell.
+- Add scanning and changing emitters.
 - Replace the recency strategy with probabilistic beliefs and change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
-- Run repeated comparisons and report variation across seeds.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
 
@@ -41,9 +45,12 @@ src/spectra_scheduler/
   models.py       shared events and observations
   emitters.py     transmission generators
   simulation.py   environment and receiver loop
+  receiver.py     missed detections and false alarms
   schedulers.py   scan strategies
   metrics.py      experiment measurements
-  demo.py         small runnable example
+  comparison.py   repeatable strategy comparisons
+scripts/
+  run_comparison.py
 tests/
 ```
 
