@@ -58,6 +58,10 @@ The comparison environment now includes a late-arriving emitter, an emitter that
 leaves, and a radar that changes band and repetition interval. The next scheduler
 iteration should detect that its older timing evidence has become stale.
 
+Evaluation now reports the fraction of mode changes reacquired and the delay from a
+change to the next true detection. These truth labels remain outside the observation
+given to schedulers.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.
