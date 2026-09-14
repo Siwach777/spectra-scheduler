@@ -20,8 +20,7 @@ See [docs/plan.md](docs/plan.md) for the working plan.
 
 ## Run the prototype
 
-The current simulation uses perfect detections so that scan behavior can be checked
-before receiver noise is introduced.
+The current comparison uses seeded emitter timing, missed detections, and false alarms.
 
 ```bash
 PYTHONPATH=src python3 scripts/run_comparison.py
@@ -31,6 +30,12 @@ Use several seeds for a more useful comparison:
 
 ```bash
 PYTHONPATH=src python3 scripts/run_comparison.py --runs 30
+```
+
+Larger comparisons can use multiple CPU cores because each seeded run is independent:
+
+```bash
+PYTHONPATH=src python3 scripts/run_comparison.py --runs 2000 --workers 4
 ```
 
 Run the tests with:

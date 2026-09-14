@@ -96,3 +96,17 @@ per cycle but changes the order between cycles.
 Changing the order is enough to break the repeated phase alignment while retaining a
 coverage guarantee. It does not increase total interceptions, but it is currently the
 best discovery baseline and is a better reference than fixed round-robin alone.
+
+## Repeated-run performance check
+
+Date: 14 September 2026
+
+Profiling a 2,000-seed comparison showed that scenario truth was being regenerated for
+all six strategies. Reusing it once per seed reduced runtime from about 2.63 seconds to
+2.07 seconds on the development machine.
+
+The independent seed runs were then distributed across worker processes. For 5,000
+seeds, one worker took 5.26 seconds and four workers took 2.15 seconds, a 2.45x speedup.
+Processes are used because the simulation is CPU-bound; Python threads would still
+contend on the interpreter lock. Results from sequential and parallel execution are
+checked for exact equality.

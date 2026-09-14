@@ -138,6 +138,20 @@ class SimulationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             simulation.run(InvalidScheduler())
 
+    def test_precomputed_truth_can_be_reused(self) -> None:
+        simulation = Simulation(
+            num_bands=2,
+            duration=4,
+            emitters=(PeriodicEmitter("fixed", band=0, period=2),),
+        )
+        truth = simulation.generate_truth()
+
+        first = simulation.run(RoundRobinScheduler(), truth=truth)
+        second = simulation.run(RoundRobinScheduler(start_band=1), truth=truth)
+
+        self.assertIs(first.transmissions, truth)
+        self.assertIs(second.transmissions, truth)
+
 
 if __name__ == "__main__":
     unittest.main()

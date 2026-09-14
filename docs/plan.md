@@ -49,6 +49,11 @@ That separation is now implemented: policies receive only time, selected band, a
 detection count. Matched emitter identities and false-alarm labels are retained in a
 separate record used by the evaluation code.
 
+Repeated experiments are now large enough for runtime to matter. Profiling showed
+that each strategy regenerated the same scenario truth, so comparisons now generate
+it once per seed and reuse it across strategies. Independent seeds can also run in
+separate worker processes. Native code is still unnecessary at this scale.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.

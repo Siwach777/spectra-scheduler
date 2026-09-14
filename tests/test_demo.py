@@ -52,6 +52,16 @@ class DemoTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run_repeated_comparison(runs=0)
 
+    def test_parallel_comparison_matches_sequential_result(self) -> None:
+        sequential = run_repeated_comparison(runs=8, start_seed=11)
+        parallel = run_repeated_comparison(runs=8, start_seed=11, workers=2)
+
+        self.assertEqual(parallel, sequential)
+
+    def test_repeated_comparison_requires_a_worker(self) -> None:
+        with self.assertRaises(ValueError):
+            run_repeated_comparison(runs=2, workers=0)
+
 
 if __name__ == "__main__":
     unittest.main()

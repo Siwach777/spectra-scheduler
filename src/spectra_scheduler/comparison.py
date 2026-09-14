@@ -1,6 +1,8 @@
 import random
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from multiprocessing import get_all_start_methods, get_context
 from statistics import fmean, pstdev
 
 from spectra_scheduler.emitters import (
@@ -63,6 +65,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
 
 def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
     simulation = build_comparison_scenario(seed)
+    truth = simulation.generate_truth()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
         "random": lambda: RandomScheduler(seed=seed + 3),
@@ -73,7 +76,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
     }
 
     return {
-        name: calculate_metrics(simulation.run(factory()))
+        name: calculate_metrics(simulation.run(factory(), truth=truth))
         for name, factory in scheduler_factories.items()
     }
 
@@ -105,14 +108,37 @@ class ComparisonStats:
     mean_max_band_gap: float
 
 
-def run_repeated_comparison(runs: int, start_seed: int = 0) -> dict[str, ComparisonStats]:
+def run_repeated_comparison(
+    runs: int,
+    start_seed: int = 0,
+    workers: int = 1,
+) -> dict[str, ComparisonStats]:
     if runs <= 0:
         raise ValueError("runs must be positive")
+    if workers <= 0:
+        raise ValueError("workers must be positive")
 
     collected: dict[str, list[ScanMetrics]] = {}
-    for seed in range(start_seed, start_seed + runs):
-        for name, metrics in run_comparison(seed).items():
-            collected.setdefault(name, []).append(metrics)
+    seeds = range(start_seed, start_seed + runs)
+
+    def collect(run_results: Iterable[dict[str, ScanMetrics]]) -> None:
+        for result in run_results:
+            for name, metrics in result.items():
+                collected.setdefault(name, []).append(metrics)
+
+    if workers == 1:
+        collect(map(run_comparison, seeds))
+    else:
+        worker_count = min(workers, runs)
+        process_context = (
+            get_context("fork") if "fork" in get_all_start_methods() else None
+        )
+        with ProcessPoolExecutor(
+            max_workers=worker_count,
+            mp_context=process_context,
+        ) as executor:
+            chunk_size = max(1, runs // (worker_count * 4))
+            collect(executor.map(run_comparison, seeds, chunksize=chunk_size))
 
     summaries: dict[str, ComparisonStats] = {}
     for name, samples in collected.items():
