@@ -45,6 +45,10 @@ The shuffled sweep now provides a stronger discovery baseline. Before adding ano
 scheduler, receiver truth annotations should be separated from the observation object
 passed to policies so future strategies cannot accidentally distinguish false alarms.
 
+That separation is now implemented: policies receive only time, selected band, and
+detection count. Matched emitter identities and false-alarm labels are retained in a
+separate record used by the evaluation code.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.

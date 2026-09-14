@@ -22,10 +22,10 @@ class ScanMetrics:
 
 def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     detected_transmissions = sum(
-        len(observation.detected_emitters) for observation in result.observations
+        len(record.detected_emitters) for record in result.detection_records
     )
     hit_steps = sum(observation.hit for observation in result.observations)
-    false_alarms = sum(observation.false_alarm for observation in result.observations)
+    false_alarms = sum(record.false_alarm for record in result.detection_records)
 
     tuned_band_by_time = {
         observation.time_step: observation.band for observation in result.observations
@@ -46,9 +46,9 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
         first_transmission.setdefault(transmission.emitter_id, transmission.time_step)
 
     first_detection: dict[str, int] = {}
-    for observation in result.observations:
-        for emitter_id in observation.detected_emitters:
-            first_detection.setdefault(emitter_id, observation.time_step)
+    for record in result.detection_records:
+        for emitter_id in record.detected_emitters:
+            first_detection.setdefault(emitter_id, record.observation.time_step)
 
     delays = [
         first_detection.get(emitter_id, result.duration) - first_time

@@ -24,12 +24,28 @@ class Observation:
 
     time_step: int
     band: int
-    detected_emitters: tuple[str, ...] = ()
-    false_alarm: bool = False
+    detections: int = 0
+
+    def __post_init__(self) -> None:
+        if self.time_step < 0:
+            raise ValueError("time_step cannot be negative")
+        if self.band < 0:
+            raise ValueError("band cannot be negative")
+        if self.detections < 0:
+            raise ValueError("detections cannot be negative")
 
     @property
     def hit(self) -> bool:
-        return bool(self.detected_emitters) or self.false_alarm
+        return self.detections > 0
+
+
+@dataclass(frozen=True)
+class DetectionRecord:
+    """Evaluation details that are not exposed to a scheduler."""
+
+    observation: Observation
+    detected_emitters: tuple[str, ...] = ()
+    false_alarm: bool = False
 
 
 @dataclass(frozen=True)
@@ -40,3 +56,4 @@ class SimulationResult:
     num_bands: int
     transmissions: tuple[Transmission, ...]
     observations: tuple[Observation, ...]
+    detection_records: tuple[DetectionRecord, ...]

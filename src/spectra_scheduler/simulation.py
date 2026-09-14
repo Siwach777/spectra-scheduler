@@ -1,7 +1,12 @@
 from dataclasses import dataclass, field
 
 from spectra_scheduler.emitters import Emitter
-from spectra_scheduler.models import SimulationResult, Transmission
+from spectra_scheduler.models import (
+    DetectionRecord,
+    Observation,
+    SimulationResult,
+    Transmission,
+)
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import Scheduler
 
@@ -35,6 +40,7 @@ class Simulation:
 
         scheduler.reset(self.num_bands)
         observations: list[Observation] = []
+        detection_records: list[DetectionRecord] = []
 
         for time_step in range(self.duration):
             band = scheduler.choose_band(time_step)
@@ -42,8 +48,10 @@ class Simulation:
                 raise ValueError(f"scheduler chose invalid band {band} at step {time_step}")
 
             visible_events = events_by_time_and_band.get((time_step, band), [])
-            observation = self.receiver.listen(time_step, band, visible_events)
+            detection_record = self.receiver.listen(time_step, band, visible_events)
+            observation = detection_record.observation
             observations.append(observation)
+            detection_records.append(detection_record)
             scheduler.observe(observation)
 
         return SimulationResult(
@@ -51,4 +59,5 @@ class Simulation:
             num_bands=self.num_bands,
             transmissions=transmissions,
             observations=tuple(observations),
+            detection_records=tuple(detection_records),
         )
