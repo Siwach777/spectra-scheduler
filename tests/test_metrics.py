@@ -1,6 +1,10 @@
 import unittest
 
-from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
+from spectra_scheduler.emitters import (
+    FrequencyHoppingEmitter,
+    ModeSwitchingEmitter,
+    PeriodicEmitter,
+)
 from spectra_scheduler.metrics import calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import RoundRobinScheduler
@@ -32,6 +36,9 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.total_emitters, 2)
         self.assertEqual(metrics.emitter_discovery_ratio, 1.0)
         self.assertEqual(metrics.mean_first_detection_delay, 2.0)
+        self.assertEqual(metrics.total_emitter_changes, 0)
+        self.assertEqual(metrics.reacquisition_ratio, 0.0)
+        self.assertEqual(metrics.mean_reacquisition_delay, 0.0)
         self.assertEqual(metrics.max_band_gap, 2)
 
     def test_empty_scenario_has_zero_metrics(self) -> None:
@@ -60,6 +67,26 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.false_alarms, 2)
         self.assertEqual(metrics.false_alarm_rate, 1.0)
         self.assertEqual(metrics.hit_rate, 0.5)
+
+    def test_measures_detection_after_an_emitter_changes_mode(self) -> None:
+        simulation = Simulation(
+            num_bands=2,
+            duration=6,
+            emitters=(
+                ModeSwitchingEmitter(
+                    first_mode=PeriodicEmitter("changing", band=0, period=1),
+                    second_mode=PeriodicEmitter("changing", band=1, period=1),
+                    switch_time=2,
+                ),
+            ),
+        )
+
+        metrics = calculate_metrics(simulation.run(RoundRobinScheduler()))
+
+        self.assertEqual(metrics.total_emitter_changes, 1)
+        self.assertEqual(metrics.reacquired_changes, 1)
+        self.assertEqual(metrics.reacquisition_ratio, 1.0)
+        self.assertEqual(metrics.mean_reacquisition_delay, 1.0)
 
 
 if __name__ == "__main__":

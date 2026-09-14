@@ -1,8 +1,9 @@
 from dataclasses import dataclass, field
 
-from spectra_scheduler.emitters import Emitter
+from spectra_scheduler.emitters import Emitter, get_emitter_changes
 from spectra_scheduler.models import (
     DetectionRecord,
+    EmitterChange,
     Observation,
     SimulationResult,
     Transmission,
@@ -31,6 +32,14 @@ class Simulation:
             for event in emitter.transmissions(self.duration, self.num_bands)
         ]
         return tuple(sorted(events))
+
+    def generate_emitter_changes(self) -> tuple[EmitterChange, ...]:
+        changes = [
+            change
+            for emitter in self.emitters
+            for change in get_emitter_changes(emitter, self.duration)
+        ]
+        return tuple(sorted(changes))
 
     def run(
         self,
@@ -63,6 +72,7 @@ class Simulation:
             duration=self.duration,
             num_bands=self.num_bands,
             transmissions=transmissions,
+            emitter_changes=self.generate_emitter_changes(),
             observations=tuple(observations),
             detection_records=tuple(detection_records),
         )

@@ -17,6 +17,10 @@ class ScanMetrics:
     total_emitters: int
     emitter_discovery_ratio: float
     mean_first_detection_delay: float
+    total_emitter_changes: int
+    reacquired_changes: int
+    reacquisition_ratio: float
+    mean_reacquisition_delay: float
     max_band_gap: int
 
 
@@ -55,6 +59,24 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
         for emitter_id, first_time in first_transmission.items()
     ]
 
+    reacquisition_delays: list[int] = []
+    reacquired_changes = 0
+    for change in result.emitter_changes:
+        detection_time = next(
+            (
+                record.observation.time_step
+                for record in result.detection_records
+                if record.observation.time_step >= change.time_step
+                and change.emitter_id in record.detected_emitters
+            ),
+            None,
+        )
+        if detection_time is None:
+            reacquisition_delays.append(result.duration - change.time_step)
+        else:
+            reacquired_changes += 1
+            reacquisition_delays.append(detection_time - change.time_step)
+
     total_transmissions = len(result.transmissions)
     total_emitters = len(first_transmission)
     max_band_gap = 0
@@ -83,5 +105,15 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
         total_emitters=total_emitters,
         emitter_discovery_ratio=(len(first_detection) / total_emitters if total_emitters else 0.0),
         mean_first_detection_delay=sum(delays) / len(delays) if delays else 0.0,
+        total_emitter_changes=len(result.emitter_changes),
+        reacquired_changes=reacquired_changes,
+        reacquisition_ratio=(
+            reacquired_changes / len(result.emitter_changes) if result.emitter_changes else 0.0
+        ),
+        mean_reacquisition_delay=(
+            sum(reacquisition_delays) / len(reacquisition_delays)
+            if reacquisition_delays
+            else 0.0
+        ),
         max_band_gap=max_band_gap,
     )
