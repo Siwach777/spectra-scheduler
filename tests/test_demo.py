@@ -35,6 +35,19 @@ class DemoTests(unittest.TestCase):
 
         self.assertNotEqual(first_truth, second_truth)
 
+    def test_scenario_contains_entry_exit_and_mode_change(self) -> None:
+        truth = build_comparison_scenario(seed=5).generate_truth()
+        search_times = [event.time_step for event in truth if event.emitter_id == "search"]
+        burst_times = [event.time_step for event in truth if event.emitter_id == "burst"]
+        tracking_events = [event for event in truth if event.emitter_id == "tracking"]
+
+        self.assertTrue(search_times)
+        self.assertLess(max(search_times), 36)
+        self.assertTrue(burst_times)
+        self.assertGreaterEqual(min(burst_times), 20)
+        self.assertTrue(all(event.band == 4 for event in tracking_events if event.time_step < 30))
+        self.assertTrue(all(event.band == 0 for event in tracking_events if event.time_step >= 30))
+
     def test_repeated_comparison_summarizes_each_strategy(self) -> None:
         summary = run_repeated_comparison(runs=4, start_seed=8)
 

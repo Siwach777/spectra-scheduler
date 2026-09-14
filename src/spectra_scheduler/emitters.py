@@ -129,3 +129,58 @@ class JitteredPeriodicEmitter:
             events.append(Transmission(time_step, self.band, self.emitter_id))
             time_step += self.period + generator.randint(-self.jitter, self.jitter)
         return events
+
+
+@dataclass(frozen=True)
+class WindowedEmitter:
+    """Limit an emitter to part of a scenario."""
+
+    emitter: Emitter
+    start_time: int = 0
+    end_time: int | None = None
+
+    @property
+    def emitter_id(self) -> str:
+        return self.emitter.emitter_id
+
+    def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
+        if self.start_time < 0:
+            raise ValueError("start_time cannot be negative")
+        if self.end_time is not None and self.end_time <= self.start_time:
+            raise ValueError("end_time must be greater than start_time")
+
+        end_time = duration if self.end_time is None else min(duration, self.end_time)
+        return [
+            event
+            for event in self.emitter.transmissions(duration, num_bands)
+            if self.start_time <= event.time_step < end_time
+        ]
+
+
+@dataclass(frozen=True)
+class ModeSwitchingEmitter:
+    """Change from one emitter pattern to another at a chosen time."""
+
+    first_mode: Emitter
+    second_mode: Emitter
+    switch_time: int
+
+    @property
+    def emitter_id(self) -> str:
+        return self.first_mode.emitter_id
+
+    def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
+        if self.switch_time < 0:
+            raise ValueError("switch_time cannot be negative")
+        if self.first_mode.emitter_id != self.second_mode.emitter_id:
+            raise ValueError("both modes must belong to the same emitter")
+
+        first_events = self.first_mode.transmissions(duration, num_bands)
+        second_events = self.second_mode.transmissions(duration, num_bands)
+        before_switch = [
+            event for event in first_events if event.time_step < self.switch_time
+        ]
+        after_switch = [
+            event for event in second_events if event.time_step >= self.switch_time
+        ]
+        return before_switch + after_switch

@@ -9,7 +9,9 @@ from spectra_scheduler.emitters import (
     BurstEmitter,
     FrequencyHoppingEmitter,
     JitteredPeriodicEmitter,
+    ModeSwitchingEmitter,
     PeriodicEmitter,
+    WindowedEmitter,
 )
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
@@ -31,20 +33,45 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
         num_bands=6,
         duration=60,
         emitters=(
-            PeriodicEmitter("search", band=1, period=4, phase=generator.randrange(4)),
-            PeriodicEmitter("tracking", band=4, period=7, phase=generator.randrange(7)),
+            WindowedEmitter(
+                PeriodicEmitter(
+                    "search",
+                    band=1,
+                    period=4,
+                    phase=generator.randrange(4),
+                ),
+                end_time=36,
+            ),
+            ModeSwitchingEmitter(
+                first_mode=PeriodicEmitter(
+                    "tracking",
+                    band=4,
+                    period=7,
+                    phase=generator.randrange(7),
+                ),
+                second_mode=PeriodicEmitter(
+                    "tracking",
+                    band=0,
+                    period=4,
+                    phase=generator.randrange(4),
+                ),
+                switch_time=30,
+            ),
             FrequencyHoppingEmitter(
                 "agile",
                 bands=(0, 3, 5, 2),
                 period=3,
                 phase=generator.randrange(3),
             ),
-            BurstEmitter(
-                "burst",
-                band=5,
-                burst_period=12,
-                pulses_per_burst=3,
-                phase=generator.randrange(12),
+            WindowedEmitter(
+                BurstEmitter(
+                    "burst",
+                    band=5,
+                    burst_period=12,
+                    pulses_per_burst=3,
+                    phase=generator.randrange(12),
+                ),
+                start_time=20,
             ),
             JitteredPeriodicEmitter(
                 "jittered",

@@ -4,7 +4,9 @@ from spectra_scheduler.emitters import (
     BurstEmitter,
     FrequencyHoppingEmitter,
     JitteredPeriodicEmitter,
+    ModeSwitchingEmitter,
     PeriodicEmitter,
+    WindowedEmitter,
 )
 from spectra_scheduler.models import Transmission
 
@@ -88,6 +90,60 @@ class JitteredPeriodicEmitterTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             emitter.transmissions(duration=10, num_bands=3)
+
+
+class WindowedEmitterTests(unittest.TestCase):
+    def test_limits_emitter_to_active_window(self) -> None:
+        emitter = WindowedEmitter(
+            PeriodicEmitter("late", band=1, period=2),
+            start_time=3,
+            end_time=8,
+        )
+
+        events = emitter.transmissions(duration=10, num_bands=3)
+
+        self.assertEqual([event.time_step for event in events], [4, 6])
+
+    def test_rejects_empty_window(self) -> None:
+        emitter = WindowedEmitter(
+            PeriodicEmitter("invalid", band=1, period=2),
+            start_time=5,
+            end_time=5,
+        )
+
+        with self.assertRaises(ValueError):
+            emitter.transmissions(duration=10, num_bands=3)
+
+
+class ModeSwitchingEmitterTests(unittest.TestCase):
+    def test_changes_pattern_at_switch_time(self) -> None:
+        emitter = ModeSwitchingEmitter(
+            first_mode=PeriodicEmitter("changing", band=0, period=2),
+            second_mode=PeriodicEmitter("changing", band=2, period=3, phase=1),
+            switch_time=4,
+        )
+
+        events = emitter.transmissions(duration=9, num_bands=3)
+
+        self.assertEqual(
+            events,
+            [
+                Transmission(0, 0, "changing"),
+                Transmission(2, 0, "changing"),
+                Transmission(4, 2, "changing"),
+                Transmission(7, 2, "changing"),
+            ],
+        )
+
+    def test_requires_both_modes_to_use_same_identity(self) -> None:
+        emitter = ModeSwitchingEmitter(
+            first_mode=PeriodicEmitter("first", band=0, period=2),
+            second_mode=PeriodicEmitter("second", band=1, period=2),
+            switch_time=3,
+        )
+
+        with self.assertRaises(ValueError):
+            emitter.transmissions(duration=8, num_bands=3)
 
 
 if __name__ == "__main__":

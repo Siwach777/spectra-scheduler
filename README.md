@@ -10,6 +10,7 @@ how quickly transmissions are detected.
 ## Current direction
 
 - Build a small reproducible simulator.
+- Model emitters that enter, leave, or change behaviour during a scenario.
 - Establish fixed-sweep and random baselines.
 - Add an adaptive scheduler that learns from hits and misses.
 - Compare every strategy on the same generated scenarios.
