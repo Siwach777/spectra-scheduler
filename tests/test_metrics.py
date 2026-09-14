@@ -30,7 +30,9 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.hit_rate, 0.5)
         self.assertEqual(metrics.detected_emitters, 2)
         self.assertEqual(metrics.total_emitters, 2)
+        self.assertEqual(metrics.emitter_discovery_ratio, 1.0)
         self.assertEqual(metrics.mean_first_detection_delay, 2.0)
+        self.assertEqual(metrics.max_band_gap, 2)
 
     def test_empty_scenario_has_zero_metrics(self) -> None:
         simulation = Simulation(num_bands=2, duration=4, emitters=())
@@ -39,6 +41,7 @@ class MetricsTests(unittest.TestCase):
 
         self.assertEqual(metrics.total_transmissions, 0)
         self.assertEqual(metrics.interception_ratio, 0.0)
+        self.assertEqual(metrics.emitter_discovery_ratio, 0.0)
         self.assertEqual(metrics.mean_first_detection_delay, 0.0)
 
     def test_separates_missed_detections_from_false_alarms(self) -> None:

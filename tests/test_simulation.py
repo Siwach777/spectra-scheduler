@@ -68,6 +68,19 @@ class SchedulerTests(unittest.TestCase):
 
         self.assertEqual(selected_bands, [0, 0, 0, 0, 1, 2, 0])
 
+    def test_period_aware_scheduler_limits_unvisited_time(self) -> None:
+        scheduler = PeriodAwareScheduler(probe_steps=10, max_band_gap=2)
+        scheduler.reset(num_bands=3)
+
+        selected_bands: list[int] = []
+        for time_step in range(5):
+            band = scheduler.choose_band(time_step)
+            selected_bands.append(band)
+            emitters = ("signal",) if time_step == 0 else ()
+            scheduler.observe(Observation(time_step, band, emitters))
+
+        self.assertEqual(selected_bands, [0, 0, 1, 2, 0])
+
 
 class SimulationTests(unittest.TestCase):
     def test_receiver_detects_only_events_in_selected_band(self) -> None:

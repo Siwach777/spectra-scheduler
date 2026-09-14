@@ -15,7 +15,9 @@ class ScanMetrics:
     hit_rate: float
     detected_emitters: int
     total_emitters: int
+    emitter_discovery_ratio: float
     mean_first_detection_delay: float
+    max_band_gap: int
 
 
 def calculate_metrics(result: SimulationResult) -> ScanMetrics:
@@ -54,6 +56,16 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     ]
 
     total_transmissions = len(result.transmissions)
+    total_emitters = len(first_transmission)
+    max_band_gap = 0
+    for band in range(result.num_bands):
+        last_visit = -1
+        for observation in result.observations:
+            if observation.band == band:
+                max_band_gap = max(max_band_gap, observation.time_step - last_visit - 1)
+                last_visit = observation.time_step
+        max_band_gap = max(max_band_gap, result.duration - last_visit - 1)
+
     return ScanMetrics(
         total_transmissions=total_transmissions,
         eligible_transmissions=eligible_transmissions,
@@ -68,6 +80,8 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
         false_alarm_rate=(false_alarms / inactive_observations if inactive_observations else 0.0),
         hit_rate=hit_steps / len(result.observations) if result.observations else 0.0,
         detected_emitters=len(first_detection),
-        total_emitters=len(first_transmission),
+        total_emitters=total_emitters,
+        emitter_discovery_ratio=(len(first_detection) / total_emitters if total_emitters else 0.0),
         mean_first_detection_delay=sum(delays) / len(delays) if delays else 0.0,
+        max_band_gap=max_band_gap,
     )

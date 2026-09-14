@@ -37,6 +37,10 @@ Randomizing emitter phases exposed alignment bias in the first scenario. The cur
 period-aware policy improves average interception but delays discovery, so the next
 iteration will add a coverage limit instead of only maximizing repeated hits.
 
+Discovery and coverage measurements now show that a fixed sweep can become phase-locked
+with periodic emitters. A shuffled sweep is the next baseline before changing the
+period-aware policy again.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.
