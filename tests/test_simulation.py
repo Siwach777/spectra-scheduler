@@ -4,6 +4,7 @@ from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
 from spectra_scheduler.models import Observation
 from spectra_scheduler.schedulers import (
     RandomScheduler,
+    PeriodAwareScheduler,
     RevisitOnHitScheduler,
     RoundRobinScheduler,
     UcbScheduler,
@@ -52,6 +53,20 @@ class SchedulerTests(unittest.TestCase):
         third_band = scheduler.choose_band(time_step=2)
 
         self.assertEqual([first_band, second_band, third_band], [0, 1, 0])
+
+    def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
+        scheduler = PeriodAwareScheduler(probe_steps=4)
+        scheduler.reset(num_bands=3)
+
+        selected_bands: list[int] = []
+        hit_steps = {0, 3, 6}
+        for time_step in range(7):
+            band = scheduler.choose_band(time_step)
+            selected_bands.append(band)
+            emitters = ("periodic",) if band == 0 and time_step in hit_steps else ()
+            scheduler.observe(Observation(time_step, band, emitters))
+
+        self.assertEqual(selected_bands, [0, 0, 0, 0, 1, 2, 0])
 
 
 class SimulationTests(unittest.TestCase):
