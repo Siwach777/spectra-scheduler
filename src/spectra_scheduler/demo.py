@@ -8,6 +8,7 @@ from spectra_scheduler.schedulers import (
     RevisitOnHitScheduler,
     RoundRobinScheduler,
     Scheduler,
+    UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
 
@@ -31,6 +32,7 @@ def run_demo() -> dict[str, ScanMetrics]:
         "round-robin": RoundRobinScheduler,
         "random": lambda: RandomScheduler(seed=7),
         "revisit-on-hit": RevisitOnHitScheduler,
+        "ucb-bandit": UcbScheduler,
     }
 
     return {
