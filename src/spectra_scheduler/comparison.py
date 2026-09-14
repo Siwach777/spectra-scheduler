@@ -18,7 +18,7 @@ from spectra_scheduler.schedulers import (
 from spectra_scheduler.simulation import Simulation
 
 
-def build_comparison_scenario() -> Simulation:
+def build_comparison_scenario(seed: int = 0) -> Simulation:
     return Simulation(
         num_bands=6,
         duration=60,
@@ -27,17 +27,28 @@ def build_comparison_scenario() -> Simulation:
             PeriodicEmitter("tracking", band=4, period=7, phase=2),
             FrequencyHoppingEmitter("agile", bands=(0, 3, 5, 2), period=3),
             BurstEmitter("burst", band=5, burst_period=12, pulses_per_burst=3, phase=4),
-            JitteredPeriodicEmitter("jittered", band=2, period=6, jitter=2, seed=4, phase=2),
+            JitteredPeriodicEmitter(
+                "jittered",
+                band=2,
+                period=6,
+                jitter=2,
+                seed=seed + 1,
+                phase=2,
+            ),
         ),
-        receiver=Receiver(detection_probability=0.85, false_alarm_probability=0.05, seed=12),
+        receiver=Receiver(
+            detection_probability=0.85,
+            false_alarm_probability=0.05,
+            seed=seed + 2,
+        ),
     )
 
 
-def run_comparison() -> dict[str, ScanMetrics]:
-    simulation = build_comparison_scenario()
+def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
+    simulation = build_comparison_scenario(seed)
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
-        "random": lambda: RandomScheduler(seed=7),
+        "random": lambda: RandomScheduler(seed=seed + 3),
         "revisit-on-hit": RevisitOnHitScheduler,
         "ucb-bandit": UcbScheduler,
     }

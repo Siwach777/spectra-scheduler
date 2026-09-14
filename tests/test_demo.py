@@ -15,6 +15,9 @@ class DemoTests(unittest.TestCase):
         self.assertEqual(len(totals), 1)
         self.assertGreater(totals.pop(), 0)
 
+    def test_same_seed_reproduces_comparison(self) -> None:
+        self.assertEqual(run_comparison(seed=17), run_comparison(seed=17))
+
 
 if __name__ == "__main__":
     unittest.main()
