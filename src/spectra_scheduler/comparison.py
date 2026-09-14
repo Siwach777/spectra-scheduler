@@ -63,6 +63,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
 
 def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
     simulation = build_comparison_scenario(seed)
+    truth = simulation.generate_truth()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
         "random": lambda: RandomScheduler(seed=seed + 3),
@@ -73,7 +74,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
     }
 
     return {
-        name: calculate_metrics(simulation.run(factory()))
+        name: calculate_metrics(simulation.run(factory(), truth=truth))
         for name, factory in scheduler_factories.items()
     }
 

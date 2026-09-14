@@ -32,8 +32,13 @@ class Simulation:
         ]
         return tuple(sorted(events))
 
-    def run(self, scheduler: Scheduler) -> SimulationResult:
-        transmissions = self.generate_truth()
+    def run(
+        self,
+        scheduler: Scheduler,
+        *,
+        truth: tuple[Transmission, ...] | None = None,
+    ) -> SimulationResult:
+        transmissions = self.generate_truth() if truth is None else truth
         events_by_time_and_band: dict[tuple[int, int], list[Transmission]] = {}
         for event in transmissions:
             events_by_time_and_band.setdefault((event.time_step, event.band), []).append(event)
