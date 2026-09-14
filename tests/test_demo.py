@@ -19,6 +19,7 @@ class DemoTests(unittest.TestCase):
                 "shuffled-sweep",
                 "revisit-on-hit",
                 "ucb-bandit",
+                "sliding-ucb",
                 "period-aware",
             },
         )

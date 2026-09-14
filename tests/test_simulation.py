@@ -8,6 +8,7 @@ from spectra_scheduler.schedulers import (
     RevisitOnHitScheduler,
     RoundRobinScheduler,
     ShuffledSweepScheduler,
+    SlidingWindowUcbScheduler,
     UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
@@ -73,6 +74,25 @@ class SchedulerTests(unittest.TestCase):
         third_band = scheduler.choose_band(time_step=2)
 
         self.assertEqual([first_band, second_band, third_band], [0, 1, 0])
+
+    def test_sliding_ucb_forgets_old_observations(self) -> None:
+        scheduler = SlidingWindowUcbScheduler(window_size=2, exploration=0.0)
+        scheduler.reset(num_bands=2)
+
+        selected_bands: list[int] = []
+        detections = [1, 0, 0, 0, 0]
+        for time_step, detected in enumerate(detections):
+            band = scheduler.choose_band(time_step)
+            selected_bands.append(band)
+            scheduler.observe(Observation(time_step, band, detected))
+
+        self.assertEqual(selected_bands, [0, 1, 0, 0, 1])
+
+    def test_sliding_ucb_requires_a_positive_window(self) -> None:
+        scheduler = SlidingWindowUcbScheduler(window_size=0)
+
+        with self.assertRaises(ValueError):
+            scheduler.reset(num_bands=2)
 
     def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
         scheduler = PeriodAwareScheduler(probe_steps=4)

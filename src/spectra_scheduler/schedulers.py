@@ -1,4 +1,5 @@
 import random
+from collections import deque
 from math import log, sqrt
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -171,6 +172,65 @@ class UcbScheduler:
             raise ValueError("observation does not match the selected band")
         self._visits[observation.band] += 1
         self._hits[observation.band] += int(observation.hit)
+
+
+@dataclass
+class SlidingWindowUcbScheduler:
+    """Use UCB scores based only on a recent window of observations."""
+
+    window_size: int = 20
+    exploration: float = 1.0
+    _num_bands: int = field(init=False, default=0)
+    _visits: list[int] = field(init=False, default_factory=list)
+    _hits: list[int] = field(init=False, default_factory=list)
+    _history: deque[tuple[int, int]] = field(init=False, default_factory=deque)
+    _selected_band: int | None = field(init=False, default=None)
+
+    def reset(self, num_bands: int) -> None:
+        if num_bands <= 0:
+            raise ValueError("num_bands must be positive")
+        if self.window_size <= 0:
+            raise ValueError("window_size must be positive")
+        if self.exploration < 0:
+            raise ValueError("exploration cannot be negative")
+        self._num_bands = num_bands
+        self._visits = [0] * num_bands
+        self._hits = [0] * num_bands
+        self._history.clear()
+        self._selected_band = None
+
+    def choose_band(self, time_step: int) -> int:
+        if self._num_bands == 0:
+            raise RuntimeError("scheduler must be reset before use")
+
+        for band, visits in enumerate(self._visits):
+            if visits == 0:
+                self._selected_band = band
+                return band
+
+        total_visits = sum(self._visits)
+        scores = [
+            hits / visits + self.exploration * sqrt(log(total_visits) / visits)
+            for hits, visits in zip(self._hits, self._visits, strict=True)
+        ]
+        self._selected_band = max(range(self._num_bands), key=scores.__getitem__)
+        return self._selected_band
+
+    def observe(self, observation: Observation) -> None:
+        if self._selected_band is None:
+            raise RuntimeError("choose_band must be called before observe")
+        if observation.band != self._selected_band:
+            raise ValueError("observation does not match the selected band")
+
+        hit = int(observation.hit)
+        self._history.append((observation.band, hit))
+        self._visits[observation.band] += 1
+        self._hits[observation.band] += hit
+
+        if len(self._history) > self.window_size:
+            old_band, old_hit = self._history.popleft()
+            self._visits[old_band] -= 1
+            self._hits[old_band] -= old_hit
 
 
 @dataclass

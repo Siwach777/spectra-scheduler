@@ -22,6 +22,7 @@ from spectra_scheduler.schedulers import (
     RoundRobinScheduler,
     Scheduler,
     ShuffledSweepScheduler,
+    SlidingWindowUcbScheduler,
     UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
@@ -99,6 +100,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
         "shuffled-sweep": lambda: ShuffledSweepScheduler(seed=seed + 4),
         "revisit-on-hit": RevisitOnHitScheduler,
         "ucb-bandit": UcbScheduler,
+        "sliding-ucb": SlidingWindowUcbScheduler,
         "period-aware": PeriodAwareScheduler,
     }
 

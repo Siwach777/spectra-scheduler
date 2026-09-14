@@ -62,11 +62,15 @@ Evaluation now reports the fraction of mode changes reacquired and the delay fro
 change to the next true detection. These truth labels remain outside the observation
 given to schedulers.
 
+A sliding-window UCB baseline now forgets observations after 20 receiver steps. It
+improves reacquisition over the all-history UCB policy without knowing when a simulated
+mode change occurs. Explicit change detection remains a later experiment.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.
 - Add a scanning emitter that sweeps adjacent bands.
-- Replace the recency strategy with probabilistic beliefs and change detection.
+- Add probabilistic beliefs and explicit change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.

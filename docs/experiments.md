@@ -133,3 +133,23 @@ The period-aware policy still has the best average interception, but it reacquir
 fewer changed emitters and takes longer than the shuffled sweep or random scan. Its
 old timing evidence remains active after the radar has moved. A sliding-window policy
 is the next experiment so observations eventually become stale.
+
+## Sliding-window UCB baseline
+
+Date: 14 September 2026
+
+UCB was changed to retain only the most recent 20 observations. A 1,000-seed run was
+used for this comparison so the reacquisition result was not based on a small set of
+emitter phases.
+
+| Strategy | Interception | Discovery | Reacquired | Reacquisition delay | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Shuffled sweep | 14.1% ± 4.1% | 83.0% | 68.5% | 17.4 | 9.8 |
+| UCB bandit | 15.4% ± 4.6% | 76.0% | 58.4% | 19.4 | 13.7 |
+| Sliding-window UCB | 15.8% ± 4.5% | 81.9% | 72.4% | 17.4 | 14.5 |
+| Period-aware probe | 16.1% ± 5.3% | 76.8% | 64.0% | 18.6 | 12.3 |
+
+Discarding old evidence improves every reported UCB outcome except maximum coverage
+gap. It nearly matches the period-aware policy's interception ratio while reacquiring
+more changed emitters. The window size is still a fixed assumption; it should later be
+compared with explicit change detection rather than tuned only on this scenario.
