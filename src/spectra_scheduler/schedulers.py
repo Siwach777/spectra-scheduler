@@ -143,6 +143,7 @@ class PeriodAwareScheduler:
     """Briefly monitor new signals, then revisit them at the observed interval."""
 
     probe_steps: int = 6
+    max_band_gap: int = 12
     _num_bands: int = field(init=False, default=0)
     _next_sweep_band: int = field(init=False, default=0)
     _selected_band: int | None = field(init=False, default=None)
@@ -150,12 +151,15 @@ class PeriodAwareScheduler:
     _probe_remaining: int = field(init=False, default=0)
     _hit_times: list[list[int]] = field(init=False, default_factory=list)
     _periods: list[int | None] = field(init=False, default_factory=list)
+    _last_visited: list[int] = field(init=False, default_factory=list)
 
     def reset(self, num_bands: int) -> None:
         if num_bands <= 0:
             raise ValueError("num_bands must be positive")
         if self.probe_steps < 0:
             raise ValueError("probe_steps cannot be negative")
+        if self.max_band_gap <= 0:
+            raise ValueError("max_band_gap must be positive")
         self._num_bands = num_bands
         self._next_sweep_band = 0
         self._selected_band = None
@@ -163,15 +167,23 @@ class PeriodAwareScheduler:
         self._probe_remaining = 0
         self._hit_times = [[] for _ in range(num_bands)]
         self._periods = [None] * num_bands
+        self._last_visited = [-1] * num_bands
 
     def choose_band(self, time_step: int) -> int:
         if self._num_bands == 0:
             raise RuntimeError("scheduler must be reset before use")
 
+        oldest_band = max(
+            range(self._num_bands),
+            key=lambda band: time_step - self._last_visited[band] - 1,
+        )
+        oldest_gap = time_step - self._last_visited[oldest_band] - 1
+        if oldest_gap >= self.max_band_gap:
+            return self._select(oldest_band, time_step)
+
         if self._probe_band is not None and self._probe_remaining > 0:
-            self._selected_band = self._probe_band
             self._probe_remaining -= 1
-            return self._selected_band
+            return self._select(self._probe_band, time_step)
         self._probe_band = None
 
         due_bands = [
@@ -183,12 +195,16 @@ class PeriodAwareScheduler:
             and (time_step - self._hit_times[band][-1]) % period == 0
         ]
         if due_bands:
-            self._selected_band = due_bands[0]
-            return self._selected_band
+            return self._select(due_bands[0], time_step)
 
-        self._selected_band = self._next_sweep_band
+        selected_band = self._next_sweep_band
         self._next_sweep_band = (self._next_sweep_band + 1) % self._num_bands
-        return self._selected_band
+        return self._select(selected_band, time_step)
+
+    def _select(self, band: int, time_step: int) -> int:
+        self._selected_band = band
+        self._last_visited[band] = time_step
+        return band
 
     def observe(self, observation: Observation) -> None:
         if self._selected_band is None:
