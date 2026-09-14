@@ -12,6 +12,7 @@ from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
     RandomScheduler,
+    PeriodAwareScheduler,
     RevisitOnHitScheduler,
     RoundRobinScheduler,
     Scheduler,
@@ -53,6 +54,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
         "random": lambda: RandomScheduler(seed=seed + 3),
         "revisit-on-hit": RevisitOnHitScheduler,
         "ucb-bandit": UcbScheduler,
+        "period-aware": PeriodAwareScheduler,
     }
 
     return {
