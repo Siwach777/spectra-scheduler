@@ -29,6 +29,10 @@ emitter patterns, four scan strategies, hand-checked metrics, and repeated seede
 comparisons. The simple adaptive strategies currently remain baselines rather than
 final solutions.
 
+Current measurements and failed approaches are recorded in
+[experiments.md](experiments.md). This keeps changes to the scenario or metrics from
+silently replacing earlier results.
+
 ## Later stages
 
 - Add signal strength, sensitivity, retuning time, and variable dwell.
