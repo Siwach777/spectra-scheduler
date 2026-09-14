@@ -9,28 +9,28 @@ class ReceiverTests(unittest.TestCase):
         receiver = Receiver()
         event = Transmission(time_step=3, band=2, emitter_id="radar")
 
-        observation = receiver.listen(time_step=3, band=2, visible_events=[event])
+        record = receiver.listen(time_step=3, band=2, visible_events=[event])
 
-        self.assertEqual(observation.detected_emitters, ("radar",))
-        self.assertTrue(observation.hit)
-        self.assertFalse(observation.false_alarm)
+        self.assertEqual(record.detected_emitters, ("radar",))
+        self.assertTrue(record.observation.hit)
+        self.assertFalse(record.false_alarm)
 
     def test_zero_detection_probability_misses_event(self) -> None:
         receiver = Receiver(detection_probability=0.0)
         event = Transmission(time_step=3, band=2, emitter_id="radar")
 
-        observation = receiver.listen(time_step=3, band=2, visible_events=[event])
+        record = receiver.listen(time_step=3, band=2, visible_events=[event])
 
-        self.assertFalse(observation.hit)
+        self.assertFalse(record.observation.hit)
 
     def test_false_alarm_is_reported_on_empty_band(self) -> None:
         receiver = Receiver(false_alarm_probability=1.0)
 
-        observation = receiver.listen(time_step=3, band=2, visible_events=[])
+        record = receiver.listen(time_step=3, band=2, visible_events=[])
 
-        self.assertTrue(observation.hit)
-        self.assertTrue(observation.false_alarm)
-        self.assertEqual(observation.detected_emitters, ())
+        self.assertTrue(record.observation.hit)
+        self.assertTrue(record.false_alarm)
+        self.assertEqual(record.detected_emitters, ())
 
     def test_noise_is_repeatable_for_same_event(self) -> None:
         receiver = Receiver(detection_probability=0.5, seed=18)

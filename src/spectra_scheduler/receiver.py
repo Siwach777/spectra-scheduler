@@ -1,7 +1,7 @@
 import hashlib
 from dataclasses import dataclass
 
-from spectra_scheduler.models import Observation, Transmission
+from spectra_scheduler.models import DetectionRecord, Observation, Transmission
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,7 @@ class Receiver:
         time_step: int,
         band: int,
         visible_events: list[Transmission],
-    ) -> Observation:
+    ) -> DetectionRecord:
         detected_emitters = tuple(
             event.emitter_id
             for event_number, event in enumerate(visible_events)
@@ -33,9 +33,12 @@ class Receiver:
         false_alarm = not visible_events and (
             self._sample("false-alarm", time_step, band) < self.false_alarm_probability
         )
-        return Observation(
-            time_step=time_step,
-            band=band,
+        return DetectionRecord(
+            observation=Observation(
+                time_step=time_step,
+                band=band,
+                detections=len(detected_emitters) + int(false_alarm),
+            ),
             detected_emitters=detected_emitters,
             false_alarm=false_alarm,
         )

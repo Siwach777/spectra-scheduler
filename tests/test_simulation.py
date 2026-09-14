@@ -67,7 +67,7 @@ class SchedulerTests(unittest.TestCase):
         scheduler.reset(num_bands=2)
 
         first_band = scheduler.choose_band(time_step=0)
-        scheduler.observe(Observation(time_step=0, band=first_band, detected_emitters=("a",)))
+        scheduler.observe(Observation(time_step=0, band=first_band, detections=1))
         second_band = scheduler.choose_band(time_step=1)
         scheduler.observe(Observation(time_step=1, band=second_band))
         third_band = scheduler.choose_band(time_step=2)
@@ -83,8 +83,8 @@ class SchedulerTests(unittest.TestCase):
         for time_step in range(7):
             band = scheduler.choose_band(time_step)
             selected_bands.append(band)
-            emitters = ("periodic",) if band == 0 and time_step in hit_steps else ()
-            scheduler.observe(Observation(time_step, band, emitters))
+            detections = int(band == 0 and time_step in hit_steps)
+            scheduler.observe(Observation(time_step, band, detections))
 
         self.assertEqual(selected_bands, [0, 0, 0, 0, 1, 2, 0])
 
@@ -96,8 +96,8 @@ class SchedulerTests(unittest.TestCase):
         for time_step in range(5):
             band = scheduler.choose_band(time_step)
             selected_bands.append(band)
-            emitters = ("signal",) if time_step == 0 else ()
-            scheduler.observe(Observation(time_step, band, emitters))
+            detections = int(time_step == 0)
+            scheduler.observe(Observation(time_step, band, detections))
 
         self.assertEqual(selected_bands, [0, 0, 1, 2, 0])
 
@@ -117,7 +117,7 @@ class SimulationTests(unittest.TestCase):
 
         self.assertEqual([item.band for item in result.observations], [0, 1, 2, 0, 1, 2])
         self.assertEqual(
-            [item.detected_emitters for item in result.observations],
+            [item.detected_emitters for item in result.detection_records],
             [("fixed",), (), (), (), ("hopper",), ("hopper",)],
         )
         self.assertEqual(len(result.transmissions), 9)
