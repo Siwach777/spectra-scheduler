@@ -120,16 +120,36 @@ emitter begins at step 20, and the tracking emitter changes from band 4 with a
 seven-step period to band 0 with a four-step period at step 30. The other settings
 were kept unchanged and the comparison used 100 seeds.
 
-| Strategy | Interception ratio | Emitter discovery | Mean max gap | Mean first delay |
-|---|---:|---:|---:|---:|
-| Round-robin | 14.3% ± 8.6% | 57.6% | 5.0 | 28.7 |
-| Random | 14.7% ± 4.1% | 83.2% | 24.5 | 21.8 |
-| Shuffled sweep | 13.9% ± 4.4% | 83.2% | 9.8 | 22.3 |
-| Revisit on hit | 13.8% ± 5.0% | 80.4% | 8.7 | 23.4 |
-| UCB bandit | 15.0% ± 4.5% | 75.8% | 13.7 | 25.7 |
-| Period-aware probe | 16.2% ± 5.0% | 76.8% | 12.5 | 25.9 |
+| Strategy | Interception | Discovery | Reacquired | Reacquisition delay | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Round-robin | 14.3% ± 8.6% | 57.6% | 49.0% | 17.9 | 5.0 |
+| Random | 14.7% ± 4.1% | 83.2% | 70.0% | 17.1 | 24.5 |
+| Shuffled sweep | 13.9% ± 4.4% | 83.2% | 71.0% | 18.0 | 9.8 |
+| Revisit on hit | 13.8% ± 5.0% | 80.4% | 64.0% | 18.4 | 8.7 |
+| UCB bandit | 15.0% ± 4.5% | 75.8% | 65.0% | 18.9 | 13.7 |
+| Period-aware probe | 16.2% ± 5.0% | 76.8% | 62.0% | 19.3 | 12.5 |
 
-The period-aware policy still has the best average interception, but the existing
-metrics cannot isolate how quickly it reacts after the tracking radar changes mode.
-The next evaluation change should measure post-change reacquisition separately from
-initial emitter discovery.
+The period-aware policy still has the best average interception, but it reacquires
+fewer changed emitters and takes longer than the shuffled sweep or random scan. Its
+old timing evidence remains active after the radar has moved. A sliding-window policy
+is the next experiment so observations eventually become stale.
+
+## Sliding-window UCB baseline
+
+Date: 14 September 2026
+
+UCB was changed to retain only the most recent 20 observations. A 1,000-seed run was
+used for this comparison so the reacquisition result was not based on a small set of
+emitter phases.
+
+| Strategy | Interception | Discovery | Reacquired | Reacquisition delay | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Shuffled sweep | 14.1% ± 4.1% | 83.0% | 68.5% | 17.4 | 9.8 |
+| UCB bandit | 15.4% ± 4.6% | 76.0% | 58.4% | 19.4 | 13.7 |
+| Sliding-window UCB | 15.8% ± 4.5% | 81.9% | 72.4% | 17.4 | 14.5 |
+| Period-aware probe | 16.1% ± 5.3% | 76.8% | 64.0% | 18.6 | 12.3 |
+
+Discarding old evidence improves every reported UCB outcome except maximum coverage
+gap. It nearly matches the period-aware policy's interception ratio while reacquiring
+more changed emitters. The window size is still a fixed assumption; it should later be
+compared with explicit change detection rather than tuned only on this scenario.

@@ -2,7 +2,7 @@ import random
 from dataclasses import dataclass
 from typing import Protocol
 
-from spectra_scheduler.models import Transmission
+from spectra_scheduler.models import EmitterChange, Transmission
 
 
 class Emitter(Protocol):
@@ -184,3 +184,21 @@ class ModeSwitchingEmitter:
             event for event in second_events if event.time_step >= self.switch_time
         ]
         return before_switch + after_switch
+
+
+def get_emitter_changes(emitter: Emitter, duration: int) -> list[EmitterChange]:
+    """Return mode changes known to the simulator but hidden from schedulers."""
+
+    if isinstance(emitter, ModeSwitchingEmitter):
+        if emitter.switch_time < duration:
+            return [EmitterChange(emitter.switch_time, emitter.emitter_id)]
+        return []
+    if isinstance(emitter, WindowedEmitter):
+        changes = get_emitter_changes(emitter.emitter, duration)
+        end_time = duration if emitter.end_time is None else emitter.end_time
+        return [
+            change
+            for change in changes
+            if emitter.start_time <= change.time_step < end_time
+        ]
+    return []

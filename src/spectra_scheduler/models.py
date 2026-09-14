@@ -18,6 +18,20 @@ class Transmission:
             raise ValueError("emitter_id cannot be empty")
 
 
+@dataclass(frozen=True, order=True)
+class EmitterChange:
+    """A known time when an emitter changes operating mode."""
+
+    time_step: int
+    emitter_id: str
+
+    def __post_init__(self) -> None:
+        if self.time_step < 0:
+            raise ValueError("time_step cannot be negative")
+        if not self.emitter_id:
+            raise ValueError("emitter_id cannot be empty")
+
+
 @dataclass(frozen=True)
 class Observation:
     """What the receiver reports after listening to one band."""
@@ -55,5 +69,6 @@ class SimulationResult:
     duration: int
     num_bands: int
     transmissions: tuple[Transmission, ...]
+    emitter_changes: tuple[EmitterChange, ...]
     observations: tuple[Observation, ...]
     detection_records: tuple[DetectionRecord, ...]
