@@ -29,3 +29,13 @@ class Observation:
     @property
     def hit(self) -> bool:
         return bool(self.detected_emitters)
+
+
+@dataclass(frozen=True)
+class SimulationResult:
+    """Truth and receiver observations from a completed simulation."""
+
+    duration: int
+    num_bands: int
+    transmissions: tuple[Transmission, ...]
+    observations: tuple[Observation, ...]
