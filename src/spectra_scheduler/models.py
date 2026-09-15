@@ -36,6 +36,17 @@ class EmitterChange:
             raise ValueError("emitter_id cannot be empty")
 
 
+@dataclass(frozen=True, order=True)
+class SignalMeasurement:
+    """Receiver-visible properties of one detection, without a truth identity."""
+
+    power_dbm: float
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.power_dbm):
+            raise ValueError("measured power must be finite")
+
+
 @dataclass(frozen=True)
 class Observation:
     """What the receiver reports after listening to one band."""
@@ -44,6 +55,7 @@ class Observation:
     band: int
     detections: int = 0
     listening: bool = True
+    measurements: tuple[SignalMeasurement, ...] = ()
 
     def __post_init__(self) -> None:
         if self.time_step < 0:
@@ -52,7 +64,9 @@ class Observation:
             raise ValueError("band cannot be negative")
         if self.detections < 0:
             raise ValueError("detections cannot be negative")
-        if not self.listening and self.detections:
+        if len(self.measurements) > self.detections:
+            raise ValueError("measurements cannot outnumber detections")
+        if not self.listening and (self.detections or self.measurements):
             raise ValueError("retuning observations cannot contain detections")
 
     @property

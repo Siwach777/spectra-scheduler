@@ -13,6 +13,7 @@ class ReceiverTests(unittest.TestCase):
 
         self.assertEqual(record.detected_emitters, ("radar",))
         self.assertTrue(record.observation.hit)
+        self.assertEqual(record.observation.measurements[0].power_dbm, -60.0)
         self.assertFalse(record.false_alarm)
 
     def test_zero_detection_probability_misses_event(self) -> None:
@@ -58,6 +59,7 @@ class ReceiverTests(unittest.TestCase):
         record = receiver.listen(time_step=3, band=2, visible_events=[])
 
         self.assertTrue(record.observation.hit)
+        self.assertEqual(len(record.observation.measurements), 1)
         self.assertTrue(record.false_alarm)
         self.assertEqual(record.detected_emitters, ())
 

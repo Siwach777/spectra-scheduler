@@ -1,7 +1,7 @@
 import math
 import unittest
 
-from spectra_scheduler.models import Observation, Transmission
+from spectra_scheduler.models import Observation, SignalMeasurement, Transmission
 
 
 class ObservationTests(unittest.TestCase):
@@ -12,6 +12,26 @@ class ObservationTests(unittest.TestCase):
         self.assertTrue(observation.listening)
         self.assertFalse(hasattr(observation, "detected_emitters"))
         self.assertFalse(hasattr(observation, "false_alarm"))
+
+    def test_observation_can_include_anonymous_signal_measurements(self) -> None:
+        measurement = SignalMeasurement(power_dbm=-78.5)
+        observation = Observation(
+            time_step=2,
+            band=1,
+            detections=1,
+            measurements=(measurement,),
+        )
+
+        self.assertEqual(observation.measurements, (measurement,))
+        self.assertFalse(hasattr(measurement, "emitter_id"))
+
+    def test_measurements_cannot_outnumber_detections(self) -> None:
+        with self.assertRaises(ValueError):
+            Observation(
+                time_step=2,
+                band=1,
+                measurements=(SignalMeasurement(power_dbm=-78.5),),
+            )
 
     def test_rejects_negative_detection_count(self) -> None:
         with self.assertRaises(ValueError):
@@ -24,6 +44,10 @@ class ObservationTests(unittest.TestCase):
     def test_transmission_requires_finite_power(self) -> None:
         with self.assertRaises(ValueError):
             Transmission(2, 1, "radar", power_dbm=math.inf)
+
+    def test_signal_measurement_requires_finite_power(self) -> None:
+        with self.assertRaises(ValueError):
+            SignalMeasurement(power_dbm=math.inf)
 
 
 if __name__ == "__main__":
