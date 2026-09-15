@@ -346,3 +346,25 @@ prediction. It gives up a small amount of mixed interception, where measurements
 several emitters compete for attention. Adaptive dwell still leads adjacent tracking
 at 11.3%, so association quality should be measured directly before adding more
 scheduler rules.
+
+## Signal association quality
+
+The tracker is now evaluated separately from scheduling. Truth emitter labels are
+joined to track assignments only after the simulated run, so the scheduler still sees
+anonymous measurements. Purity measures the majority-label fraction within tracks;
+fragmentation counts how many track IDs represent each detected emitter.
+
+| Scenario | Purity | Tracks per emitter | Confirmed tracks | Mixed tracks |
+|---|---:|---:|---:|---:|
+| Acquisition | 95.3% | 1.14 | 0.11 | 0.06 |
+| Adjacent tracking | 99.6% | 2.27 | 0.88 | 0.02 |
+| Mode change | 99.8% | 1.96 | 1.64 | 0.01 |
+| Mixed | 95.4% | 1.53 | 1.62 | 0.43 |
+
+These 1,000-seed results use observations produced by the track-aware scheduler. The
+matcher rarely combines different emitters in the isolated cases. Its main failure is
+fragmentation: sparse detections and expiry split the adjacent scanner into more than
+two tracks on average. Mixed traffic also produces nearly half a mixed track per run,
+so simply extending track lifetime could reduce fragmentation while increasing false
+associations. Pulse-width measurement uncertainty should be modeled before changing
+that balance.

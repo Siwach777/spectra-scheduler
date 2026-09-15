@@ -115,10 +115,15 @@ motion estimate was linear. It now reflects within observed scan limits only aft
 direction reversal has been seen, and repeated prediction misses temporarily return
 control to acquisition.
 
+Association evaluation now replays receiver observations through a fresh tracker and
+uses truth labels only after assignment. It reports purity, mixed tracks, confirmed
+tracks, and the number of track fragments per detected emitter. These values are not
+available to a scheduler during simulation.
+
 ## Later stages
 
-- Measure association quality separately from scheduling outcomes.
 - Add uncertainty to measured pulse width before trusting association results.
+- Reduce track fragmentation without merging signals that only look similar.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
