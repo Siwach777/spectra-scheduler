@@ -327,3 +327,22 @@ tracker is especially effective after confirming a stationary periodic signal, w
 linear extrapolation loses the adjacent scanner when it reverses direction. The next
 tracking change should represent motion confidence and boundary reversal rather than
 increasing pursuit time.
+
+### Miss recovery and observed reversal
+
+The scheduler now abandons a confirmed track after two listening misses. A suppressed
+track becomes eligible again when a new matching measurement appears. Band predictions
+remain linear until the tracker has actually observed a direction change; after that,
+they reflect within the learned band range.
+
+| Scenario | Before | After | Other after-result |
+|---|---:|---:|---:|
+| Mixed interception | 8.4% | 8.2% | 26.4 maximum gap |
+| Adjacent tracking interception | 9.7% | 10.4% | 100.0% discovery |
+| Mode-change reacquisition | 92.9% | 93.1% | 13.9-step delay |
+
+Recovery improves the reversing-scanner case and prevents long pursuit of a missed
+prediction. It gives up a small amount of mixed interception, where measurements from
+several emitters compete for attention. Adaptive dwell still leads adjacent tracking
+at 11.3%, so association quality should be measured directly before adding more
+scheduler rules.

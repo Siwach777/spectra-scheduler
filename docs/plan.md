@@ -111,12 +111,14 @@ work unchanged.
 Similar power and pulse-width measurements can now form short-lived tracks. A
 track-aware scheduler starts with adaptive dwell, follows the predicted band of a
 confirmed track, retries through retuning, and forces overdue coverage. The first
-motion estimate is linear, so it does not yet understand reversal at scan boundaries.
+motion estimate was linear. It now reflects within observed scan limits only after a
+direction reversal has been seen, and repeated prediction misses temporarily return
+control to acquisition.
 
 ## Later stages
 
-- Model confidence and scan-boundary reversal in track predictions.
 - Measure association quality separately from scheduling outcomes.
+- Add uncertainty to measured pulse width before trusting association results.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
