@@ -11,6 +11,7 @@ remain in [experiments.md](experiments.md).
 | Fair evaluation | Randomized phases and repeated seeded comparisons | Prevent fixed timing from favoring one scan pattern |
 | Truth separation | Public observations contain no emitter identity or false-alarm label | Prevent future policies from using hidden simulator information |
 | Metrics | Interception, discovery, coverage, delay, sensitivity, and reacquisition | Keep scheduler, receiver, and change-response effects separate |
+| Association metrics | Truth-only purity, mixed-track, and fragmentation measurements | Diagnose tracking without exposing labels to the scheduler |
 | Baselines | Fixed, random, shuffled, revisit, UCB, sliding UCB, period-aware, fixed-dwell, and adaptive-dwell scans | Compare simple ideas before adding a larger learning model |
 | Dynamic behavior | Emitters can enter, leave, and change operating modes | Test whether learned behavior becomes stale |
 | RF strength | Received power, sensitivity threshold, and measurement noise | Separate weak-signal loss from choosing the wrong band |

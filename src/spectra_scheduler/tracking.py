@@ -3,6 +3,12 @@ from dataclasses import dataclass, field
 from spectra_scheduler.models import Observation, SignalMeasurement
 
 
+@dataclass(frozen=True)
+class TrackAssignment:
+    measurement_index: int
+    track_id: int
+
+
 @dataclass
 class SignalTrack:
     """A receiver-derived signal track with no simulator identity."""
@@ -87,6 +93,10 @@ class SignalTracker:
     max_age_steps: int = 10
     _tracks: list[SignalTrack] = field(init=False, default_factory=list)
     _next_track_id: int = field(init=False, default=0)
+    _last_assignments: tuple[TrackAssignment, ...] = field(
+        init=False,
+        default=(),
+    )
 
     def __post_init__(self) -> None:
         if self.pulse_width_tolerance_us <= 0:
@@ -100,9 +110,14 @@ class SignalTracker:
     def tracks(self) -> tuple[SignalTrack, ...]:
         return tuple(self._tracks)
 
+    @property
+    def last_assignments(self) -> tuple[TrackAssignment, ...]:
+        return self._last_assignments
+
     def reset(self) -> None:
         self._tracks.clear()
         self._next_track_id = 0
+        self._last_assignments = ()
 
     def update(self, observation: Observation) -> tuple[SignalTrack, ...]:
         self._tracks = [
@@ -111,16 +126,20 @@ class SignalTracker:
             if observation.time_step - track.last_time <= self.max_age_steps
         ]
         if not observation.listening:
+            self._last_assignments = ()
             return self.tracks
 
         available_track_ids = {track.track_id for track in self._tracks}
-        for measurement in observation.measurements:
+        assignments = []
+        for measurement_index, measurement in enumerate(observation.measurements):
             track = self._best_match(measurement, available_track_ids)
             if track is None:
                 track = self._new_track(observation, measurement)
             else:
                 track.update(observation.time_step, observation.band, measurement)
                 available_track_ids.remove(track.track_id)
+            assignments.append(TrackAssignment(measurement_index, track.track_id))
+        self._last_assignments = tuple(assignments)
         return self.tracks
 
     def _best_match(

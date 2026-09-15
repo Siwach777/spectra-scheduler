@@ -5,7 +5,7 @@ from spectra_scheduler.emitters import (
     ModeSwitchingEmitter,
     PeriodicEmitter,
 )
-from spectra_scheduler.metrics import calculate_metrics
+from spectra_scheduler.metrics import calculate_metrics, calculate_track_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import RoundRobinScheduler
 from spectra_scheduler.simulation import Simulation
@@ -141,6 +141,59 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.retuning_steps, 3)
         self.assertEqual(metrics.retuning_fraction, 0.75)
         self.assertEqual(metrics.eligible_transmissions, 1)
+
+    def test_measures_clean_signal_association(self) -> None:
+        simulation = Simulation(
+            num_bands=2,
+            duration=4,
+            emitters=(
+                PeriodicEmitter(
+                    "first",
+                    band=0,
+                    period=2,
+                    power_dbm=-70.0,
+                    pulse_width_us=0.5,
+                ),
+                PeriodicEmitter(
+                    "second",
+                    band=1,
+                    period=2,
+                    phase=1,
+                    power_dbm=-82.0,
+                    pulse_width_us=1.5,
+                ),
+            ),
+        )
+
+        metrics = calculate_track_metrics(simulation.run(RoundRobinScheduler()))
+
+        self.assertEqual(metrics.assigned_measurements, 4)
+        self.assertEqual(metrics.confirmed_tracks, 2)
+        self.assertEqual(metrics.mixed_tracks, 0)
+        self.assertEqual(metrics.association_purity, 1.0)
+        self.assertEqual(metrics.mean_tracks_per_emitter, 1.0)
+
+    def test_detects_ambiguous_signal_association(self) -> None:
+        simulation = Simulation(
+            num_bands=2,
+            duration=4,
+            emitters=(
+                PeriodicEmitter("first", band=0, period=2, power_dbm=-75.0),
+                PeriodicEmitter(
+                    "second",
+                    band=1,
+                    period=2,
+                    phase=1,
+                    power_dbm=-75.0,
+                ),
+            ),
+        )
+
+        metrics = calculate_track_metrics(simulation.run(RoundRobinScheduler()))
+
+        self.assertEqual(metrics.confirmed_tracks, 1)
+        self.assertEqual(metrics.mixed_tracks, 1)
+        self.assertEqual(metrics.association_purity, 0.5)
 
 
 if __name__ == "__main__":
