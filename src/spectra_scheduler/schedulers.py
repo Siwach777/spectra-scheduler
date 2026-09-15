@@ -4,6 +4,7 @@ from math import log, sqrt
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from spectra_scheduler.change_detection import BinaryRateChangeDetector
 from spectra_scheduler.models import Observation
 
 
@@ -498,6 +499,41 @@ class TransitionBandScheduler(BayesianBandScheduler):
             )
         self._last_hit_band = observation.band
         self._last_hit_time = observation.time_step
+
+
+@dataclass
+class ChangeAwareBayesianScheduler(BayesianBandScheduler):
+    """Reset a band's stale belief after a sustained hit-rate change."""
+
+    change_reference_window: int = 4
+    change_recent_window: int = 3
+    minimum_rate_change: float = 0.5
+    _change_detector: BinaryRateChangeDetector = field(init=False)
+    _detected_change_count: int = field(init=False, default=0)
+
+    def reset(self, num_bands: int) -> None:
+        super().reset(num_bands)
+        self._change_detector = BinaryRateChangeDetector(
+            reference_window_size=self.change_reference_window,
+            recent_window_size=self.change_recent_window,
+            minimum_rate_change=self.minimum_rate_change,
+        )
+        self._detected_change_count = 0
+
+    @property
+    def detected_change_count(self) -> int:
+        return self._detected_change_count
+
+    def observe(self, observation: Observation) -> None:
+        super().observe(observation)
+        if not observation.listening:
+            return
+        if not self._change_detector.update(observation.band, observation.hit):
+            return
+
+        self._hits[observation.band] = self.prior_hits + int(observation.hit)
+        self._misses[observation.band] = self.prior_misses + int(not observation.hit)
+        self._detected_change_count += 1
 
 
 @dataclass

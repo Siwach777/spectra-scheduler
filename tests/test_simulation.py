@@ -6,6 +6,7 @@ from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
     BayesianBandScheduler,
+    ChangeAwareBayesianScheduler,
     DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
@@ -244,6 +245,39 @@ class SchedulerTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             scheduler.reset(num_bands=2)
+
+    def test_change_aware_scheduler_resets_stale_band_belief(self) -> None:
+        scheduler = ChangeAwareBayesianScheduler(
+            change_reference_window=2,
+            change_recent_window=2,
+            minimum_rate_change=1.0,
+        )
+        scheduler.reset(num_bands=1)
+
+        for time_step, hit in enumerate([True, True, False, False]):
+            band = scheduler.choose_band(time_step)
+            scheduler.observe(Observation(time_step, band, int(hit)))
+
+        self.assertEqual(scheduler.detected_change_count, 1)
+        self.assertEqual(scheduler._hits[0], scheduler.prior_hits)
+        self.assertEqual(scheduler._misses[0], scheduler.prior_misses + 1)
+
+    def test_change_aware_scheduler_does_not_count_retuning(self) -> None:
+        scheduler = ChangeAwareBayesianScheduler(
+            change_reference_window=1,
+            change_recent_window=1,
+            minimum_rate_change=1.0,
+        )
+        scheduler.reset(num_bands=1)
+
+        band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, band, detections=1))
+        band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, band, listening=False))
+        band = scheduler.choose_band(time_step=2)
+        scheduler.observe(Observation(2, band))
+
+        self.assertEqual(scheduler.detected_change_count, 1)
 
     def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
         scheduler = PeriodAwareScheduler(probe_steps=4)
