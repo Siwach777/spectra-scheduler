@@ -284,6 +284,7 @@ class SchedulerTests(unittest.TestCase):
         scheduler = TrackAwareScheduler(
             minimum_dwell_steps=1,
             maximum_dwell_steps=1,
+            minimum_track_observations=3,
         )
         scheduler.reset(num_bands=3)
 
@@ -306,7 +307,17 @@ class SchedulerTests(unittest.TestCase):
             )
         )
 
-        self.assertEqual(scheduler.choose_band(time_step=2), 2)
+        third_band = scheduler.choose_band(time_step=2)
+        scheduler.observe(
+            Observation(
+                2,
+                third_band,
+                detections=1,
+                measurements=(SignalMeasurement(-81.0, 1.0),),
+            )
+        )
+
+        self.assertEqual(scheduler.choose_band(time_step=3), 2)
         self.assertEqual(scheduler.track_count, 1)
 
     def test_track_aware_scheduler_validates_confirmation_count(self) -> None:
