@@ -16,6 +16,7 @@ remain in [experiments.md](experiments.md).
 | RF strength | Received power, sensitivity threshold, and measurement noise | Separate weak-signal loss from choosing the wrong band |
 | Retuning | Band changes can use a fixed delay or a delay based on band distance; repeated selections mean dwell | Account for hardware cost without complicating the scheduler interface |
 | Adaptive dwell | A sweep waits through retuning and extends productive bands after a hit | Trade broad coverage against longer observation of useful bands |
+| Bayesian scheduler | Decaying per-band hit beliefs with exploration and switching cost | Add an inspectable probability-based policy before larger learning models |
 | Performance | Shared scenario truth and parallel independent runs | Support larger experiments before considering native code |
 
 New work should add or update one short row here describing both the change and its
