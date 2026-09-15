@@ -88,9 +88,16 @@ maximum coverage gap. The baseline is deliberately per-band and inspectable; its
 results show that band probabilities alone do not predict a scanning emitter's next
 move.
 
+A small extension now learns a decaying table between successive detected bands. It
+uses only receiver observations, so it cannot tell whether two hits came from the same
+emitter. The comparison shows only a marginal improvement, which makes anonymous
+transitions a baseline rather than the final prediction method.
+
 ## Later stages
 
-- Learn band-to-band transitions, then add explicit change detection.
+- Add explicit change detection to reset stale evidence after a behavior shift.
+- Introduce signal tracks only when observations contain enough measured features to
+  associate related pulses without exposing simulator identities.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
