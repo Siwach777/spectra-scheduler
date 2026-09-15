@@ -127,6 +127,21 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.false_alarms, 3)
         self.assertEqual(metrics.false_alarm_rate, 1.0)
 
+    def test_counts_time_lost_while_retuning(self) -> None:
+        simulation = Simulation(
+            num_bands=2,
+            duration=4,
+            emitters=(PeriodicEmitter("fixed", band=0, period=1),),
+            receiver=Receiver(retune_steps=1),
+        )
+
+        metrics = calculate_metrics(simulation.run(RoundRobinScheduler()))
+
+        self.assertEqual(metrics.listening_steps, 1)
+        self.assertEqual(metrics.retuning_steps, 3)
+        self.assertEqual(metrics.retuning_fraction, 0.75)
+        self.assertEqual(metrics.eligible_transmissions, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

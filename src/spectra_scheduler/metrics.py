@@ -6,6 +6,9 @@ from spectra_scheduler.models import SimulationResult
 @dataclass(frozen=True)
 class ScanMetrics:
     total_transmissions: int
+    listening_steps: int
+    retuning_steps: int
+    retuning_fraction: float
     eligible_transmissions: int
     detectable_transmissions: int
     sensitivity_misses: int
@@ -28,6 +31,8 @@ class ScanMetrics:
 
 
 def calculate_metrics(result: SimulationResult) -> ScanMetrics:
+    listening_steps = sum(observation.listening for observation in result.observations)
+    retuning_steps = len(result.observations) - listening_steps
     detected_transmissions = sum(
         len(record.detected_emitters) for record in result.detection_records
     )
@@ -38,13 +43,16 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     )
 
     tuned_band_by_time = {
-        observation.time_step: observation.band for observation in result.observations
+        observation.time_step: observation.band
+        for observation in result.observations
+        if observation.listening
     }
     eligible_transmissions = sum(
         tuned_band_by_time.get(event.time_step) == event.band for event in result.transmissions
     )
     inactive_observations = sum(
-        not record.detectable_emitters for record in result.detection_records
+        record.observation.listening and not record.detectable_emitters
+        for record in result.detection_records
     )
 
     first_transmission: dict[str, int] = {}
@@ -86,13 +94,18 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
     for band in range(result.num_bands):
         last_visit = -1
         for observation in result.observations:
-            if observation.band == band:
+            if observation.listening and observation.band == band:
                 max_band_gap = max(max_band_gap, observation.time_step - last_visit - 1)
                 last_visit = observation.time_step
         max_band_gap = max(max_band_gap, result.duration - last_visit - 1)
 
     return ScanMetrics(
         total_transmissions=total_transmissions,
+        listening_steps=listening_steps,
+        retuning_steps=retuning_steps,
+        retuning_fraction=(
+            retuning_steps / len(result.observations) if result.observations else 0.0
+        ),
         eligible_transmissions=eligible_transmissions,
         detectable_transmissions=detectable_transmissions,
         sensitivity_misses=sensitivity_misses,
@@ -110,7 +123,7 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
         ),
         false_alarms=false_alarms,
         false_alarm_rate=(false_alarms / inactive_observations if inactive_observations else 0.0),
-        hit_rate=hit_steps / len(result.observations) if result.observations else 0.0,
+        hit_rate=hit_steps / listening_steps if listening_steps else 0.0,
         detected_emitters=len(first_detection),
         total_emitters=total_emitters,
         emitter_discovery_ratio=(len(first_detection) / total_emitters if total_emitters else 0.0),

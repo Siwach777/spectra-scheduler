@@ -43,6 +43,7 @@ class Observation:
     time_step: int
     band: int
     detections: int = 0
+    listening: bool = True
 
     def __post_init__(self) -> None:
         if self.time_step < 0:
@@ -51,6 +52,8 @@ class Observation:
             raise ValueError("band cannot be negative")
         if self.detections < 0:
             raise ValueError("detections cannot be negative")
+        if not self.listening and self.detections:
+            raise ValueError("retuning observations cannot contain detections")
 
     @property
     def hit(self) -> bool:

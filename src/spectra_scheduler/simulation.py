@@ -55,14 +55,26 @@ class Simulation:
         scheduler.reset(self.num_bands)
         observations: list[Observation] = []
         detection_records: list[DetectionRecord] = []
+        previous_band: int | None = None
+        retune_remaining = 0
 
         for time_step in range(self.duration):
             band = scheduler.choose_band(time_step)
             if not 0 <= band < self.num_bands:
                 raise ValueError(f"scheduler chose invalid band {band} at step {time_step}")
 
-            visible_events = events_by_time_and_band.get((time_step, band), [])
-            detection_record = self.receiver.listen(time_step, band, visible_events)
+            if previous_band is not None and band != previous_band:
+                retune_remaining = self.receiver.retune_steps
+            previous_band = band
+
+            if retune_remaining > 0:
+                detection_record = DetectionRecord(
+                    observation=Observation(time_step, band, listening=False)
+                )
+                retune_remaining -= 1
+            else:
+                visible_events = events_by_time_and_band.get((time_step, band), [])
+                detection_record = self.receiver.listen(time_step, band, visible_events)
             observation = detection_record.observation
             observations.append(observation)
             detection_records.append(detection_record)

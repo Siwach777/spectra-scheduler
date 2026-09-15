@@ -77,6 +77,8 @@ class ReceiverTests(unittest.TestCase):
             Receiver(false_alarm_probability=-0.1)
         with self.assertRaises(ValueError):
             Receiver(noise_std_db=-0.1)
+        with self.assertRaises(ValueError):
+            Receiver(retune_steps=-1)
 
 
 if __name__ == "__main__":

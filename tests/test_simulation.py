@@ -2,7 +2,9 @@ import unittest
 
 from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
 from spectra_scheduler.models import Observation
+from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
+    DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
     RevisitOnHitScheduler,
@@ -22,6 +24,20 @@ class SchedulerTests(unittest.TestCase):
         bands = [scheduler.choose_band(step) for step in range(5)]
 
         self.assertEqual(bands, [1, 2, 0, 1, 2])
+
+    def test_dwell_sweep_stays_before_moving_to_next_band(self) -> None:
+        scheduler = DwellSweepScheduler(dwell_steps=2, start_band=1)
+        scheduler.reset(num_bands=3)
+
+        bands = [scheduler.choose_band(step) for step in range(7)]
+
+        self.assertEqual(bands, [1, 1, 2, 2, 0, 0, 1])
+
+    def test_dwell_sweep_requires_positive_dwell(self) -> None:
+        scheduler = DwellSweepScheduler(dwell_steps=0)
+
+        with self.assertRaises(ValueError):
+            scheduler.reset(num_bands=3)
 
     def test_random_scheduler_restarts_from_same_seed(self) -> None:
         scheduler = RandomScheduler(seed=42)
@@ -75,6 +91,17 @@ class SchedulerTests(unittest.TestCase):
 
         self.assertEqual([first_band, second_band, third_band], [0, 1, 0])
 
+    def test_ucb_retries_a_band_after_retuning(self) -> None:
+        scheduler = UcbScheduler()
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, second_band, listening=False))
+
+        self.assertEqual(scheduler.choose_band(time_step=2), second_band)
+
     def test_sliding_ucb_forgets_old_observations(self) -> None:
         scheduler = SlidingWindowUcbScheduler(window_size=2, exploration=0.0)
         scheduler.reset(num_bands=2)
@@ -121,6 +148,17 @@ class SchedulerTests(unittest.TestCase):
 
         self.assertEqual(selected_bands, [0, 0, 1, 2, 0])
 
+    def test_period_aware_scheduler_retries_after_retuning(self) -> None:
+        scheduler = PeriodAwareScheduler()
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, second_band, listening=False))
+
+        self.assertEqual(scheduler.choose_band(time_step=2), second_band)
+
 
 class SimulationTests(unittest.TestCase):
     def test_receiver_detects_only_events_in_selected_band(self) -> None:
@@ -157,6 +195,21 @@ class SimulationTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             simulation.run(InvalidScheduler())
+
+    def test_band_changes_consume_receiver_retuning_steps(self) -> None:
+        simulation = Simulation(
+            num_bands=2,
+            duration=5,
+            emitters=(),
+            receiver=Receiver(retune_steps=1),
+        )
+
+        result = simulation.run(RoundRobinScheduler())
+
+        self.assertEqual(
+            [observation.listening for observation in result.observations],
+            [True, False, False, False, False],
+        )
 
     def test_precomputed_truth_can_be_reused(self) -> None:
         simulation = Simulation(
