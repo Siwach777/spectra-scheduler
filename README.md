@@ -16,6 +16,7 @@ how quickly transmissions are detected.
 - Establish fixed-sweep and random baselines.
 - Add an adaptive scheduler that learns from hits and misses.
 - Forget stale observations so a scheduler can respond to changed emitters.
+- Detect sustained per-band hit-rate changes without exposing simulator truth.
 - Compare every strategy on the same generated scenarios.
 - Consider a Rust engine only if the Python version is demonstrably too slow.
 - Build a graphical interface after the experiments are reliable.

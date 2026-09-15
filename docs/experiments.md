@@ -270,3 +270,21 @@ reacquisition improvement. Hits from several emitters and false alarms are mixed
 together, so anonymous transitions are too ambiguous to reliably track the scanning
 emitter. The next step is explicit change detection; later tracking will require
 measured signal features rather than hidden simulator identities.
+
+## Explicit hit-rate change detection
+
+A change-aware Bayesian policy compares older and recent binary observations for each
+band. When their hit rates differ by the configured threshold, it resets that band's
+belief and retains the rest of the scheduler state. Retuning observations are excluded.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Bayesian band | 6.6% ± 2.2% | 52.2% | 26.3% | 41.7% | 20.5 |
+| Change-aware | 6.6% ± 2.2% | 53.8% | 29.5% | 42.1% | 20.6 |
+
+Across 1,000 seeds, the detector fired in 81.7% of runs with 1.20 detected changes per
+run on average. It improves discovery and reacquisition modestly without changing
+interception. The detector sees aggregate activity on a band, not individual emitters,
+so a detected rate shift is not necessarily the known simulated radar mode change.
+Focused evaluation scenarios are needed before combining this detector with more
+prediction rules.

@@ -93,11 +93,16 @@ uses only receiver observations, so it cannot tell whether two hits came from th
 emitter. The comparison shows only a marginal improvement, which makes anonymous
 transitions a baseline rather than the final prediction method.
 
+A per-band change detector now compares an older binary hit window with a shorter
+recent window. A sustained shift resets only the affected Bayesian belief. It never
+receives the simulator's known mode-change labels, and it ignores retuning steps.
+
 ## Later stages
 
-- Add explicit change detection to reset stale evidence after a behavior shift.
 - Introduce signal tracks only when observations contain enough measured features to
   associate related pulses without exposing simulator identities.
+- Add focused scenarios that isolate acquisition, tracking, and change response before
+  combining more scheduler mechanisms.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
@@ -111,6 +116,7 @@ src/spectra_scheduler/
   simulation.py   environment and receiver loop
   receiver.py     missed detections and false alarms
   schedulers.py   scan strategies
+  change_detection.py  observation-rate change detector
   metrics.py      experiment measurements
   comparison.py   repeatable strategy comparisons
 scripts/
