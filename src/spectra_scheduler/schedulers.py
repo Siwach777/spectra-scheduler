@@ -320,6 +320,114 @@ class SlidingWindowUcbScheduler:
 
 
 @dataclass
+class BayesianBandScheduler:
+    """Track a decaying hit-probability belief for each band."""
+
+    prior_hits: float = 1.0
+    prior_misses: float = 3.0
+    forgetting_factor: float = 0.97
+    exploration_bonus: float = 0.15
+    switch_penalty: float = 0.02
+    max_band_gap: int = 18
+    _num_bands: int = field(init=False, default=0)
+    _hits: list[float] = field(init=False, default_factory=list)
+    _misses: list[float] = field(init=False, default_factory=list)
+    _visits: list[int] = field(init=False, default_factory=list)
+    _last_visited: list[int] = field(init=False, default_factory=list)
+    _selected_band: int | None = field(init=False, default=None)
+    _retry_band: int | None = field(init=False, default=None)
+
+    def reset(self, num_bands: int) -> None:
+        if num_bands <= 0:
+            raise ValueError("num_bands must be positive")
+        if self.prior_hits <= 0 or self.prior_misses <= 0:
+            raise ValueError("belief priors must be positive")
+        if not 0.0 < self.forgetting_factor <= 1.0:
+            raise ValueError("forgetting_factor must be between zero and one")
+        if self.exploration_bonus < 0 or self.switch_penalty < 0:
+            raise ValueError("exploration_bonus and switch_penalty cannot be negative")
+        if self.max_band_gap <= 0:
+            raise ValueError("max_band_gap must be positive")
+
+        self._num_bands = num_bands
+        self._hits = [self.prior_hits] * num_bands
+        self._misses = [self.prior_misses] * num_bands
+        self._visits = [0] * num_bands
+        self._last_visited = [-1] * num_bands
+        self._selected_band = None
+        self._retry_band = None
+
+    def choose_band(self, time_step: int) -> int:
+        if self._num_bands == 0:
+            raise RuntimeError("scheduler must be reset before use")
+        if self._retry_band is not None:
+            band = self._retry_band
+            self._retry_band = None
+            self._selected_band = band
+            return band
+
+        unvisited = [band for band, visits in enumerate(self._visits) if visits == 0]
+        if unvisited:
+            if self._selected_band is None:
+                selected_band = unvisited[0]
+            else:
+                selected_band = min(
+                    unvisited,
+                    key=lambda band: abs(band - self._selected_band),
+                )
+            self._selected_band = selected_band
+            return selected_band
+
+        oldest_band = min(
+            range(self._num_bands),
+            key=self._last_visited.__getitem__,
+        )
+        oldest_gap = time_step - self._last_visited[oldest_band] - 1
+        if oldest_gap >= self.max_band_gap:
+            self._selected_band = oldest_band
+            return oldest_band
+
+        scores = []
+        for band, (hits, misses) in enumerate(
+            zip(self._hits, self._misses, strict=True)
+        ):
+            evidence = hits + misses
+            probability = hits / evidence
+            exploration = self.exploration_bonus / sqrt(evidence)
+            switching_cost = (
+                self.switch_penalty * abs(band - self._selected_band)
+                if self._selected_band is not None
+                else 0.0
+            )
+            scores.append(probability + exploration - switching_cost)
+
+        self._selected_band = max(range(self._num_bands), key=scores.__getitem__)
+        return self._selected_band
+
+    def observe(self, observation: Observation) -> None:
+        if self._selected_band is None:
+            raise RuntimeError("choose_band must be called before observe")
+        if observation.band != self._selected_band:
+            raise ValueError("observation does not match the selected band")
+        if not observation.listening:
+            self._retry_band = observation.band
+            return
+
+        for band in range(self._num_bands):
+            self._hits[band] = self.prior_hits + (
+                self._hits[band] - self.prior_hits
+            ) * self.forgetting_factor
+            self._misses[band] = self.prior_misses + (
+                self._misses[band] - self.prior_misses
+            ) * self.forgetting_factor
+
+        self._hits[observation.band] += int(observation.hit)
+        self._misses[observation.band] += int(not observation.hit)
+        self._visits[observation.band] += 1
+        self._last_visited[observation.band] = observation.time_step
+
+
+@dataclass
 class PeriodAwareScheduler:
     """Briefly monitor new signals, then revisit them at the observed interval."""
 

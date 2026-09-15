@@ -5,6 +5,7 @@ from spectra_scheduler.models import Observation
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
+    BayesianBandScheduler,
     DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
@@ -157,6 +158,54 @@ class SchedulerTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             scheduler.reset(num_bands=2)
+
+    def test_bayesian_scheduler_prefers_band_with_observed_hit(self) -> None:
+        scheduler = BayesianBandScheduler(
+            exploration_bonus=0.0,
+            switch_penalty=0.0,
+        )
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band, detections=1))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, second_band))
+
+        self.assertEqual(scheduler.choose_band(time_step=2), first_band)
+
+    def test_bayesian_scheduler_retries_after_retuning(self) -> None:
+        scheduler = BayesianBandScheduler()
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, second_band, listening=False))
+
+        self.assertEqual(scheduler.choose_band(time_step=2), second_band)
+
+    def test_bayesian_scheduler_validates_forgetting_factor(self) -> None:
+        scheduler = BayesianBandScheduler(forgetting_factor=0.0)
+
+        with self.assertRaises(ValueError):
+            scheduler.reset(num_bands=2)
+
+    def test_bayesian_scheduler_limits_unvisited_band_gap(self) -> None:
+        scheduler = BayesianBandScheduler(
+            exploration_bonus=0.0,
+            switch_penalty=10.0,
+            max_band_gap=2,
+        )
+        scheduler.reset(num_bands=2)
+
+        selected_bands: list[int] = []
+        for time_step in range(6):
+            band = scheduler.choose_band(time_step)
+            selected_bands.append(band)
+            scheduler.observe(Observation(time_step, band, int(band == 0)))
+
+        for start in range(len(selected_bands) - 2):
+            self.assertEqual(set(selected_bands[start : start + 3]), {0, 1})
 
     def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
         scheduler = PeriodAwareScheduler(probe_steps=4)

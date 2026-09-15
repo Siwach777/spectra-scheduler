@@ -18,6 +18,7 @@ from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
+    BayesianBandScheduler,
     DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
@@ -124,6 +125,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
         "revisit-on-hit": RevisitOnHitScheduler,
         "ucb-bandit": UcbScheduler,
         "sliding-ucb": SlidingWindowUcbScheduler,
+        "bayesian-band": BayesianBandScheduler,
         "period-aware": PeriodAwareScheduler,
     }
 
