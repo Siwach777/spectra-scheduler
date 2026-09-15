@@ -288,3 +288,21 @@ interception. The detector sees aggregate activity on a band, not individual emi
 so a detected rate shift is not necessarily the known simulated radar mode change.
 Focused evaluation scenarios are needed before combining this detector with more
 prediction rules.
+
+## Focused scenario checks
+
+Three smaller scenarios isolate initial acquisition, one adjacent-band scanner, and
+one periodic radar that changes band halfway through the run. Each result below uses
+1,000 seeds with the same retuning model as the mixed comparison.
+
+| Scenario | Leading strategy | Interception | Relevant outcome |
+|---|---|---:|---:|
+| Acquisition | Transition band | 10.6% | 48.4% discovery |
+| Adjacent tracking | Adaptive dwell | 11.3% | 100.0% discovery |
+| Mode change | Change-aware | 22.4% | 85.8% reacquisition |
+
+In the mode-change case, plain Bayesian scoring reaches 20.2% interception and 71.0%
+reacquisition. Resetting stale band beliefs therefore has a clear effect when the
+target behavior is isolated. In adjacent tracking, adaptive dwell remains ahead of the
+transition policy's 8.4% interception. The anonymous transition table still cannot
+reliably associate separated detections with the same moving emitter.
