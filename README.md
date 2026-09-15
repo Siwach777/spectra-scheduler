@@ -45,6 +45,14 @@ Larger comparisons can use multiple CPU cores because each seeded run is indepen
 PYTHONPATH=src python3 scripts/run_comparison.py --runs 2000 --workers 4
 ```
 
+Use a focused scenario to inspect one scheduler behavior at a time:
+
+```bash
+PYTHONPATH=src python3 scripts/run_comparison.py --scenario change --runs 100
+```
+
+Available scenarios are `mixed`, `acquisition`, `tracking`, and `change`.
+
 Run the tests with:
 
 ```bash

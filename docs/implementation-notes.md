@@ -19,6 +19,7 @@ remain in [experiments.md](experiments.md).
 | Bayesian scheduler | Decaying per-band hit beliefs with exploration and switching cost | Add an inspectable probability-based policy before larger learning models |
 | Transition scheduler | A decaying table scores bands that followed recent detected bands | Test whether anonymous hit-to-hit motion is useful before adding signal tracking |
 | Change detection | Per-band older and recent hit windows trigger a local belief reset | React to sustained behavior shifts without using simulator change labels |
+| Focused scenarios | Separate acquisition, adjacent tracking, and mode-change cases | Measure each scheduler behavior without hiding it inside the mixed scenario |
 | Performance | Shared scenario truth and parallel independent runs | Support larger experiments before considering native code |
 
 New work should add or update one short row here describing both the change and its

@@ -1,21 +1,12 @@
-import random
 from collections.abc import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from itertools import repeat
 from multiprocessing import get_all_start_methods, get_context
 from statistics import fmean, pstdev
 
-from spectra_scheduler.emitters import (
-    BurstEmitter,
-    FrequencyHoppingEmitter,
-    JitteredPeriodicEmitter,
-    ModeSwitchingEmitter,
-    PeriodicEmitter,
-    ScanningEmitter,
-    WindowedEmitter,
-)
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
-from spectra_scheduler.receiver import Receiver
+from spectra_scheduler.scenarios import build_scenario
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
     BayesianBandScheduler,
@@ -31,92 +22,10 @@ from spectra_scheduler.schedulers import (
     TransitionBandScheduler,
     UcbScheduler,
 )
-from spectra_scheduler.simulation import Simulation
 
 
-def build_comparison_scenario(seed: int = 0) -> Simulation:
-    generator = random.Random(seed)
-    return Simulation(
-        num_bands=6,
-        duration=60,
-        emitters=(
-            WindowedEmitter(
-                PeriodicEmitter(
-                    "search",
-                    band=1,
-                    period=4,
-                    phase=generator.randrange(4),
-                    power_dbm=-72.0,
-                ),
-                end_time=36,
-            ),
-            ModeSwitchingEmitter(
-                first_mode=PeriodicEmitter(
-                    "tracking",
-                    band=4,
-                    period=7,
-                    phase=generator.randrange(7),
-                    power_dbm=-76.0,
-                ),
-                second_mode=PeriodicEmitter(
-                    "tracking",
-                    band=0,
-                    period=4,
-                    phase=generator.randrange(4),
-                    power_dbm=-84.0,
-                ),
-                switch_time=30,
-            ),
-            FrequencyHoppingEmitter(
-                "agile",
-                bands=(0, 3, 5, 2),
-                period=3,
-                phase=generator.randrange(3),
-                power_dbm=-80.0,
-            ),
-            ScanningEmitter(
-                "scanner",
-                lowest_band=1,
-                highest_band=4,
-                period=2,
-                phase=generator.randrange(2),
-                power_dbm=-83.0,
-            ),
-            WindowedEmitter(
-                BurstEmitter(
-                    "burst",
-                    band=5,
-                    burst_period=12,
-                    pulses_per_burst=3,
-                    phase=generator.randrange(12),
-                    power_dbm=-89.0,
-                ),
-                start_time=20,
-            ),
-            JitteredPeriodicEmitter(
-                "jittered",
-                band=2,
-                period=6,
-                jitter=2,
-                seed=seed + 1,
-                phase=generator.randrange(6),
-                power_dbm=-92.0,
-            ),
-        ),
-        receiver=Receiver(
-            detection_probability=0.85,
-            false_alarm_probability=0.05,
-            sensitivity_dbm=-90.0,
-            noise_std_db=3.0,
-            retune_steps=1,
-            tuning_speed_bands_per_step=2,
-            seed=seed + 2,
-        ),
-    )
-
-
-def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
-    simulation = build_comparison_scenario(seed)
+def run_comparison(seed: int = 0, scenario: str = "mixed") -> dict[str, ScanMetrics]:
+    simulation = build_scenario(scenario, seed)
     truth = simulation.generate_truth()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
@@ -181,11 +90,14 @@ def run_repeated_comparison(
     runs: int,
     start_seed: int = 0,
     workers: int = 1,
+    scenario: str = "mixed",
 ) -> dict[str, ComparisonStats]:
     if runs <= 0:
         raise ValueError("runs must be positive")
     if workers <= 0:
         raise ValueError("workers must be positive")
+
+    build_scenario(scenario, start_seed)
 
     collected: dict[str, list[ScanMetrics]] = {}
     seeds = range(start_seed, start_seed + runs)
@@ -196,7 +108,7 @@ def run_repeated_comparison(
                 collected.setdefault(name, []).append(metrics)
 
     if workers == 1:
-        collect(map(run_comparison, seeds))
+        collect(map(run_comparison, seeds, repeat(scenario)))
     else:
         worker_count = min(workers, runs)
         process_context = (
@@ -207,7 +119,14 @@ def run_repeated_comparison(
             mp_context=process_context,
         ) as executor:
             chunk_size = max(1, runs // (worker_count * 4))
-            collect(executor.map(run_comparison, seeds, chunksize=chunk_size))
+            collect(
+                executor.map(
+                    run_comparison,
+                    seeds,
+                    repeat(scenario),
+                    chunksize=chunk_size,
+                )
+            )
 
     summaries: dict[str, ComparisonStats] = {}
     for name, samples in collected.items():

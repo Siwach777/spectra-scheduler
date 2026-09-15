@@ -97,12 +97,16 @@ A per-band change detector now compares an older binary hit window with a shorte
 recent window. A sustained shift resets only the affected Bayesian belief. It never
 receives the simulator's known mode-change labels, and it ignores retuning steps.
 
+Scenario construction now lives outside the comparison runner. Alongside the mixed
+case, focused acquisition, adjacent tracking, and mode-change scenarios can be selected
+from the command line. This makes it possible to check the intended effect of a policy
+before judging its result in a crowded spectrum.
+
 ## Later stages
 
 - Introduce signal tracks only when observations contain enough measured features to
   associate related pulses without exposing simulator identities.
-- Add focused scenarios that isolate acquisition, tracking, and change response before
-  combining more scheduler mechanisms.
+- Add measured pulse features needed to associate observations into simple tracks.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
@@ -117,6 +121,7 @@ src/spectra_scheduler/
   receiver.py     missed detections and false alarms
   schedulers.py   scan strategies
   change_detection.py  observation-rate change detector
+  scenarios.py    mixed and focused simulation cases
   metrics.py      experiment measurements
   comparison.py   repeatable strategy comparisons
 scripts/

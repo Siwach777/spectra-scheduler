@@ -1,9 +1,16 @@
 import unittest
 
 from spectra_scheduler.comparison import (
-    build_comparison_scenario,
     run_comparison,
     run_repeated_comparison,
+)
+from spectra_scheduler.scenarios import (
+    SCENARIO_NAMES,
+    build_acquisition_scenario,
+    build_change_scenario,
+    build_comparison_scenario,
+    build_scenario,
+    build_tracking_scenario,
 )
 
 
@@ -102,6 +109,31 @@ class DemoTests(unittest.TestCase):
     def test_repeated_comparison_requires_a_worker(self) -> None:
         with self.assertRaises(ValueError):
             run_repeated_comparison(runs=2, workers=0)
+
+    def test_focused_scenarios_isolate_their_target_behavior(self) -> None:
+        acquisition = build_acquisition_scenario(seed=3)
+        tracking = build_tracking_scenario(seed=3)
+        change = build_change_scenario(seed=3)
+
+        self.assertEqual(len({event.emitter_id for event in acquisition.generate_truth()}), 4)
+        tracking_bands = [event.band for event in tracking.generate_truth()]
+        self.assertTrue(tracking_bands)
+        self.assertTrue(
+            all(
+                abs(first - second) == 1
+                for first, second in zip(tracking_bands, tracking_bands[1:])
+            )
+        )
+        self.assertEqual(len(change.generate_emitter_changes()), 1)
+
+    def test_named_scenarios_can_run_repeated_comparisons(self) -> None:
+        for scenario in SCENARIO_NAMES:
+            results = run_repeated_comparison(runs=2, scenario=scenario)
+            self.assertEqual(set(results), set(run_comparison(scenario=scenario)))
+
+    def test_rejects_unknown_scenario(self) -> None:
+        with self.assertRaises(ValueError):
+            build_scenario("missing")
 
 
 if __name__ == "__main__":
