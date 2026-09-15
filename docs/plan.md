@@ -124,10 +124,15 @@ Pulse-width measurements now include independent seeded relative error. The exis
 power-noise sample keys are preserved, so enabling the new uncertainty does not change
 the received-power sequence or unrelated scheduler baselines.
 
+Expired tracks now remain in a short archive. A later measurement can reconnect one
+only with tighter power and pulse-width thresholds than normal active association.
+This preserves its motion history and identifier while keeping archived tracks out of
+scheduler decisions until a measurement revives them.
+
 ## Later stages
 
 - Reduce track fragmentation without merging signals that only look similar.
-- Add a conservative way to reconnect expired tracks using measurement history.
+- Compare fixed association thresholds with uncertainty-aware matching.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.

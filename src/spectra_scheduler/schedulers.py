@@ -545,6 +545,9 @@ class TrackAwareScheduler(AdaptiveDwellScheduler):
     pulse_width_tolerance_us: float = 0.2
     power_tolerance_db: float = 8.0
     track_max_age_steps: int = 10
+    reconnect_pulse_width_tolerance_us: float = 0.1
+    reconnect_power_tolerance_db: float = 4.0
+    reconnect_max_age_steps: int = 30
     max_band_gap: int = 30
     maximum_tracking_misses: int = 2
     _tracker: SignalTracker = field(init=False)
@@ -567,6 +570,11 @@ class TrackAwareScheduler(AdaptiveDwellScheduler):
             pulse_width_tolerance_us=self.pulse_width_tolerance_us,
             power_tolerance_db=self.power_tolerance_db,
             max_age_steps=self.track_max_age_steps,
+            reconnect_pulse_width_tolerance_us=(
+                self.reconnect_pulse_width_tolerance_us
+            ),
+            reconnect_power_tolerance_db=self.reconnect_power_tolerance_db,
+            reconnect_max_age_steps=self.reconnect_max_age_steps,
         )
         self._retry_band = None
         self._using_track = False

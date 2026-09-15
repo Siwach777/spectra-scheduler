@@ -48,6 +48,27 @@ class SignalTrackerTests(unittest.TestCase):
 
         self.assertEqual(tracks, ())
 
+    def test_reconnects_a_compatible_archived_track(self) -> None:
+        tracker = SignalTracker(max_age_steps=2, reconnect_max_age_steps=8)
+        original = tracker.update(measured_observation(1, 1, -80.0, 1.0))[0]
+        tracker.update(Observation(time_step=4, band=0))
+
+        tracks = tracker.update(measured_observation(5, 2, -79.0, 1.05))
+
+        self.assertEqual(len(tracks), 1)
+        self.assertEqual(tracks[0].track_id, original.track_id)
+        self.assertEqual(tracks[0].observation_count, 2)
+
+    def test_does_not_reconnect_an_incompatible_archived_track(self) -> None:
+        tracker = SignalTracker(max_age_steps=2, reconnect_max_age_steps=8)
+        original = tracker.update(measured_observation(1, 1, -80.0, 1.0))[0]
+        tracker.update(Observation(time_step=4, band=0))
+
+        tracks = tracker.update(measured_observation(5, 2, -70.0, 1.5))
+
+        self.assertNotEqual(tracks[0].track_id, original.track_id)
+        self.assertEqual(len(tracker.archived_tracks), 1)
+
     def test_predicts_band_from_recent_motion(self) -> None:
         tracker = SignalTracker()
         tracker.update(measured_observation(1, 1, -80.0, 1.0))
@@ -79,6 +100,12 @@ class SignalTrackerTests(unittest.TestCase):
             SignalTracker(power_tolerance_db=0.0)
         with self.assertRaises(ValueError):
             SignalTracker(max_age_steps=0)
+        with self.assertRaises(ValueError):
+            SignalTracker(reconnect_pulse_width_tolerance_us=0.0)
+        with self.assertRaises(ValueError):
+            SignalTracker(reconnect_power_tolerance_db=0.0)
+        with self.assertRaises(ValueError):
+            SignalTracker(max_age_steps=10, reconnect_max_age_steps=9)
 
 
 if __name__ == "__main__":
