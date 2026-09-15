@@ -211,6 +211,31 @@ class SimulationTests(unittest.TestCase):
             [True, False, False, False, False],
         )
 
+    def test_longer_band_change_takes_more_retuning_steps(self) -> None:
+        class FarJumpScheduler:
+            def reset(self, num_bands: int) -> None:
+                pass
+
+            def choose_band(self, time_step: int) -> int:
+                return 0 if time_step == 0 else 5
+
+            def observe(self, observation: Observation) -> None:
+                pass
+
+        simulation = Simulation(
+            num_bands=6,
+            duration=5,
+            emitters=(),
+            receiver=Receiver(tuning_speed_bands_per_step=2),
+        )
+
+        result = simulation.run(FarJumpScheduler())
+
+        self.assertEqual(
+            [observation.listening for observation in result.observations],
+            [True, False, False, False, True],
+        )
+
     def test_precomputed_truth_can_be_reused(self) -> None:
         simulation = Simulation(
             num_bands=2,
