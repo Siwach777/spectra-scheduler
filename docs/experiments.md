@@ -252,3 +252,21 @@ up the unbounded policy's interception gain. More importantly, a separate belief
 each band cannot represent the scanner's direction of travel. The next scheduler
 experiment should learn observed band transitions instead of further tuning these
 constants against one scenario.
+
+## Anonymous transition baseline
+
+The probability scheduler was extended with a decaying table between successive
+detected bands. A transition contributes to the score only when the hits are close
+enough to be plausibly related. The scheduler still receives no emitter identity.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Bayesian band | 6.6% ± 2.2% | 52.2% | 26.3% | 41.7% | 20.5 |
+| Transition band | 6.6% ± 2.2% | 52.4% | 27.3% | 41.7% | 20.5 |
+
+A small sensitivity check across transition weights from 0.15 to 1.25 kept mean
+interception between 6.5% and 6.6%. The added table therefore gives only a marginal
+reacquisition improvement. Hits from several emitters and false alarms are mixed
+together, so anonymous transitions are too ambiguous to reliably track the scanning
+emitter. The next step is explicit change detection; later tracking will require
+measured signal features rather than hidden simulator identities.
