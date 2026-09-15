@@ -49,6 +49,12 @@ class ObservationTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             SignalMeasurement(power_dbm=math.inf)
 
+    def test_pulse_width_must_be_positive(self) -> None:
+        with self.assertRaises(ValueError):
+            Transmission(2, 1, "radar", pulse_width_us=0.0)
+        with self.assertRaises(ValueError):
+            SignalMeasurement(power_dbm=-70.0, pulse_width_us=0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

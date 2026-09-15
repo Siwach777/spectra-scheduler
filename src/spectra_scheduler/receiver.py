@@ -77,13 +77,19 @@ class Receiver:
             self._sample("false-alarm", time_step, band) < self.false_alarm_probability
         )
         measurements = tuple(
-            SignalMeasurement(measured_power) for _, measured_power in detected_events
+            SignalMeasurement(measured_power, event.pulse_width_us)
+            for event, measured_power in detected_events
         )
         if false_alarm:
             false_alarm_power = self.sensitivity_dbm + 3.0 * self._sample(
                 "false-alarm-power", time_step, band
             )
-            measurements += (SignalMeasurement(false_alarm_power),)
+            false_alarm_width = 0.2 + 2.8 * self._sample(
+                "false-alarm-width", time_step, band
+            )
+            measurements += (
+                SignalMeasurement(false_alarm_power, false_alarm_width),
+            )
         return DetectionRecord(
             observation=Observation(
                 time_step=time_step,

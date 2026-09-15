@@ -28,6 +28,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                     period=4,
                     phase=generator.randrange(4),
                     power_dbm=-72.0,
+                    pulse_width_us=0.8,
                 ),
                 end_time=36,
             ),
@@ -38,6 +39,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                     period=7,
                     phase=generator.randrange(7),
                     power_dbm=-76.0,
+                    pulse_width_us=1.4,
                 ),
                 second_mode=PeriodicEmitter(
                     "tracking",
@@ -45,6 +47,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                     period=4,
                     phase=generator.randrange(4),
                     power_dbm=-84.0,
+                    pulse_width_us=1.4,
                 ),
                 switch_time=30,
             ),
@@ -54,6 +57,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                 period=3,
                 phase=generator.randrange(3),
                 power_dbm=-80.0,
+                pulse_width_us=0.5,
             ),
             ScanningEmitter(
                 "scanner",
@@ -62,6 +66,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                 period=2,
                 phase=generator.randrange(2),
                 power_dbm=-83.0,
+                pulse_width_us=2.0,
             ),
             WindowedEmitter(
                 BurstEmitter(
@@ -71,6 +76,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                     pulses_per_burst=3,
                     phase=generator.randrange(12),
                     power_dbm=-89.0,
+                    pulse_width_us=0.3,
                 ),
                 start_time=20,
             ),
@@ -82,6 +88,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                 seed=seed + 1,
                 phase=generator.randrange(6),
                 power_dbm=-92.0,
+                pulse_width_us=1.1,
             ),
         ),
         receiver=Receiver(
@@ -108,6 +115,7 @@ def build_acquisition_scenario(seed: int = 0) -> Simulation:
                 period=5,
                 phase=generator.randrange(5),
                 power_dbm=-76.0,
+                pulse_width_us=0.5,
             ),
             PeriodicEmitter(
                 "acquisition-b",
@@ -115,6 +123,7 @@ def build_acquisition_scenario(seed: int = 0) -> Simulation:
                 period=7,
                 phase=generator.randrange(7),
                 power_dbm=-80.0,
+                pulse_width_us=0.9,
             ),
             PeriodicEmitter(
                 "acquisition-c",
@@ -122,6 +131,7 @@ def build_acquisition_scenario(seed: int = 0) -> Simulation:
                 period=9,
                 phase=generator.randrange(9),
                 power_dbm=-84.0,
+                pulse_width_us=1.4,
             ),
             WindowedEmitter(
                 PeriodicEmitter(
@@ -130,6 +140,7 @@ def build_acquisition_scenario(seed: int = 0) -> Simulation:
                     period=4,
                     phase=generator.randrange(4),
                     power_dbm=-82.0,
+                    pulse_width_us=2.0,
                 ),
                 start_time=20,
             ),
@@ -151,6 +162,7 @@ def build_tracking_scenario(seed: int = 0) -> Simulation:
                 period=2,
                 phase=generator.randrange(2),
                 power_dbm=-78.0,
+                pulse_width_us=2.0,
             ),
         ),
         receiver=_focused_receiver(seed),
@@ -170,6 +182,7 @@ def build_change_scenario(seed: int = 0) -> Simulation:
                     period=2,
                     phase=generator.randrange(2),
                     power_dbm=-78.0,
+                    pulse_width_us=1.4,
                 ),
                 second_mode=PeriodicEmitter(
                     "changing-radar",
@@ -177,6 +190,7 @@ def build_change_scenario(seed: int = 0) -> Simulation:
                     period=2,
                     phase=generator.randrange(2),
                     power_dbm=-78.0,
+                    pulse_width_us=1.4,
                 ),
                 switch_time=30,
             ),

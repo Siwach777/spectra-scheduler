@@ -18,6 +18,7 @@ def _validate_common(
     phase: int,
     duration: int,
     power_dbm: float,
+    pulse_width_us: float,
 ) -> None:
     if not emitter_id:
         raise ValueError("emitter_id cannot be empty")
@@ -29,6 +30,8 @@ def _validate_common(
         raise ValueError("duration cannot be negative")
     if not isfinite(power_dbm):
         raise ValueError("power_dbm must be finite")
+    if not isfinite(pulse_width_us) or pulse_width_us <= 0:
+        raise ValueError("pulse_width_us must be finite and positive")
 
 
 @dataclass(frozen=True)
@@ -40,6 +43,7 @@ class PeriodicEmitter:
     period: int
     phase: int = 0
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
         _validate_common(
@@ -48,12 +52,19 @@ class PeriodicEmitter:
             self.phase,
             duration,
             self.power_dbm,
+            self.pulse_width_us,
         )
         if not 0 <= self.band < num_bands:
             raise ValueError(f"band {self.band} is outside a {num_bands}-band spectrum")
 
         return [
-            Transmission(time_step, self.band, self.emitter_id, self.power_dbm)
+            Transmission(
+                time_step,
+                self.band,
+                self.emitter_id,
+                self.power_dbm,
+                self.pulse_width_us,
+            )
             for time_step in range(self.phase, duration, self.period)
         ]
 
@@ -67,6 +78,7 @@ class FrequencyHoppingEmitter:
     period: int
     phase: int = 0
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
         _validate_common(
@@ -75,6 +87,7 @@ class FrequencyHoppingEmitter:
             self.phase,
             duration,
             self.power_dbm,
+            self.pulse_width_us,
         )
         if not self.bands:
             raise ValueError("bands cannot be empty")
@@ -88,6 +101,7 @@ class FrequencyHoppingEmitter:
                 self.bands[index % len(self.bands)],
                 self.emitter_id,
                 self.power_dbm,
+                self.pulse_width_us,
             )
             for index, time_step in enumerate(range(self.phase, duration, self.period))
         ]
@@ -103,6 +117,7 @@ class ScanningEmitter:
     period: int
     phase: int = 0
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
         _validate_common(
@@ -111,6 +126,7 @@ class ScanningEmitter:
             self.phase,
             duration,
             self.power_dbm,
+            self.pulse_width_us,
         )
         if self.lowest_band < 0 or self.highest_band >= num_bands:
             raise ValueError("scan range is outside the spectrum")
@@ -126,6 +142,7 @@ class ScanningEmitter:
                 scan_cycle[index % len(scan_cycle)],
                 self.emitter_id,
                 self.power_dbm,
+                self.pulse_width_us,
             )
             for index, time_step in enumerate(range(self.phase, duration, self.period))
         ]
@@ -142,6 +159,7 @@ class BurstEmitter:
     pulse_spacing: int = 1
     phase: int = 0
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
         _validate_common(
@@ -150,6 +168,7 @@ class BurstEmitter:
             self.phase,
             duration,
             self.power_dbm,
+            self.pulse_width_us,
         )
         if not 0 <= self.band < num_bands:
             raise ValueError(f"band {self.band} is outside a {num_bands}-band spectrum")
@@ -172,6 +191,7 @@ class BurstEmitter:
                             self.band,
                             self.emitter_id,
                             self.power_dbm,
+                            self.pulse_width_us,
                         )
                     )
         return events
@@ -188,6 +208,7 @@ class JitteredPeriodicEmitter:
     seed: int = 0
     phase: int = 0
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
         _validate_common(
@@ -196,6 +217,7 @@ class JitteredPeriodicEmitter:
             self.phase,
             duration,
             self.power_dbm,
+            self.pulse_width_us,
         )
         if not 0 <= self.band < num_bands:
             raise ValueError(f"band {self.band} is outside a {num_bands}-band spectrum")
@@ -209,7 +231,13 @@ class JitteredPeriodicEmitter:
         time_step = self.phase
         while time_step < duration:
             events.append(
-                Transmission(time_step, self.band, self.emitter_id, self.power_dbm)
+                Transmission(
+                    time_step,
+                    self.band,
+                    self.emitter_id,
+                    self.power_dbm,
+                    self.pulse_width_us,
+                )
             )
             time_step += self.period + generator.randint(-self.jitter, self.jitter)
         return events

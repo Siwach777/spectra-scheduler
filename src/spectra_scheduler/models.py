@@ -10,6 +10,7 @@ class Transmission:
     band: int
     emitter_id: str
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def __post_init__(self) -> None:
         if self.time_step < 0:
@@ -20,6 +21,8 @@ class Transmission:
             raise ValueError("emitter_id cannot be empty")
         if not isfinite(self.power_dbm):
             raise ValueError("power_dbm must be finite")
+        if not isfinite(self.pulse_width_us) or self.pulse_width_us <= 0:
+            raise ValueError("pulse_width_us must be finite and positive")
 
 
 @dataclass(frozen=True, order=True)
@@ -41,10 +44,13 @@ class SignalMeasurement:
     """Receiver-visible properties of one detection, without a truth identity."""
 
     power_dbm: float
+    pulse_width_us: float = 1.0
 
     def __post_init__(self) -> None:
         if not isfinite(self.power_dbm):
             raise ValueError("measured power must be finite")
+        if not isfinite(self.pulse_width_us) or self.pulse_width_us <= 0:
+            raise ValueError("measured pulse width must be finite and positive")
 
 
 @dataclass(frozen=True)
