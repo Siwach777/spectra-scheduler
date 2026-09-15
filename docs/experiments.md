@@ -187,3 +187,24 @@ entire episode is lost to retuning. Fixed dwell restores useful listening time, 
 the adaptive schedulers naturally remain on an unobserved band after a retune. The
 next policy should choose dwell length from recent evidence instead of using a fixed
 two-step setting.
+
+## Distance-based retuning and adaptive dwell
+
+The receiver retains a one-step minimum retune cost and can cross two band indices per
+step. An adaptive dwell sweep waits through retuning, collects at least two listening
+observations per band, and adds up to two steps after each hit with a six-step cap.
+Results below use 1,000 seeds.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Dwell sweep | 3.5% ± 2.8% | 28.5% | 0.0% | 55.0% | 58.0 |
+| Adaptive dwell | 8.1% ± 3.5% | 54.5% | 56.5% | 30.5% | 24.9 |
+| UCB bandit | 5.9% ± 3.0% | 47.2% | 43.0% | 52.0% | 19.6 |
+| Sliding-window UCB | 5.7% ± 2.7% | 47.1% | 43.2% | 52.0% | 22.2 |
+| Period-aware probe | 6.1% ± 2.9% | 47.2% | 36.5% | 50.1% | 16.3 |
+
+Fixed two-step dwell does not cover the longest retune at the spectrum wrap, producing
+a poor maximum coverage gap. Adaptive dwell counts only actual listening steps, so it
+waits through that transition and spends more of the episode receiving. Extending a
+band after a hit improves interception and reacquisition, but its wider coverage gap
+shows the cost of staying longer on active bands.

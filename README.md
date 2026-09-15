@@ -12,7 +12,7 @@ how quickly transmissions are detected.
 - Build a small reproducible simulator.
 - Model emitters that enter, leave, or change behaviour during a scenario.
 - Model received power, sensitivity loss, and repeatable receiver noise.
-- Account for receiver retuning time through configurable dwell decisions.
+- Account for distance-based retuning cost and adapt dwell after detections.
 - Establish fixed-sweep and random baselines.
 - Add an adaptive scheduler that learns from hits and misses.
 - Forget stale observations so a scheduler can respond to changed emitters.

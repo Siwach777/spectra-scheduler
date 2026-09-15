@@ -16,6 +16,7 @@ from spectra_scheduler.emitters import (
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
+    AdaptiveDwellScheduler,
     DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
@@ -96,6 +97,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
             sensitivity_dbm=-90.0,
             noise_std_db=3.0,
             retune_steps=1,
+            tuning_speed_bands_per_step=2,
             seed=seed + 2,
         ),
     )
@@ -107,6 +109,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
         "dwell-sweep": DwellSweepScheduler,
+        "adaptive-dwell": AdaptiveDwellScheduler,
         "random": lambda: RandomScheduler(seed=seed + 3),
         "shuffled-sweep": lambda: ShuffledSweepScheduler(seed=seed + 4),
         "revisit-on-hit": RevisitOnHitScheduler,

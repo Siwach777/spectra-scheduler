@@ -66,6 +66,61 @@ class DwellSweepScheduler:
 
 
 @dataclass
+class AdaptiveDwellScheduler:
+    """Sweep all bands, extending the listening dwell after a hit."""
+
+    minimum_dwell_steps: int = 2
+    hit_extension_steps: int = 2
+    maximum_dwell_steps: int = 6
+    start_band: int = 0
+    _num_bands: int = field(init=False, default=0)
+    _current_band: int = field(init=False, default=0)
+    _remaining_dwell: int = field(init=False, default=0)
+    _listened_on_band: int = field(init=False, default=0)
+
+    def reset(self, num_bands: int) -> None:
+        if num_bands <= 0:
+            raise ValueError("num_bands must be positive")
+        if self.minimum_dwell_steps <= 0:
+            raise ValueError("minimum_dwell_steps must be positive")
+        if self.hit_extension_steps < 0:
+            raise ValueError("hit_extension_steps cannot be negative")
+        if self.maximum_dwell_steps < self.minimum_dwell_steps:
+            raise ValueError("maximum_dwell_steps cannot be shorter than minimum dwell")
+        if not 0 <= self.start_band < num_bands:
+            raise ValueError("start_band must be inside the spectrum")
+
+        self._num_bands = num_bands
+        self._current_band = self.start_band
+        self._remaining_dwell = self.minimum_dwell_steps
+        self._listened_on_band = 0
+
+    def choose_band(self, time_step: int) -> int:
+        if self._num_bands == 0:
+            raise RuntimeError("scheduler must be reset before use")
+        if self._remaining_dwell == 0:
+            self._current_band = (self._current_band + 1) % self._num_bands
+            self._remaining_dwell = self.minimum_dwell_steps
+            self._listened_on_band = 0
+        return self._current_band
+
+    def observe(self, observation: Observation) -> None:
+        if observation.band != self._current_band:
+            raise ValueError("observation does not match the selected band")
+        if not observation.listening:
+            return
+
+        self._remaining_dwell -= 1
+        self._listened_on_band += 1
+        if observation.hit:
+            available_extension = self.maximum_dwell_steps - self._listened_on_band
+            self._remaining_dwell = min(
+                self._remaining_dwell + self.hit_extension_steps,
+                available_extension,
+            )
+
+
+@dataclass
 class RandomScheduler:
     """Choose bands uniformly using a repeatable random seed."""
 

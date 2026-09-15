@@ -25,7 +25,7 @@ given to a scan strategy. This prevents a strategy from accidentally using futur
 hidden information.
 
 The first prototype is now working. It has perfect and noisy receiver modes, dynamic
-emitter patterns, eight scan strategies, hand-checked metrics, and repeated seeded
+emitter patterns, nine scan strategies, hand-checked metrics, and repeated seeded
 comparisons. The simple adaptive strategies currently remain baselines rather than a
 final solution.
 
@@ -74,9 +74,12 @@ Band changes can now consume receiver retuning steps. Repeated selections repres
 dwell without changing the scheduler interface. Evaluation reports time spent retuning,
 and adaptive policies ignore those steps instead of learning them as signal misses.
 
+Retuning delay can now increase with band distance. An adaptive dwell sweep waits until
+the receiver actually listens, uses a minimum observation dwell, and extends that dwell
+after detections up to a fixed safety cap.
+
 ## Later stages
 
-- Make retuning cost depend on frequency distance rather than a fixed step count.
 - Add a scanning emitter that sweeps adjacent bands.
 - Add probabilistic beliefs and explicit change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
