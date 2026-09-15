@@ -23,6 +23,7 @@ class DemoTests(unittest.TestCase):
                 "ucb-bandit",
                 "sliding-ucb",
                 "bayesian-band",
+                "change-aware",
                 "transition-band",
                 "period-aware",
             },

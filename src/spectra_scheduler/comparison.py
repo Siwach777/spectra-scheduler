@@ -19,6 +19,7 @@ from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
     BayesianBandScheduler,
+    ChangeAwareBayesianScheduler,
     DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
@@ -127,6 +128,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
         "ucb-bandit": UcbScheduler,
         "sliding-ucb": SlidingWindowUcbScheduler,
         "bayesian-band": BayesianBandScheduler,
+        "change-aware": ChangeAwareBayesianScheduler,
         "transition-band": TransitionBandScheduler,
         "period-aware": PeriodAwareScheduler,
     }
