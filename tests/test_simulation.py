@@ -332,6 +332,31 @@ class SchedulerTests(unittest.TestCase):
         for start in range(len(selected_bands) - 2):
             self.assertEqual(set(selected_bands[start : start + 3]), {0, 1})
 
+    def test_track_aware_scheduler_abandons_repeated_misses(self) -> None:
+        scheduler = TrackAwareScheduler(
+            minimum_dwell_steps=1,
+            maximum_dwell_steps=1,
+            maximum_tracking_misses=2,
+        )
+        scheduler.reset(num_bands=3)
+
+        for time_step in range(2):
+            band = scheduler.choose_band(time_step)
+            scheduler.observe(
+                Observation(
+                    time_step,
+                    band,
+                    detections=1,
+                    measurements=(SignalMeasurement(-80.0, 1.0),),
+                )
+            )
+        predicted_band = scheduler.choose_band(time_step=2)
+        scheduler.observe(Observation(2, predicted_band))
+        predicted_band = scheduler.choose_band(time_step=3)
+        scheduler.observe(Observation(3, predicted_band))
+
+        self.assertNotEqual(scheduler.choose_band(time_step=4), predicted_band)
+
     def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
         scheduler = PeriodAwareScheduler(probe_steps=4)
         scheduler.reset(num_bands=3)

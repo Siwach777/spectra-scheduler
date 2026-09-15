@@ -15,6 +15,16 @@ class SignalTrack:
     observation_count: int = 1
     previous_band: int | None = None
     previous_time: int | None = None
+    minimum_band: int | None = None
+    maximum_band: int | None = None
+    last_direction: int = 0
+    direction_changes: int = 0
+
+    def __post_init__(self) -> None:
+        if self.minimum_band is None:
+            self.minimum_band = self.last_band
+        if self.maximum_band is None:
+            self.maximum_band = self.last_band
 
     def update(
         self,
@@ -22,6 +32,12 @@ class SignalTrack:
         band: int,
         measurement: SignalMeasurement,
     ) -> None:
+        movement = band - self.last_band
+        direction = (movement > 0) - (movement < 0)
+        if direction:
+            if self.last_direction and direction != self.last_direction:
+                self.direction_changes += 1
+            self.last_direction = direction
         self.previous_band = self.last_band
         self.previous_time = self.last_time
         self.last_band = band
@@ -34,6 +50,8 @@ class SignalTrack:
         self.mean_pulse_width_us += weight * (
             measurement.pulse_width_us - self.mean_pulse_width_us
         )
+        self.minimum_band = min(self.minimum_band, band)
+        self.maximum_band = max(self.maximum_band, band)
 
     def predicted_band(self, time_step: int, num_bands: int) -> int:
         if num_bands <= 0:
@@ -47,7 +65,17 @@ class SignalTrack:
         velocity = (self.last_band - self.previous_band) / elapsed
         prediction_steps = max(0, time_step - self.last_time)
         predicted = round(self.last_band + velocity * prediction_steps)
+        if self.direction_changes and self.minimum_band != self.maximum_band:
+            predicted = self._reflect_prediction(predicted)
         return min(max(predicted, 0), num_bands - 1)
+
+    def _reflect_prediction(self, predicted: int) -> int:
+        while predicted < self.minimum_band or predicted > self.maximum_band:
+            if predicted > self.maximum_band:
+                predicted = self.maximum_band - (predicted - self.maximum_band)
+            elif predicted < self.minimum_band:
+                predicted = self.minimum_band + (self.minimum_band - predicted)
+        return predicted
 
 
 @dataclass
