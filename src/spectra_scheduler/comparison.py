@@ -1,11 +1,12 @@
 from collections.abc import Callable, Iterable
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import dataclass
+from itertools import repeat
 from multiprocessing import get_all_start_methods, get_context
 from statistics import fmean, pstdev
 
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
-from spectra_scheduler.scenarios import build_comparison_scenario
+from spectra_scheduler.scenarios import build_scenario
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
     BayesianBandScheduler,
@@ -23,8 +24,8 @@ from spectra_scheduler.schedulers import (
 )
 
 
-def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
-    simulation = build_comparison_scenario(seed)
+def run_comparison(seed: int = 0, scenario: str = "mixed") -> dict[str, ScanMetrics]:
+    simulation = build_scenario(scenario, seed)
     truth = simulation.generate_truth()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
@@ -89,11 +90,14 @@ def run_repeated_comparison(
     runs: int,
     start_seed: int = 0,
     workers: int = 1,
+    scenario: str = "mixed",
 ) -> dict[str, ComparisonStats]:
     if runs <= 0:
         raise ValueError("runs must be positive")
     if workers <= 0:
         raise ValueError("workers must be positive")
+
+    build_scenario(scenario, start_seed)
 
     collected: dict[str, list[ScanMetrics]] = {}
     seeds = range(start_seed, start_seed + runs)
@@ -104,7 +108,7 @@ def run_repeated_comparison(
                 collected.setdefault(name, []).append(metrics)
 
     if workers == 1:
-        collect(map(run_comparison, seeds))
+        collect(map(run_comparison, seeds, repeat(scenario)))
     else:
         worker_count = min(workers, runs)
         process_context = (
@@ -115,7 +119,14 @@ def run_repeated_comparison(
             mp_context=process_context,
         ) as executor:
             chunk_size = max(1, runs // (worker_count * 4))
-            collect(executor.map(run_comparison, seeds, chunksize=chunk_size))
+            collect(
+                executor.map(
+                    run_comparison,
+                    seeds,
+                    repeat(scenario),
+                    chunksize=chunk_size,
+                )
+            )
 
     summaries: dict[str, ComparisonStats] = {}
     for name, samples in collected.items():
