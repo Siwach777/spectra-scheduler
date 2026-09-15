@@ -120,10 +120,14 @@ uses truth labels only after assignment. It reports purity, mixed tracks, confir
 tracks, and the number of track fragments per detected emitter. These values are not
 available to a scheduler during simulation.
 
+Pulse-width measurements now include independent seeded relative error. The existing
+power-noise sample keys are preserved, so enabling the new uncertainty does not change
+the received-power sequence or unrelated scheduler baselines.
+
 ## Later stages
 
-- Add uncertainty to measured pulse width before trusting association results.
 - Reduce track fragmentation without merging signals that only look similar.
+- Add a conservative way to reconnect expired tracks using measurement history.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
