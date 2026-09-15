@@ -369,6 +369,27 @@ so simply extending track lifetime could reduce fragmentation while increasing f
 associations. Pulse-width measurement uncertainty should be modeled before changing
 that balance.
 
+### Conservative track reconnection
+
+Expired tracks are now archived for a limited interval. Reconnection requires a pulse
+width difference no greater than 0.10 microseconds and a power difference no greater
+than 4 dB, both tighter than active-track matching. A small coarse comparison rejected
+wider settings because they reduced mixed-scenario purity for only a modest continuity
+gain.
+
+| Scenario | Purity | Tracks per emitter | Track-aware interception |
+|---|---:|---:|---:|
+| Acquisition | 95.1% | 1.05 | 7.9% |
+| Adjacent tracking | 99.5% | 1.75 | 11.4% |
+| Mode change | 99.8% | 1.59 | 34.6% |
+| Mixed | 95.1% | 1.33 | 8.2% |
+
+Compared with the noisy-measurement baseline, scanner fragmentation falls from 2.39
+to 1.75 tracks per emitter, and adjacent-tracking interception rises from 10.5% to
+11.4%. Mixed purity decreases from 95.9% to 95.1%, while mixed interception remains
+8.2%. Reconnection improves continuity, but a fixed rectangular tolerance still does
+not express how uncertain each track estimate is.
+
 ### Pulse-width measurement uncertainty
 
 Focused and mixed receivers now add 5% standard relative error to pulse width using a

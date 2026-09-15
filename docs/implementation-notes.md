@@ -16,7 +16,7 @@ remain in [experiments.md](experiments.md).
 | Dynamic behavior | Emitters can enter, leave, and change operating modes | Test whether learned behavior becomes stale |
 | RF strength | Received power, sensitivity threshold, and measurement noise | Separate weak-signal loss from choosing the wrong band |
 | Signal measurements | Detected pulses expose independently seeded noisy power and pulse width without emitter IDs | Provide realistic association inputs while preserving the truth boundary |
-| Signal tracks | Similar measurements form expiring tracks, estimate motion, and reflect only after an observed reversal | Predict from receiver evidence instead of joining hits through hidden identities |
+| Signal tracks | Similar measurements form active tracks; tighter matching can reconnect a recently expired track | Preserve motion history while limiting accidental merges in crowded traffic |
 | Track-aware scheduler | Adaptive dwell acquires signals; confirmed tracks guide tuning until misses or the coverage guard interrupt pursuit | Combine broad search and focused tracking with explicit recovery limits |
 | Retuning | Band changes can use a fixed delay or a delay based on band distance; repeated selections mean dwell | Account for hardware cost without complicating the scheduler interface |
 | Adaptive dwell | A sweep waits through retuning and extends productive bands after a hit | Trade broad coverage against longer observation of useful bands |
