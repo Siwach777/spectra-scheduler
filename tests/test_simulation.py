@@ -13,6 +13,7 @@ from spectra_scheduler.schedulers import (
     RoundRobinScheduler,
     ShuffledSweepScheduler,
     SlidingWindowUcbScheduler,
+    TransitionBandScheduler,
     UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
@@ -206,6 +207,43 @@ class SchedulerTests(unittest.TestCase):
 
         for start in range(len(selected_bands) - 2):
             self.assertEqual(set(selected_bands[start : start + 3]), {0, 1})
+
+    def test_transition_scheduler_records_successive_hit_bands(self) -> None:
+        scheduler = TransitionBandScheduler(transition_forgetting_factor=1.0)
+        scheduler.reset(num_bands=3)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band, detections=1))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, second_band, detections=1))
+
+        self.assertGreater(
+            scheduler._transitions[first_band][second_band],
+            scheduler._transitions[first_band][first_band],
+        )
+
+    def test_transition_scheduler_ignores_distant_hits(self) -> None:
+        scheduler = TransitionBandScheduler(
+            transition_forgetting_factor=1.0,
+            max_transition_interval=1,
+        )
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band, detections=1))
+        second_band = scheduler.choose_band(time_step=2)
+        scheduler.observe(Observation(2, second_band, detections=1))
+
+        self.assertEqual(
+            scheduler._transitions[first_band][second_band],
+            scheduler.transition_prior,
+        )
+
+    def test_transition_scheduler_validates_transition_weight(self) -> None:
+        scheduler = TransitionBandScheduler(transition_weight=-0.1)
+
+        with self.assertRaises(ValueError):
+            scheduler.reset(num_bands=2)
 
     def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
         scheduler = PeriodAwareScheduler(probe_steps=4)

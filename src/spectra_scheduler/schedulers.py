@@ -387,22 +387,23 @@ class BayesianBandScheduler:
             self._selected_band = oldest_band
             return oldest_band
 
-        scores = []
-        for band, (hits, misses) in enumerate(
-            zip(self._hits, self._misses, strict=True)
-        ):
-            evidence = hits + misses
-            probability = hits / evidence
-            exploration = self.exploration_bonus / sqrt(evidence)
-            switching_cost = (
-                self.switch_penalty * abs(band - self._selected_band)
-                if self._selected_band is not None
-                else 0.0
-            )
-            scores.append(probability + exploration - switching_cost)
+        scores = [self._band_score(band) for band in range(self._num_bands)]
 
         self._selected_band = max(range(self._num_bands), key=scores.__getitem__)
         return self._selected_band
+
+    def _band_score(self, band: int) -> float:
+        hits = self._hits[band]
+        misses = self._misses[band]
+        evidence = hits + misses
+        probability = hits / evidence
+        exploration = self.exploration_bonus / sqrt(evidence)
+        switching_cost = (
+            self.switch_penalty * abs(band - self._selected_band)
+            if self._selected_band is not None
+            else 0.0
+        )
+        return probability + exploration - switching_cost
 
     def observe(self, observation: Observation) -> None:
         if self._selected_band is None:
@@ -425,6 +426,78 @@ class BayesianBandScheduler:
         self._misses[observation.band] += int(not observation.hit)
         self._visits[observation.band] += 1
         self._last_visited[observation.band] = observation.time_step
+
+
+@dataclass
+class TransitionBandScheduler(BayesianBandScheduler):
+    """Add recent detected-band transitions to the probability score."""
+
+    transition_prior: float = 1.0
+    transition_weight: float = 0.35
+    transition_forgetting_factor: float = 0.97
+    max_transition_interval: int = 8
+    _transitions: list[list[float]] = field(init=False, default_factory=list)
+    _last_hit_band: int | None = field(init=False, default=None)
+    _last_hit_time: int | None = field(init=False, default=None)
+
+    def reset(self, num_bands: int) -> None:
+        if self.transition_prior <= 0:
+            raise ValueError("transition_prior must be positive")
+        if self.transition_weight < 0:
+            raise ValueError("transition_weight cannot be negative")
+        if not 0.0 < self.transition_forgetting_factor <= 1.0:
+            raise ValueError(
+                "transition_forgetting_factor must be between zero and one"
+            )
+        if self.max_transition_interval <= 0:
+            raise ValueError("max_transition_interval must be positive")
+
+        super().reset(num_bands)
+        self._transitions = [
+            [self.transition_prior] * num_bands for _ in range(num_bands)
+        ]
+        self._last_hit_band = None
+        self._last_hit_time = None
+
+    def _band_score(self, band: int) -> float:
+        score = super()._band_score(band)
+        if self._last_hit_band is None:
+            return score
+
+        transition_row = self._transitions[self._last_hit_band]
+        transition_probability = transition_row[band] / sum(transition_row)
+        return score + self.transition_weight * transition_probability
+
+    def observe(self, observation: Observation) -> None:
+        super().observe(observation)
+        if not observation.listening:
+            return
+
+        for row_index in range(self._num_bands):
+            for column_index in range(self._num_bands):
+                self._transitions[row_index][column_index] = (
+                    self.transition_prior
+                    + (
+                        self._transitions[row_index][column_index]
+                        - self.transition_prior
+                    )
+                    * self.transition_forgetting_factor
+                )
+
+        if not observation.hit:
+            return
+
+        if (
+            self._last_hit_band is not None
+            and self._last_hit_time is not None
+            and observation.time_step - self._last_hit_time
+            <= self.max_transition_interval
+        ):
+            self._transitions[self._last_hit_band][observation.band] += (
+                observation.detections
+            )
+        self._last_hit_band = observation.band
+        self._last_hit_time = observation.time_step
 
 
 @dataclass
