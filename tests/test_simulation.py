@@ -1,7 +1,7 @@
 import unittest
 
 from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
-from spectra_scheduler.models import Observation
+from spectra_scheduler.models import Observation, SignalMeasurement
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
@@ -15,6 +15,7 @@ from spectra_scheduler.schedulers import (
     ShuffledSweepScheduler,
     SlidingWindowUcbScheduler,
     TransitionBandScheduler,
+    TrackAwareScheduler,
     UcbScheduler,
 )
 from spectra_scheduler.simulation import Simulation
@@ -278,6 +279,58 @@ class SchedulerTests(unittest.TestCase):
         scheduler.observe(Observation(2, band))
 
         self.assertEqual(scheduler.detected_change_count, 1)
+
+    def test_track_aware_scheduler_follows_confirmed_motion(self) -> None:
+        scheduler = TrackAwareScheduler(
+            minimum_dwell_steps=1,
+            maximum_dwell_steps=1,
+        )
+        scheduler.reset(num_bands=3)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(
+            Observation(
+                0,
+                first_band,
+                detections=1,
+                measurements=(SignalMeasurement(-80.0, 1.0),),
+            )
+        )
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(
+            Observation(
+                1,
+                second_band,
+                detections=1,
+                measurements=(SignalMeasurement(-79.0, 1.0),),
+            )
+        )
+
+        self.assertEqual(scheduler.choose_band(time_step=2), 2)
+        self.assertEqual(scheduler.track_count, 1)
+
+    def test_track_aware_scheduler_validates_confirmation_count(self) -> None:
+        scheduler = TrackAwareScheduler(minimum_track_observations=1)
+
+        with self.assertRaises(ValueError):
+            scheduler.reset(num_bands=2)
+
+    def test_track_aware_scheduler_limits_coverage_gap(self) -> None:
+        scheduler = TrackAwareScheduler(
+            minimum_dwell_steps=1,
+            maximum_dwell_steps=1,
+            max_band_gap=2,
+        )
+        scheduler.reset(num_bands=2)
+
+        selected_bands = []
+        for time_step in range(6):
+            band = scheduler.choose_band(time_step)
+            selected_bands.append(band)
+            scheduler.observe(Observation(time_step, band))
+
+        for start in range(len(selected_bands) - 2):
+            self.assertEqual(set(selected_bands[start : start + 3]), {0, 1})
 
     def test_period_aware_scheduler_probes_then_returns_when_due(self) -> None:
         scheduler = PeriodAwareScheduler(probe_steps=4)
