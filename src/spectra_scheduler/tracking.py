@@ -91,7 +91,11 @@ class SignalTracker:
     pulse_width_tolerance_us: float = 0.2
     power_tolerance_db: float = 8.0
     max_age_steps: int = 10
+    reconnect_pulse_width_tolerance_us: float = 0.1
+    reconnect_power_tolerance_db: float = 4.0
+    reconnect_max_age_steps: int = 30
     _tracks: list[SignalTrack] = field(init=False, default_factory=list)
+    _archived_tracks: list[SignalTrack] = field(init=False, default_factory=list)
     _next_track_id: int = field(init=False, default=0)
     _last_assignments: tuple[TrackAssignment, ...] = field(
         init=False,
@@ -105,10 +109,20 @@ class SignalTracker:
             raise ValueError("power_tolerance_db must be positive")
         if self.max_age_steps <= 0:
             raise ValueError("max_age_steps must be positive")
+        if self.reconnect_pulse_width_tolerance_us <= 0:
+            raise ValueError("reconnect_pulse_width_tolerance_us must be positive")
+        if self.reconnect_power_tolerance_db <= 0:
+            raise ValueError("reconnect_power_tolerance_db must be positive")
+        if self.reconnect_max_age_steps < self.max_age_steps:
+            raise ValueError("reconnect_max_age_steps cannot be shorter than max age")
 
     @property
     def tracks(self) -> tuple[SignalTrack, ...]:
         return tuple(self._tracks)
+
+    @property
+    def archived_tracks(self) -> tuple[SignalTrack, ...]:
+        return tuple(self._archived_tracks)
 
     @property
     def last_assignments(self) -> tuple[TrackAssignment, ...]:
@@ -116,28 +130,61 @@ class SignalTracker:
 
     def reset(self) -> None:
         self._tracks.clear()
+        self._archived_tracks.clear()
         self._next_track_id = 0
         self._last_assignments = ()
 
     def update(self, observation: Observation) -> tuple[SignalTrack, ...]:
-        self._tracks = [
+        active_tracks = []
+        for track in self._tracks:
+            age = observation.time_step - track.last_time
+            if age <= self.max_age_steps:
+                active_tracks.append(track)
+            elif age <= self.reconnect_max_age_steps:
+                self._archived_tracks.append(track)
+        self._tracks = active_tracks
+        self._archived_tracks = [
             track
-            for track in self._tracks
-            if observation.time_step - track.last_time <= self.max_age_steps
+            for track in self._archived_tracks
+            if observation.time_step - track.last_time <= self.reconnect_max_age_steps
         ]
         if not observation.listening:
             self._last_assignments = ()
             return self.tracks
 
         available_track_ids = {track.track_id for track in self._tracks}
+        available_archived_ids = {
+            track.track_id for track in self._archived_tracks
+        }
         assignments = []
         for measurement_index, measurement in enumerate(observation.measurements):
-            track = self._best_match(measurement, available_track_ids)
+            track = self._best_match(
+                measurement,
+                self._tracks,
+                available_track_ids,
+                self.pulse_width_tolerance_us,
+                self.power_tolerance_db,
+            )
+            reconnected = False
+            if track is None:
+                track = self._best_match(
+                    measurement,
+                    self._archived_tracks,
+                    available_archived_ids,
+                    self.reconnect_pulse_width_tolerance_us,
+                    self.reconnect_power_tolerance_db,
+                )
+                reconnected = track is not None
             if track is None:
                 track = self._new_track(observation, measurement)
             else:
+                if reconnected:
+                    self._archived_tracks.remove(track)
+                    self._tracks.append(track)
+                    available_archived_ids.remove(track.track_id)
+                else:
+                    available_track_ids.remove(track.track_id)
                 track.update(observation.time_step, observation.band, measurement)
-                available_track_ids.remove(track.track_id)
             assignments.append(TrackAssignment(measurement_index, track.track_id))
         self._last_assignments = tuple(assignments)
         return self.tracks
@@ -145,10 +192,13 @@ class SignalTracker:
     def _best_match(
         self,
         measurement: SignalMeasurement,
+        tracks: list[SignalTrack],
         available_track_ids: set[int],
+        pulse_width_tolerance_us: float,
+        power_tolerance_db: float,
     ) -> SignalTrack | None:
         candidates = []
-        for track in self._tracks:
+        for track in tracks:
             if track.track_id not in available_track_ids:
                 continue
             width_difference = abs(
@@ -156,12 +206,12 @@ class SignalTracker:
             )
             power_difference = abs(measurement.power_dbm - track.mean_power_dbm)
             if (
-                width_difference <= self.pulse_width_tolerance_us
-                and power_difference <= self.power_tolerance_db
+                width_difference <= pulse_width_tolerance_us
+                and power_difference <= power_tolerance_db
             ):
                 score = (
-                    width_difference / self.pulse_width_tolerance_us
-                    + power_difference / self.power_tolerance_db
+                    width_difference / pulse_width_tolerance_us
+                    + power_difference / power_tolerance_db
                 )
                 candidates.append((score, track.track_id, track))
         if not candidates:
