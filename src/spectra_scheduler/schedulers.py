@@ -546,16 +546,22 @@ class TrackAwareScheduler(AdaptiveDwellScheduler):
     power_tolerance_db: float = 8.0
     track_max_age_steps: int = 10
     max_band_gap: int = 30
+    maximum_tracking_misses: int = 2
     _tracker: SignalTracker = field(init=False)
     _retry_band: int | None = field(init=False, default=None)
     _using_track: bool = field(init=False, default=False)
     _last_visited: list[int] = field(init=False, default_factory=list)
+    _active_track_id: int | None = field(init=False, default=None)
+    _tracking_misses: int = field(init=False, default=0)
+    _suppressed_track_ids: set[int] = field(init=False, default_factory=set)
 
     def reset(self, num_bands: int) -> None:
         if self.minimum_track_observations < 2:
             raise ValueError("minimum_track_observations must be at least two")
         if self.max_band_gap <= 0:
             raise ValueError("max_band_gap must be positive")
+        if self.maximum_tracking_misses <= 0:
+            raise ValueError("maximum_tracking_misses must be positive")
         super().reset(num_bands)
         self._tracker = SignalTracker(
             pulse_width_tolerance_us=self.pulse_width_tolerance_us,
@@ -565,6 +571,9 @@ class TrackAwareScheduler(AdaptiveDwellScheduler):
         self._retry_band = None
         self._using_track = False
         self._last_visited = [-1] * num_bands
+        self._active_track_id = None
+        self._tracking_misses = 0
+        self._suppressed_track_ids.clear()
 
     @property
     def track_count(self) -> int:
@@ -586,18 +595,24 @@ class TrackAwareScheduler(AdaptiveDwellScheduler):
             self._remaining_dwell = 1
             self._listened_on_band = 0
             self._using_track = False
+            self._active_track_id = None
+            self._tracking_misses = 0
             return self._current_band
 
         confirmed_tracks = [
             track
             for track in self._tracker.tracks
             if track.observation_count >= self.minimum_track_observations
+            and track.track_id not in self._suppressed_track_ids
         ]
         if confirmed_tracks:
             track = max(
                 confirmed_tracks,
                 key=lambda candidate: (candidate.last_time, candidate.observation_count),
             )
+            if track.track_id != self._active_track_id:
+                self._tracking_misses = 0
+            self._active_track_id = track.track_id
             self._current_band = track.predicted_band(
                 time_step=time_step + 1,
                 num_bands=self._num_bands,
@@ -608,18 +623,34 @@ class TrackAwareScheduler(AdaptiveDwellScheduler):
         if self._using_track:
             self._remaining_dwell = 0
         self._using_track = False
+        self._active_track_id = None
+        self._tracking_misses = 0
         return super().choose_band(time_step)
 
     def observe(self, observation: Observation) -> None:
         if observation.band != self._current_band:
             raise ValueError("observation does not match the selected band")
-        self._tracker.update(observation)
+        tracks = self._tracker.update(observation)
+        refreshed_track_ids = {
+            track.track_id for track in tracks if track.last_time == observation.time_step
+        }
+        self._suppressed_track_ids.difference_update(refreshed_track_ids)
         if not observation.listening:
             self._retry_band = observation.band
             return
         self._last_visited[observation.band] = observation.time_step
-        if not self._using_track:
-            super().observe(observation)
+        if self._using_track:
+            if self._active_track_id in refreshed_track_ids:
+                self._tracking_misses = 0
+            else:
+                self._tracking_misses += 1
+                if self._tracking_misses >= self.maximum_tracking_misses:
+                    self._suppressed_track_ids.add(self._active_track_id)
+                    self._using_track = False
+                    self._active_track_id = None
+                    self._remaining_dwell = 0
+            return
+        super().observe(observation)
 
 
 @dataclass

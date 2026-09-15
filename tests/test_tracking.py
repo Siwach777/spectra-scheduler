@@ -60,6 +60,16 @@ class SignalTrackerTests(unittest.TestCase):
 
         self.assertEqual(track.predicted_band(time_step=4, num_bands=6), 5)
 
+    def test_reflects_prediction_after_observed_reversal(self) -> None:
+        tracker = SignalTracker()
+        tracker.update(measured_observation(1, 1, -80.0, 1.0))
+        tracker.update(measured_observation(3, 2, -80.0, 1.0))
+        tracker.update(measured_observation(5, 3, -80.0, 1.0))
+        track = tracker.update(measured_observation(7, 2, -80.0, 1.0))[0]
+
+        self.assertEqual(track.direction_changes, 1)
+        self.assertEqual(track.predicted_band(time_step=9, num_bands=6), 1)
+
     def test_rejects_invalid_settings(self) -> None:
         with self.assertRaises(ValueError):
             SignalTracker(pulse_width_tolerance_us=0.0)
