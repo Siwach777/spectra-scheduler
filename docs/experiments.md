@@ -306,3 +306,24 @@ reacquisition. Resetting stale band beliefs therefore has a clear effect when th
 target behavior is isolated. In adjacent tracking, adaptive dwell remains ahead of the
 transition policy's 8.4% interception. The anonymous transition table still cannot
 reliably associate separated detections with the same moving emitter.
+
+## Measurement-based signal tracks
+
+Detected power and pulse width are now associated into expiring tracks. Two associated
+observations confirm a track and provide a linear band-motion estimate. The scheduler
+uses adaptive dwell for acquisition, follows confirmed predictions, and interrupts a
+pursuit when the configured coverage gap is reached.
+
+| Scenario | Track-aware interception | Main baseline | Other outcome |
+|---|---:|---:|---:|
+| Mixed | 8.4% ± 3.2% | Adaptive dwell: 8.3% | 61.7% discovery |
+| Acquisition | 8.2% ± 4.3% | Bayesian band: 10.5% | 58.3% discovery |
+| Adjacent tracking | 9.7% ± 2.7% | Adaptive dwell: 11.3% | 99.9% discovery |
+| Mode change | 42.4% ± 13.5% | Change-aware: 22.4% | 92.9% reacquisition |
+
+The configured 30-step coverage guard gives a 29.8-step mean maximum gap in mixed
+traffic; the end of a short run can still finish before an overdue correction. The
+tracker is especially effective after confirming a stationary periodic signal, while
+linear extrapolation loses the adjacent scanner when it reverses direction. The next
+tracking change should represent motion confidence and boundary reversal rather than
+increasing pursuit time.

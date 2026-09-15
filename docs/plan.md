@@ -25,7 +25,7 @@ given to a scan strategy. This prevents a strategy from accidentally using futur
 hidden information.
 
 The first prototype is now working. It has perfect and noisy receiver modes, dynamic
-emitter patterns, nine scan strategies, hand-checked metrics, and repeated seeded
+emitter patterns, several scan strategies, hand-checked metrics, and repeated seeded
 comparisons. The simple adaptive strategies currently remain baselines rather than a
 final solution.
 
@@ -108,10 +108,15 @@ evaluation record. False alarms also receive plausible measurements so a schedul
 cannot identify them from a missing field. Existing count-based schedulers continue to
 work unchanged.
 
+Similar power and pulse-width measurements can now form short-lived tracks. A
+track-aware scheduler starts with adaptive dwell, follows the predicted band of a
+confirmed track, retries through retuning, and forces overdue coverage. The first
+motion estimate is linear, so it does not yet understand reversal at scan boundaries.
+
 ## Later stages
 
-- Associate similar measurements into short-lived signal tracks without exposing
-  simulator identities.
+- Model confidence and scan-boundary reversal in track predictions.
+- Measure association quality separately from scheduling outcomes.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
@@ -126,6 +131,7 @@ src/spectra_scheduler/
   receiver.py     missed detections and false alarms
   schedulers.py   scan strategies
   change_detection.py  observation-rate change detector
+  tracking.py     anonymous measurement association and motion estimate
   scenarios.py    mixed and focused simulation cases
   metrics.py      experiment measurements
   comparison.py   repeatable strategy comparisons
