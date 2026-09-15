@@ -14,6 +14,7 @@ class Receiver:
     sensitivity_dbm: float = -90.0
     noise_std_db: float = 0.0
     retune_steps: int = 0
+    tuning_speed_bands_per_step: int | None = None
     seed: int = 0
 
     def __post_init__(self) -> None:
@@ -25,6 +26,22 @@ class Receiver:
             raise ValueError("noise_std_db cannot be negative")
         if self.retune_steps < 0:
             raise ValueError("retune_steps cannot be negative")
+        if (
+            self.tuning_speed_bands_per_step is not None
+            and self.tuning_speed_bands_per_step <= 0
+        ):
+            raise ValueError("tuning_speed_bands_per_step must be positive")
+
+    def retune_duration(self, previous_band: int, next_band: int) -> int:
+        distance = abs(next_band - previous_band)
+        if distance == 0:
+            return 0
+        if self.tuning_speed_bands_per_step is None:
+            return self.retune_steps
+
+        speed = self.tuning_speed_bands_per_step
+        distance_delay = (distance + speed - 1) // speed
+        return max(self.retune_steps, distance_delay)
 
     def listen(
         self,

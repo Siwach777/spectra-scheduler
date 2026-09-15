@@ -4,6 +4,7 @@ from spectra_scheduler.emitters import FrequencyHoppingEmitter, PeriodicEmitter
 from spectra_scheduler.models import Observation
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
+    AdaptiveDwellScheduler,
     DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
@@ -38,6 +39,42 @@ class SchedulerTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             scheduler.reset(num_bands=3)
+
+    def test_adaptive_dwell_extends_after_a_hit(self) -> None:
+        scheduler = AdaptiveDwellScheduler(
+            minimum_dwell_steps=2,
+            hit_extension_steps=2,
+            maximum_dwell_steps=4,
+        )
+        scheduler.reset(num_bands=2)
+
+        selected_bands: list[int] = []
+        for time_step in range(5):
+            band = scheduler.choose_band(time_step)
+            selected_bands.append(band)
+            scheduler.observe(Observation(time_step, band, int(time_step == 0)))
+
+        self.assertEqual(selected_bands, [0, 0, 0, 0, 1])
+
+    def test_adaptive_dwell_does_not_count_retuning_as_listening(self) -> None:
+        scheduler = AdaptiveDwellScheduler(minimum_dwell_steps=1)
+        scheduler.reset(num_bands=2)
+
+        first_band = scheduler.choose_band(time_step=0)
+        scheduler.observe(Observation(0, first_band))
+        second_band = scheduler.choose_band(time_step=1)
+        scheduler.observe(Observation(1, second_band, listening=False))
+
+        self.assertEqual(scheduler.choose_band(time_step=2), second_band)
+
+    def test_adaptive_dwell_rejects_maximum_below_minimum(self) -> None:
+        scheduler = AdaptiveDwellScheduler(
+            minimum_dwell_steps=3,
+            maximum_dwell_steps=2,
+        )
+
+        with self.assertRaises(ValueError):
+            scheduler.reset(num_bands=2)
 
     def test_random_scheduler_restarts_from_same_seed(self) -> None:
         scheduler = RandomScheduler(seed=42)
@@ -209,6 +246,31 @@ class SimulationTests(unittest.TestCase):
         self.assertEqual(
             [observation.listening for observation in result.observations],
             [True, False, False, False, False],
+        )
+
+    def test_longer_band_change_takes_more_retuning_steps(self) -> None:
+        class FarJumpScheduler:
+            def reset(self, num_bands: int) -> None:
+                pass
+
+            def choose_band(self, time_step: int) -> int:
+                return 0 if time_step == 0 else 5
+
+            def observe(self, observation: Observation) -> None:
+                pass
+
+        simulation = Simulation(
+            num_bands=6,
+            duration=5,
+            emitters=(),
+            receiver=Receiver(tuning_speed_bands_per_step=2),
+        )
+
+        result = simulation.run(FarJumpScheduler())
+
+        self.assertEqual(
+            [observation.listening for observation in result.observations],
+            [True, False, False, False, True],
         )
 
     def test_precomputed_truth_can_be_reused(self) -> None:

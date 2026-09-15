@@ -79,6 +79,17 @@ class ReceiverTests(unittest.TestCase):
             Receiver(noise_std_db=-0.1)
         with self.assertRaises(ValueError):
             Receiver(retune_steps=-1)
+        with self.assertRaises(ValueError):
+            Receiver(tuning_speed_bands_per_step=0)
+
+    def test_retuning_duration_grows_with_band_distance(self) -> None:
+        receiver = Receiver(retune_steps=1, tuning_speed_bands_per_step=2)
+
+        self.assertEqual(receiver.retune_duration(2, 2), 0)
+        self.assertEqual(receiver.retune_duration(0, 1), 1)
+        self.assertEqual(receiver.retune_duration(0, 2), 1)
+        self.assertEqual(receiver.retune_duration(0, 3), 2)
+        self.assertEqual(receiver.retune_duration(0, 5), 3)
 
 
 if __name__ == "__main__":

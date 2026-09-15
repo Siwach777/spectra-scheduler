@@ -64,7 +64,7 @@ class Simulation:
                 raise ValueError(f"scheduler chose invalid band {band} at step {time_step}")
 
             if previous_band is not None and band != previous_band:
-                retune_remaining = self.receiver.retune_steps
+                retune_remaining = self.receiver.retune_duration(previous_band, band)
             previous_band = band
 
             if retune_remaining > 0:

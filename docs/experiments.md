@@ -2,8 +2,6 @@
 
 ## Initial noisy comparison with fixed emitter phases
 
-Date: 14 September 2026
-
 The first repeated comparison used 30 seeds, six bands, 60 time steps, 85% receiver
 detection probability, and 5% false-alarm probability. The scenario contained fixed,
 hopping, burst, and jittered emitters.
@@ -38,8 +36,6 @@ gap rather than tuning the scheduler against the current fixed scenario.
 
 ## Randomized-phase comparison
 
-Date: 14 September 2026
-
 The emitter phases were then generated from each scenario seed. The comparison was
 expanded to 100 seeds; receiver settings and the 60-step duration remained unchanged.
 
@@ -57,8 +53,6 @@ delay discovery of other emitters. The next change should limit how long any ban
 go unvisited and should evaluate emitter discovery separately from event interception.
 
 ## Coverage-limited timing comparison
-
-Date: 14 September 2026
 
 Emitter discovery ratio and maximum unvisited-band gap were added to show the cost of
 staying on productive bands. The period-aware policy was limited to a configured
@@ -82,8 +76,6 @@ a shuffled sweep: visit every band once per cycle while changing the order each 
 
 ## Shuffled sweep baseline
 
-Date: 14 September 2026
-
 The shuffled sweep was evaluated with the same 100 seeds. It visits every band once
 per cycle but changes the order between cycles.
 
@@ -99,8 +91,6 @@ best discovery baseline and is a better reference than fixed round-robin alone.
 
 ## Repeated-run performance check
 
-Date: 14 September 2026
-
 Profiling a 2,000-seed comparison showed that scenario truth was being regenerated for
 all six strategies. Reusing it once per seed reduced runtime from about 2.63 seconds to
 2.07 seconds on the development machine.
@@ -112,8 +102,6 @@ contend on the interpreter lock. Results from sequential and parallel execution 
 checked for exact equality.
 
 ## Dynamic-emitter comparison
-
-Date: 14 September 2026
 
 The 60-step scenario was changed so the search emitter stops at step 36, the burst
 emitter begins at step 20, and the tracking emitter changes from band 4 with a
@@ -136,8 +124,6 @@ is the next experiment so observations eventually become stale.
 
 ## Sliding-window UCB baseline
 
-Date: 14 September 2026
-
 UCB was changed to retain only the most recent 20 observations. A 1,000-seed run was
 used for this comparison so the reacquisition result was not based on a small set of
 emitter phases.
@@ -155,8 +141,6 @@ more changed emitters. The window size is still a fixed assumption; it should la
 compared with explicit change detection rather than tuned only on this scenario.
 
 ## Signal strength and sensitivity
-
-Date: 14 September 2026
 
 Each emitter was assigned a received power between -72 and -92 dBm. The receiver used
 a -90 dBm sensitivity threshold, 3 dB seeded measurement variation, 85% detection
@@ -181,8 +165,6 @@ receiver sensitivity.
 
 ## Retuning and dwell comparison
 
-Date: 15 September 2026
-
 The receiver was given a one-step retuning delay. Selecting the same band again means
 dwelling, so the scheduler interface did not need a separate action type. A two-step
 dwell sweep was added, and UCB policies ignore retuning observations rather than
@@ -205,3 +187,24 @@ entire episode is lost to retuning. Fixed dwell restores useful listening time, 
 the adaptive schedulers naturally remain on an unobserved band after a retune. The
 next policy should choose dwell length from recent evidence instead of using a fixed
 two-step setting.
+
+## Distance-based retuning and adaptive dwell
+
+The receiver retains a one-step minimum retune cost and can cross two band indices per
+step. An adaptive dwell sweep waits through retuning, collects at least two listening
+observations per band, and adds up to two steps after each hit with a six-step cap.
+Results below use 1,000 seeds.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Dwell sweep | 3.5% ± 2.8% | 28.5% | 0.0% | 55.0% | 58.0 |
+| Adaptive dwell | 8.1% ± 3.5% | 54.5% | 56.5% | 30.5% | 24.9 |
+| UCB bandit | 5.9% ± 3.0% | 47.2% | 43.0% | 52.0% | 19.6 |
+| Sliding-window UCB | 5.7% ± 2.7% | 47.1% | 43.2% | 52.0% | 22.2 |
+| Period-aware probe | 6.1% ± 2.9% | 47.2% | 36.5% | 50.1% | 16.3 |
+
+Fixed two-step dwell does not cover the longest retune at the spectrum wrap, producing
+a poor maximum coverage gap. Adaptive dwell counts only actual listening steps, so it
+waits through that transition and spends more of the episode receiving. Extending a
+band after a hit improves interception and reacquisition, but its wider coverage gap
+shows the cost of staying longer on active bands.
