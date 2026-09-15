@@ -1,10 +1,10 @@
 import unittest
 
 from spectra_scheduler.comparison import (
-    build_comparison_scenario,
     run_comparison,
     run_repeated_comparison,
 )
+from spectra_scheduler.scenarios import build_comparison_scenario
 
 
 class DemoTests(unittest.TestCase):
