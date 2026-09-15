@@ -10,7 +10,7 @@ how quickly transmissions are detected.
 ## Current direction
 
 - Build a small reproducible simulator.
-- Model emitters that enter, leave, or change behaviour during a scenario.
+- Model emitters that enter, leave, scan adjacent bands, or change behaviour.
 - Model received power, sensitivity loss, and repeatable receiver noise.
 - Account for distance-based retuning cost and adapt dwell after detections.
 - Establish fixed-sweep and random baselines.
