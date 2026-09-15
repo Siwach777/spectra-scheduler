@@ -6,7 +6,7 @@ remain in [experiments.md](experiments.md).
 | Area | What is implemented | Purpose |
 |---|---|---|
 | Foundation | Python package, tests, working plan, and terminal comparison | Keep the first prototype reproducible and focused on simulation |
-| Environment | Periodic, hopping, burst, jittered, windowed, and mode-switching emitters | Represent both stable and changing RF activity |
+| Environment | Periodic, hopping, scanning, burst, jittered, windowed, and mode-switching emitters | Represent both stable and changing RF activity |
 | Receiver errors | Configurable detection probability and false alarms | Avoid testing schedulers with perfect feedback |
 | Fair evaluation | Randomized phases and repeated seeded comparisons | Prevent fixed timing from favoring one scan pattern |
 | Truth separation | Public observations contain no emitter identity or false-alarm label | Prevent future policies from using hidden simulator information |

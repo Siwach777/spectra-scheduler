@@ -6,6 +6,7 @@ from spectra_scheduler.emitters import (
     JitteredPeriodicEmitter,
     ModeSwitchingEmitter,
     PeriodicEmitter,
+    ScanningEmitter,
     WindowedEmitter,
 )
 from spectra_scheduler.models import Transmission
@@ -60,6 +61,31 @@ class FrequencyHoppingEmitterTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             emitter.transmissions(duration=5, num_bands=3)
+
+
+class ScanningEmitterTests(unittest.TestCase):
+    def test_scans_adjacent_bands_and_reverses_at_edges(self) -> None:
+        emitter = ScanningEmitter(
+            "scanner",
+            lowest_band=1,
+            highest_band=3,
+            period=1,
+        )
+
+        events = emitter.transmissions(duration=9, num_bands=5)
+
+        self.assertEqual([event.band for event in events], [1, 2, 3, 2, 1, 2, 3, 2, 1])
+
+    def test_rejects_reversed_scan_range(self) -> None:
+        emitter = ScanningEmitter(
+            "scanner",
+            lowest_band=3,
+            highest_band=1,
+            period=1,
+        )
+
+        with self.assertRaises(ValueError):
+            emitter.transmissions(duration=5, num_bands=5)
 
 
 class BurstEmitterTests(unittest.TestCase):
