@@ -70,6 +70,7 @@ class DemoTests(unittest.TestCase):
         )
         self.assertEqual(scenario.receiver.sensitivity_dbm, -90.0)
         self.assertGreater(scenario.receiver.noise_std_db, 0.0)
+        self.assertGreater(scenario.receiver.pulse_width_noise_fraction, 0.0)
         self.assertEqual(scenario.receiver.retune_steps, 1)
         self.assertEqual(scenario.receiver.tuning_speed_bands_per_step, 2)
         self.assertGreater(len({event.power_dbm for event in truth}), 1)

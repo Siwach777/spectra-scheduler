@@ -368,3 +368,22 @@ two tracks on average. Mixed traffic also produces nearly half a mixed track per
 so simply extending track lifetime could reduce fragmentation while increasing false
 associations. Pulse-width measurement uncertainty should be modeled before changing
 that balance.
+
+### Pulse-width measurement uncertainty
+
+Focused and mixed receivers now add 5% standard relative error to pulse width using a
+separate seeded noise stream. The power-noise stream was deliberately left unchanged
+so the new measurement does not move unrelated baseline results.
+
+| Scenario | Purity | Tracks per emitter | Track-aware interception |
+|---|---:|---:|---:|
+| Acquisition | 95.4% | 1.14 | 7.9% |
+| Adjacent tracking | 99.6% | 2.39 | 10.5% |
+| Mode change | 99.8% | 2.13 | 35.7% |
+| Mixed | 95.9% | 1.55 | 8.2% |
+
+Purity remains high because the configured emitter pulse widths are separated, but
+fragmentation increases in the isolated tracking and mode-change cases. This confirms
+that exact pulse width was masking some association loss. The next association change
+should reconnect compatible expired tracks conservatively rather than simply widening
+the matching tolerance.
