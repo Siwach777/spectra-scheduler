@@ -12,6 +12,7 @@ how quickly transmissions are detected.
 - Build a small reproducible simulator.
 - Model emitters that enter, leave, scan adjacent bands, or change behaviour.
 - Model received power, sensitivity loss, and repeatable receiver noise.
+- Expose anonymous measured power and pulse width for later signal association.
 - Account for distance-based retuning cost and adapt dwell after detections.
 - Establish fixed-sweep and random baselines.
 - Add an adaptive scheduler that learns from hits and misses.

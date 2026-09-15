@@ -10,6 +10,7 @@ class Transmission:
     band: int
     emitter_id: str
     power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
 
     def __post_init__(self) -> None:
         if self.time_step < 0:
@@ -20,6 +21,8 @@ class Transmission:
             raise ValueError("emitter_id cannot be empty")
         if not isfinite(self.power_dbm):
             raise ValueError("power_dbm must be finite")
+        if not isfinite(self.pulse_width_us) or self.pulse_width_us <= 0:
+            raise ValueError("pulse_width_us must be finite and positive")
 
 
 @dataclass(frozen=True, order=True)
@@ -36,6 +39,20 @@ class EmitterChange:
             raise ValueError("emitter_id cannot be empty")
 
 
+@dataclass(frozen=True, order=True)
+class SignalMeasurement:
+    """Receiver-visible properties of one detection, without a truth identity."""
+
+    power_dbm: float
+    pulse_width_us: float = 1.0
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.power_dbm):
+            raise ValueError("measured power must be finite")
+        if not isfinite(self.pulse_width_us) or self.pulse_width_us <= 0:
+            raise ValueError("measured pulse width must be finite and positive")
+
+
 @dataclass(frozen=True)
 class Observation:
     """What the receiver reports after listening to one band."""
@@ -44,6 +61,7 @@ class Observation:
     band: int
     detections: int = 0
     listening: bool = True
+    measurements: tuple[SignalMeasurement, ...] = ()
 
     def __post_init__(self) -> None:
         if self.time_step < 0:
@@ -52,7 +70,9 @@ class Observation:
             raise ValueError("band cannot be negative")
         if self.detections < 0:
             raise ValueError("detections cannot be negative")
-        if not self.listening and self.detections:
+        if len(self.measurements) > self.detections:
+            raise ValueError("measurements cannot outnumber detections")
+        if not self.listening and (self.detections or self.measurements):
             raise ValueError("retuning observations cannot contain detections")
 
     @property

@@ -102,11 +102,16 @@ case, focused acquisition, adjacent tracking, and mode-change scenarios can be s
 from the command line. This makes it possible to check the intended effect of a policy
 before judging its result in a crowded spectrum.
 
+Detected observations can now include anonymous signal measurements. The receiver
+reports measured power and pulse width while emitter identities remain only in the
+evaluation record. False alarms also receive plausible measurements so a scheduler
+cannot identify them from a missing field. Existing count-based schedulers continue to
+work unchanged.
+
 ## Later stages
 
-- Introduce signal tracks only when observations contain enough measured features to
-  associate related pulses without exposing simulator identities.
-- Add measured pulse features needed to associate observations into simple tracks.
+- Associate similar measurements into short-lived signal tracks without exposing
+  simulator identities.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.

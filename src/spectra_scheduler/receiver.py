@@ -2,7 +2,12 @@ import hashlib
 from dataclasses import dataclass
 from math import cos, log, pi, sqrt
 
-from spectra_scheduler.models import DetectionRecord, Observation, Transmission
+from spectra_scheduler.models import (
+    DetectionRecord,
+    Observation,
+    SignalMeasurement,
+    Transmission,
+)
 
 
 @dataclass(frozen=True)
@@ -49,30 +54,51 @@ class Receiver:
         band: int,
         visible_events: list[Transmission],
     ) -> DetectionRecord:
-        detectable_events = [
-            event
+        measured_events = [
+            (
+                event,
+                event.power_dbm
+                + self._noise_db(time_step, band, event.emitter_id, event_number),
+            )
             for event_number, event in enumerate(visible_events)
-            if event.power_dbm
-            + self._noise_db(time_step, band, event.emitter_id, event_number)
-            >= self.sensitivity_dbm
         ]
-        detected_emitters = tuple(
-            event.emitter_id
-            for event_number, event in enumerate(detectable_events)
+        detectable_events = [
+            (event, measured_power)
+            for event, measured_power in measured_events
+            if measured_power >= self.sensitivity_dbm
+        ]
+        detected_events = [
+            (event, measured_power)
+            for event_number, (event, measured_power) in enumerate(detectable_events)
             if self._sample("detection", time_step, band, event.emitter_id, event_number)
             < self.detection_probability
-        )
+        ]
         false_alarm = not detectable_events and (
             self._sample("false-alarm", time_step, band) < self.false_alarm_probability
         )
+        measurements = tuple(
+            SignalMeasurement(measured_power, event.pulse_width_us)
+            for event, measured_power in detected_events
+        )
+        if false_alarm:
+            false_alarm_power = self.sensitivity_dbm + 3.0 * self._sample(
+                "false-alarm-power", time_step, band
+            )
+            false_alarm_width = 0.2 + 2.8 * self._sample(
+                "false-alarm-width", time_step, band
+            )
+            measurements += (
+                SignalMeasurement(false_alarm_power, false_alarm_width),
+            )
         return DetectionRecord(
             observation=Observation(
                 time_step=time_step,
                 band=band,
-                detections=len(detected_emitters) + int(false_alarm),
+                detections=len(detected_events) + int(false_alarm),
+                measurements=measurements,
             ),
-            detectable_emitters=tuple(event.emitter_id for event in detectable_events),
-            detected_emitters=detected_emitters,
+            detectable_emitters=tuple(event.emitter_id for event, _ in detectable_events),
+            detected_emitters=tuple(event.emitter_id for event, _ in detected_events),
             false_alarm=false_alarm,
         )
 
