@@ -20,7 +20,9 @@ how quickly transmissions are detected.
 - Consider a Rust engine only if the Python version is demonstrably too slow.
 - Build a graphical interface after the experiments are reliable.
 
-See [docs/plan.md](docs/plan.md) for the working plan.
+See [docs/plan.md](docs/plan.md) for the working plan and
+[docs/implementation-notes.md](docs/implementation-notes.md) for a brief explanation of
+what each part is for.
 
 ## Run the prototype
 
