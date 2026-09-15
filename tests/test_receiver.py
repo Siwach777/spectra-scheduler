@@ -78,6 +78,39 @@ class ReceiverTests(unittest.TestCase):
 
         self.assertEqual(first, second)
 
+    def test_pulse_width_measurement_noise_is_repeatable(self) -> None:
+        receiver = Receiver(pulse_width_noise_fraction=0.1, seed=18)
+        event = Transmission(
+            time_step=6,
+            band=1,
+            emitter_id="radar",
+            pulse_width_us=2.0,
+        )
+
+        first = receiver.listen(time_step=6, band=1, visible_events=[event])
+        second = receiver.listen(time_step=6, band=1, visible_events=[event])
+
+        self.assertEqual(first.observation.measurements, second.observation.measurements)
+        self.assertNotEqual(first.observation.measurements[0].pulse_width_us, 2.0)
+
+    def test_pulse_width_noise_does_not_change_measured_power(self) -> None:
+        event = Transmission(time_step=6, band=1, emitter_id="radar")
+        without_width_noise = Receiver(noise_std_db=3.0, seed=18).listen(
+            time_step=6,
+            band=1,
+            visible_events=[event],
+        )
+        with_width_noise = Receiver(
+            noise_std_db=3.0,
+            pulse_width_noise_fraction=0.1,
+            seed=18,
+        ).listen(time_step=6, band=1, visible_events=[event])
+
+        self.assertEqual(
+            without_width_noise.observation.measurements[0].power_dbm,
+            with_width_noise.observation.measurements[0].power_dbm,
+        )
+
     def test_rejects_invalid_probabilities(self) -> None:
         with self.assertRaises(ValueError):
             Receiver(detection_probability=1.1)
@@ -85,6 +118,8 @@ class ReceiverTests(unittest.TestCase):
             Receiver(false_alarm_probability=-0.1)
         with self.assertRaises(ValueError):
             Receiver(noise_std_db=-0.1)
+        with self.assertRaises(ValueError):
+            Receiver(pulse_width_noise_fraction=-0.1)
         with self.assertRaises(ValueError):
             Receiver(retune_steps=-1)
         with self.assertRaises(ValueError):

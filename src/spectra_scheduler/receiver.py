@@ -18,6 +18,7 @@ class Receiver:
     false_alarm_probability: float = 0.0
     sensitivity_dbm: float = -90.0
     noise_std_db: float = 0.0
+    pulse_width_noise_fraction: float = 0.0
     retune_steps: int = 0
     tuning_speed_bands_per_step: int | None = None
     seed: int = 0
@@ -29,6 +30,8 @@ class Receiver:
             raise ValueError("false_alarm_probability must be between 0 and 1")
         if self.noise_std_db < 0.0:
             raise ValueError("noise_std_db cannot be negative")
+        if self.pulse_width_noise_fraction < 0.0:
+            raise ValueError("pulse_width_noise_fraction cannot be negative")
         if self.retune_steps < 0:
             raise ValueError("retune_steps cannot be negative")
         if (
@@ -77,8 +80,11 @@ class Receiver:
             self._sample("false-alarm", time_step, band) < self.false_alarm_probability
         )
         measurements = tuple(
-            SignalMeasurement(measured_power, event.pulse_width_us)
-            for event, measured_power in detected_events
+            SignalMeasurement(
+                measured_power,
+                self._measured_pulse_width(time_step, band, event, event_number),
+            )
+            for event_number, (event, measured_power) in enumerate(detected_events)
         )
         if false_alarm:
             false_alarm_power = self.sensitivity_dbm + 3.0 * self._sample(
@@ -105,10 +111,30 @@ class Receiver:
     def _noise_db(self, *parts: object) -> float:
         if self.noise_std_db == 0.0:
             return 0.0
+        return self._standard_normal(*parts) * self.noise_std_db
+
+    def _measured_pulse_width(
+        self,
+        time_step: int,
+        band: int,
+        event: Transmission,
+        event_number: int,
+    ) -> float:
+        if self.pulse_width_noise_fraction == 0.0:
+            return event.pulse_width_us
+        relative_error = self.pulse_width_noise_fraction * self._standard_normal(
+            "pulse-width",
+            time_step,
+            band,
+            event.emitter_id,
+            event_number,
+        )
+        return max(event.pulse_width_us * (1.0 + relative_error), 1e-9)
+
+    def _standard_normal(self, *parts: object) -> float:
         first = max(self._sample("noise-a", *parts), 1e-15)
         second = self._sample("noise-b", *parts)
-        standard_normal = sqrt(-2.0 * log(first)) * cos(2.0 * pi * second)
-        return standard_normal * self.noise_std_db
+        return sqrt(-2.0 * log(first)) * cos(2.0 * pi * second)
 
     def _sample(self, *parts: object) -> float:
         key = ":".join(str(part) for part in (self.seed, *parts)).encode()
