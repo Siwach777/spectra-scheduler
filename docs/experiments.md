@@ -178,3 +178,30 @@ sensitivity threshold. The lower interception ratios therefore have two distinct
 causes: scanning the wrong band and correctly tuning to a signal that is too weak.
 Keeping these counts separate prevents scheduler quality from being confused with
 receiver sensitivity.
+
+## Retuning and dwell comparison
+
+Date: 15 September 2026
+
+The receiver was given a one-step retuning delay. Selecting the same band again means
+dwelling, so the scheduler interface did not need a separate action type. A two-step
+dwell sweep was added, and UCB policies ignore retuning observations rather than
+recording them as signal misses. The period-aware policy explicitly retries a band
+after retuning. Results below use 1,000 seeds.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Round-robin | 0.5% ± 0.7% | 5.7% | 0.0% | 98.3% | 60.0 |
+| Dwell sweep | 5.9% ± 4.5% | 32.7% | 21.3% | 48.3% | 11.0 |
+| Random | 2.1% ± 1.9% | 21.7% | 16.3% | 81.9% | 58.6 |
+| Shuffled sweep | 0.5% ± 0.9% | 5.1% | 2.9% | 95.9% | 60.0 |
+| Revisit on hit | 0.5% ± 0.8% | 6.0% | 0.0% | 97.8% | 60.0 |
+| UCB bandit | 5.5% ± 4.0% | 40.8% | 37.0% | 45.7% | 16.8 |
+| Sliding-window UCB | 5.7% ± 3.7% | 42.8% | 49.9% | 45.7% | 19.7 |
+| Period-aware probe | 5.9% ± 3.3% | 47.1% | 44.0% | 44.8% | 14.9 |
+
+A one-step sweep is not viable when every band change also costs one step: almost the
+entire episode is lost to retuning. Fixed dwell restores useful listening time, while
+the adaptive schedulers naturally remain on an unobserved band after a retune. The
+next policy should choose dwell length from recent evidence instead of using a fixed
+two-step setting.

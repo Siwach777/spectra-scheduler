@@ -15,6 +15,7 @@ class DemoTests(unittest.TestCase):
             set(results),
             {
                 "round-robin",
+                "dwell-sweep",
                 "random",
                 "shuffled-sweep",
                 "revisit-on-hit",
@@ -51,6 +52,7 @@ class DemoTests(unittest.TestCase):
         self.assertTrue(all(event.band == 0 for event in tracking_events if event.time_step >= 30))
         self.assertEqual(scenario.receiver.sensitivity_dbm, -90.0)
         self.assertGreater(scenario.receiver.noise_std_db, 0.0)
+        self.assertEqual(scenario.receiver.retune_steps, 1)
         self.assertGreater(len({event.power_dbm for event in truth}), 1)
 
     def test_repeated_comparison_summarizes_each_strategy(self) -> None:
@@ -69,6 +71,9 @@ class DemoTests(unittest.TestCase):
         )
         self.assertTrue(
             all(0.0 <= stats.mean_sensitivity_loss_rate <= 1.0 for stats in summary.values())
+        )
+        self.assertTrue(
+            all(0.0 <= stats.mean_retuning_fraction <= 1.0 for stats in summary.values())
         )
         self.assertTrue(all(stats.mean_reacquisition_delay >= 0 for stats in summary.values()))
         self.assertTrue(all(stats.mean_max_band_gap >= 0 for stats in summary.values()))

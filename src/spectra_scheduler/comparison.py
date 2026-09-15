@@ -16,6 +16,7 @@ from spectra_scheduler.emitters import (
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import (
+    DwellSweepScheduler,
     RandomScheduler,
     PeriodAwareScheduler,
     RevisitOnHitScheduler,
@@ -94,6 +95,7 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
             false_alarm_probability=0.05,
             sensitivity_dbm=-90.0,
             noise_std_db=3.0,
+            retune_steps=1,
             seed=seed + 2,
         ),
     )
@@ -104,6 +106,7 @@ def run_comparison(seed: int = 0) -> dict[str, ScanMetrics]:
     truth = simulation.generate_truth()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
+        "dwell-sweep": DwellSweepScheduler,
         "random": lambda: RandomScheduler(seed=seed + 3),
         "shuffled-sweep": lambda: ShuffledSweepScheduler(seed=seed + 4),
         "revisit-on-hit": RevisitOnHitScheduler,
@@ -122,7 +125,7 @@ def print_comparison(results: dict[str, ScanMetrics]) -> None:
     print("Spectra Scheduler - basic simulation")
     print(
         "strategy          detected  intercept  discovery  reacquired  "
-        "reacq delay  sens loss  max gap  false alarms  first delay"
+        "reacq delay  sens loss  retune  max gap  false alarms  first delay"
     )
     for name, metrics in results.items():
         print(
@@ -133,6 +136,7 @@ def print_comparison(results: dict[str, ScanMetrics]) -> None:
             f"{metrics.reacquired_changes:>4}/{metrics.total_emitter_changes:<4} "
             f"{metrics.mean_reacquisition_delay:>11.1f} "
             f"{metrics.sensitivity_loss_rate:>9.1%} "
+            f"{metrics.retuning_fraction:>7.1%} "
             f"{metrics.max_band_gap:>8} "
             f"{metrics.false_alarms:>13} "
             f"{metrics.mean_first_detection_delay:>12.1f}"
@@ -151,6 +155,7 @@ class ComparisonStats:
     mean_reacquisition_ratio: float
     mean_reacquisition_delay: float
     mean_sensitivity_loss_rate: float
+    mean_retuning_fraction: float
     mean_max_band_gap: float
 
 
@@ -212,6 +217,9 @@ def run_repeated_comparison(
             mean_sensitivity_loss_rate=fmean(
                 sample.sensitivity_loss_rate for sample in samples
             ),
+            mean_retuning_fraction=fmean(
+                sample.retuning_fraction for sample in samples
+            ),
             mean_max_band_gap=fmean(sample.max_band_gap for sample in samples),
         )
     return summaries
@@ -222,7 +230,7 @@ def print_repeated_comparison(results: dict[str, ComparisonStats]) -> None:
     print(f"Spectra Scheduler - {runs} seeded simulation runs")
     print(
         "strategy          intercept ratio      discovery  reacquire  "
-        "reacq delay  sens loss  max gap  false alarms  first delay"
+        "reacq delay  sens loss  retune  max gap  false alarms  first delay"
     )
     for name, stats in results.items():
         print(
@@ -233,6 +241,7 @@ def print_repeated_comparison(results: dict[str, ComparisonStats]) -> None:
             f"{stats.mean_reacquisition_ratio:>10.1%} "
             f"{stats.mean_reacquisition_delay:>11.1f} "
             f"{stats.mean_sensitivity_loss_rate:>9.1%} "
+            f"{stats.mean_retuning_fraction:>7.1%} "
             f"{stats.mean_max_band_gap:>8.1f} "
             f"{stats.mean_false_alarms:>13.1f} "
             f"{stats.mean_first_detection_delay:>12.1f}"
