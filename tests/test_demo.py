@@ -32,6 +32,7 @@ class DemoTests(unittest.TestCase):
                 "bayesian-band",
                 "change-aware",
                 "transition-band",
+                "track-aware",
                 "period-aware",
             },
         )

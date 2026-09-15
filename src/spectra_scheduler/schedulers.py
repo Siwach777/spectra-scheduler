@@ -6,6 +6,7 @@ from typing import Protocol
 
 from spectra_scheduler.change_detection import BinaryRateChangeDetector
 from spectra_scheduler.models import Observation
+from spectra_scheduler.tracking import SignalTracker
 
 
 class Scheduler(Protocol):
@@ -534,6 +535,91 @@ class ChangeAwareBayesianScheduler(BayesianBandScheduler):
         self._hits[observation.band] = self.prior_hits + int(observation.hit)
         self._misses[observation.band] = self.prior_misses + int(not observation.hit)
         self._detected_change_count += 1
+
+
+@dataclass
+class TrackAwareScheduler(AdaptiveDwellScheduler):
+    """Use adaptive sweep acquisition, then follow confirmed signal motion."""
+
+    minimum_track_observations: int = 2
+    pulse_width_tolerance_us: float = 0.2
+    power_tolerance_db: float = 8.0
+    track_max_age_steps: int = 10
+    max_band_gap: int = 30
+    _tracker: SignalTracker = field(init=False)
+    _retry_band: int | None = field(init=False, default=None)
+    _using_track: bool = field(init=False, default=False)
+    _last_visited: list[int] = field(init=False, default_factory=list)
+
+    def reset(self, num_bands: int) -> None:
+        if self.minimum_track_observations < 2:
+            raise ValueError("minimum_track_observations must be at least two")
+        if self.max_band_gap <= 0:
+            raise ValueError("max_band_gap must be positive")
+        super().reset(num_bands)
+        self._tracker = SignalTracker(
+            pulse_width_tolerance_us=self.pulse_width_tolerance_us,
+            power_tolerance_db=self.power_tolerance_db,
+            max_age_steps=self.track_max_age_steps,
+        )
+        self._retry_band = None
+        self._using_track = False
+        self._last_visited = [-1] * num_bands
+
+    @property
+    def track_count(self) -> int:
+        return len(self._tracker.tracks)
+
+    def choose_band(self, time_step: int) -> int:
+        if self._retry_band is not None:
+            self._current_band = self._retry_band
+            self._retry_band = None
+            return self._current_band
+
+        oldest_band = min(
+            range(self._num_bands),
+            key=self._last_visited.__getitem__,
+        )
+        oldest_gap = time_step - self._last_visited[oldest_band] - 1
+        if oldest_gap >= self.max_band_gap:
+            self._current_band = oldest_band
+            self._remaining_dwell = 1
+            self._listened_on_band = 0
+            self._using_track = False
+            return self._current_band
+
+        confirmed_tracks = [
+            track
+            for track in self._tracker.tracks
+            if track.observation_count >= self.minimum_track_observations
+        ]
+        if confirmed_tracks:
+            track = max(
+                confirmed_tracks,
+                key=lambda candidate: (candidate.last_time, candidate.observation_count),
+            )
+            self._current_band = track.predicted_band(
+                time_step=time_step + 1,
+                num_bands=self._num_bands,
+            )
+            self._using_track = True
+            return self._current_band
+
+        if self._using_track:
+            self._remaining_dwell = 0
+        self._using_track = False
+        return super().choose_band(time_step)
+
+    def observe(self, observation: Observation) -> None:
+        if observation.band != self._current_band:
+            raise ValueError("observation does not match the selected band")
+        self._tracker.update(observation)
+        if not observation.listening:
+            self._retry_band = observation.band
+            return
+        self._last_visited[observation.band] = observation.time_step
+        if not self._using_track:
+            super().observe(observation)
 
 
 @dataclass

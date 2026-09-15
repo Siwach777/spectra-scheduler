@@ -20,6 +20,7 @@ from spectra_scheduler.schedulers import (
     ShuffledSweepScheduler,
     SlidingWindowUcbScheduler,
     TransitionBandScheduler,
+    TrackAwareScheduler,
     UcbScheduler,
 )
 
@@ -39,6 +40,7 @@ def run_comparison(seed: int = 0, scenario: str = "mixed") -> dict[str, ScanMetr
         "bayesian-band": BayesianBandScheduler,
         "change-aware": ChangeAwareBayesianScheduler,
         "transition-band": TransitionBandScheduler,
+        "track-aware": TrackAwareScheduler,
         "period-aware": PeriodAwareScheduler,
     }
 
