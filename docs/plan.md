@@ -78,9 +78,12 @@ Retuning delay can now increase with band distance. An adaptive dwell sweep wait
 the receiver actually listens, uses a minimum observation dwell, and extends that dwell
 after detections up to a fixed safety cap.
 
+The environment also includes an emitter that sweeps adjacent bands and reverses at
+the edges of its configured range. This gives future predictors a structured motion
+pattern that is different from an arbitrary frequency-hopping sequence.
+
 ## Later stages
 
-- Add a scanning emitter that sweeps adjacent bands.
 - Add probabilistic beliefs and explicit change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.

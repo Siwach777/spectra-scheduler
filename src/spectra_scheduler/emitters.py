@@ -94,6 +94,44 @@ class FrequencyHoppingEmitter:
 
 
 @dataclass(frozen=True)
+class ScanningEmitter:
+    """Move across adjacent bands and reverse at each edge."""
+
+    emitter_id: str
+    lowest_band: int
+    highest_band: int
+    period: int
+    phase: int = 0
+    power_dbm: float = -60.0
+
+    def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
+        _validate_common(
+            self.emitter_id,
+            self.period,
+            self.phase,
+            duration,
+            self.power_dbm,
+        )
+        if self.lowest_band < 0 or self.highest_band >= num_bands:
+            raise ValueError("scan range is outside the spectrum")
+        if self.lowest_band > self.highest_band:
+            raise ValueError("lowest_band cannot be greater than highest_band")
+
+        upward = list(range(self.lowest_band, self.highest_band + 1))
+        downward = list(range(self.highest_band - 1, self.lowest_band, -1))
+        scan_cycle = upward + downward
+        return [
+            Transmission(
+                time_step,
+                scan_cycle[index % len(scan_cycle)],
+                self.emitter_id,
+                self.power_dbm,
+            )
+            for index, time_step in enumerate(range(self.phase, duration, self.period))
+        ]
+
+
+@dataclass(frozen=True)
 class BurstEmitter:
     """Transmit several closely spaced pulses, followed by a quiet interval."""
 

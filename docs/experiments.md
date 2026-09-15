@@ -208,3 +208,22 @@ a poor maximum coverage gap. Adaptive dwell counts only actual listening steps, 
 waits through that transition and spends more of the episode receiving. Extending a
 band after a hit improves interception and reacquisition, but its wider coverage gap
 shows the cost of staying longer on active bands.
+
+## Adjacent-band scanning emitter
+
+A sixth emitter was added that moves from band 1 to band 4 and reverses at each edge.
+It transmits every two steps at -83 dBm. This pattern tests whether a future scheduler
+can learn structured movement rather than treating every band independently. Results
+below use 1,000 seeds with the distance-based retuning model.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Dwell sweep | 2.3% ± 1.9% | 23.6% | 0.0% | 55.0% | 58.0 |
+| Adaptive dwell | 8.3% ± 3.0% | 62.3% | 53.7% | 28.6% | 26.8 |
+| UCB bandit | 5.4% ± 2.3% | 51.0% | 39.6% | 50.9% | 20.6 |
+| Sliding-window UCB | 5.2% ± 2.3% | 51.1% | 43.9% | 51.1% | 23.4 |
+| Period-aware probe | 5.5% ± 2.5% | 50.0% | 33.8% | 49.9% | 16.4 |
+
+Adaptive dwell still has the highest interception and discovery. None of the current
+policies explicitly predicts the scanner's next adjacent band, so this scenario is a
+useful target for the probability-based scheduler.

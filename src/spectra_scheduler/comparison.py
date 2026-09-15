@@ -11,6 +11,7 @@ from spectra_scheduler.emitters import (
     JitteredPeriodicEmitter,
     ModeSwitchingEmitter,
     PeriodicEmitter,
+    ScanningEmitter,
     WindowedEmitter,
 )
 from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
@@ -69,6 +70,14 @@ def build_comparison_scenario(seed: int = 0) -> Simulation:
                 period=3,
                 phase=generator.randrange(3),
                 power_dbm=-80.0,
+            ),
+            ScanningEmitter(
+                "scanner",
+                lowest_band=1,
+                highest_band=4,
+                period=2,
+                phase=generator.randrange(2),
+                power_dbm=-83.0,
             ),
             WindowedEmitter(
                 BurstEmitter(
