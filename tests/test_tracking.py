@@ -29,6 +29,8 @@ class SignalTrackerTests(unittest.TestCase):
         self.assertEqual(tracks[0].observation_count, 2)
         self.assertEqual(tracks[0].last_band, 2)
         self.assertAlmostEqual(tracks[0].mean_power_dbm, -79.0)
+        self.assertEqual(tracker.last_assignments[0].track_id, tracks[0].track_id)
+        self.assertEqual(tracker.last_assignments[0].measurement_index, 0)
 
     def test_separates_different_pulse_widths(self) -> None:
         tracker = SignalTracker(pulse_width_tolerance_us=0.1)

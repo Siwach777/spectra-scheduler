@@ -1,6 +1,8 @@
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 
 from spectra_scheduler.models import SimulationResult
+from spectra_scheduler.tracking import SignalTracker
 
 
 @dataclass(frozen=True)
@@ -28,6 +30,16 @@ class ScanMetrics:
     reacquisition_ratio: float
     mean_reacquisition_delay: float
     max_band_gap: int
+
+
+@dataclass(frozen=True)
+class TrackMetrics:
+    assigned_measurements: int
+    confirmed_tracks: int
+    mixed_tracks: int
+    association_purity: float
+    detected_emitters: int
+    mean_tracks_per_emitter: float
 
 
 def calculate_metrics(result: SimulationResult) -> ScanMetrics:
@@ -139,4 +151,53 @@ def calculate_metrics(result: SimulationResult) -> ScanMetrics:
             else 0.0
         ),
         max_band_gap=max_band_gap,
+    )
+
+
+def calculate_track_metrics(
+    result: SimulationResult,
+    tracker: SignalTracker | None = None,
+) -> TrackMetrics:
+    tracker = SignalTracker() if tracker is None else tracker
+    tracker.reset()
+    labels_by_track: dict[int, list[tuple[str, str]]] = defaultdict(list)
+    track_ids_by_emitter: dict[str, set[int]] = defaultdict(set)
+
+    for record in result.detection_records:
+        tracker.update(record.observation)
+        labels = [("emitter", emitter_id) for emitter_id in record.detected_emitters]
+        if record.false_alarm:
+            false_alarm_id = f"{record.observation.time_step}:{record.observation.band}"
+            labels.append(("false-alarm", false_alarm_id))
+        if len(labels) != len(tracker.last_assignments):
+            raise ValueError("detection truth and track assignments do not align")
+
+        for assignment in tracker.last_assignments:
+            label = labels[assignment.measurement_index]
+            labels_by_track[assignment.track_id].append(label)
+            if label[0] == "emitter":
+                track_ids_by_emitter[label[1]].add(assignment.track_id)
+
+    assigned_measurements = sum(len(labels) for labels in labels_by_track.values())
+    correctly_grouped = sum(
+        max(Counter(labels).values(), default=0) for labels in labels_by_track.values()
+    )
+    confirmed_tracks = sum(len(labels) >= 2 for labels in labels_by_track.values())
+    mixed_tracks = sum(
+        len(set(labels)) > 1 for labels in labels_by_track.values() if len(labels) >= 2
+    )
+    tracks_per_emitter = [len(track_ids) for track_ids in track_ids_by_emitter.values()]
+    return TrackMetrics(
+        assigned_measurements=assigned_measurements,
+        confirmed_tracks=confirmed_tracks,
+        mixed_tracks=mixed_tracks,
+        association_purity=(
+            correctly_grouped / assigned_measurements if assigned_measurements else 0.0
+        ),
+        detected_emitters=len(track_ids_by_emitter),
+        mean_tracks_per_emitter=(
+            sum(tracks_per_emitter) / len(tracks_per_emitter)
+            if tracks_per_emitter
+            else 0.0
+        ),
     )
