@@ -82,9 +82,15 @@ The environment also includes an emitter that sweeps adjacent bands and reverses
 the edges of its configured range. This gives future predictors a structured motion
 pattern that is different from an arbitrary frequency-hopping sequence.
 
+A first probability-based scheduler now maintains a decaying Beta belief for each
+band. It balances posterior hit probability, uncertainty, tuning distance, and a
+maximum coverage gap. The baseline is deliberately per-band and inspectable; its
+results show that band probabilities alone do not predict a scanning emitter's next
+move.
+
 ## Later stages
 
-- Add probabilistic beliefs and explicit change detection.
+- Learn band-to-band transitions, then add explicit change detection.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.

@@ -227,3 +227,28 @@ below use 1,000 seeds with the distance-based retuning model.
 Adaptive dwell still has the highest interception and discovery. None of the current
 policies explicitly predicts the scanner's next adjacent band, so this scenario is a
 useful target for the probability-based scheduler.
+
+## Decaying per-band probability baseline
+
+A probability scheduler was added with a Beta hit belief for each band. Evidence
+decays toward its prior so old observations lose influence. Its score combines the
+posterior hit probability, an uncertainty bonus, and a penalty for longer retunes.
+
+The first version had no maximum coverage gap. It reached 9.1% interception, 50.2%
+discovery, and 31.2% reacquisition, while spending 23.0% of receiver steps retuning.
+Its mean maximum band gap was 45.1 steps, showing that it could abandon an apparently
+quiet band for most of an episode.
+
+A coverage limit was then added. Results below use 1,000 seeds and the same scanning
+emitter scenario.
+
+| Strategy | Interception | Discovery | Reacquired | Retuning time | Max gap |
+|---|---:|---:|---:|---:|---:|
+| Adaptive dwell | 8.3% ± 3.0% | 62.3% | 53.7% | 28.6% | 26.8 |
+| Bayesian band | 6.6% ± 2.5% | 52.2% | 26.3% | 41.7% | 20.5 |
+
+The limit prevents long neglect of a band but causes more distant retunes and gives
+up the unbounded policy's interception gain. More importantly, a separate belief for
+each band cannot represent the scanner's direction of travel. The next scheduler
+experiment should learn observed band transitions instead of further tuning these
+constants against one scenario.

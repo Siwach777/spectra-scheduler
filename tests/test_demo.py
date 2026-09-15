@@ -22,6 +22,7 @@ class DemoTests(unittest.TestCase):
                 "revisit-on-hit",
                 "ucb-bandit",
                 "sliding-ucb",
+                "bayesian-band",
                 "period-aware",
             },
         )
