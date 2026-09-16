@@ -129,10 +129,14 @@ only with tighter power and pulse-width thresholds than normal active associatio
 This preserves its motion history and identifier while keeping archived tracks out of
 scheduler decisions until a measurement revives them.
 
+Track-guided scheduling now requires three associated measurements instead of two.
+This small evidence threshold performed better than an attempted variance-based gate
+on the current short scenarios and adds no new estimator state.
+
 ## Later stages
 
 - Reduce track fragmentation without merging signals that only look similar.
-- Compare fixed association thresholds with uncertainty-aware matching.
+- Add a longer crowded association scenario before revisiting uncertainty estimation.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.

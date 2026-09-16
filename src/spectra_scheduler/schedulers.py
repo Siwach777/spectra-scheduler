@@ -541,7 +541,7 @@ class ChangeAwareBayesianScheduler(BayesianBandScheduler):
 class TrackAwareScheduler(AdaptiveDwellScheduler):
     """Use adaptive sweep acquisition, then follow confirmed signal motion."""
 
-    minimum_track_observations: int = 2
+    minimum_track_observations: int = 3
     pulse_width_tolerance_us: float = 0.2
     power_tolerance_db: float = 8.0
     track_max_age_steps: int = 10
