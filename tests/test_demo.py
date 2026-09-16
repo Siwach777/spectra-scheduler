@@ -3,6 +3,8 @@ import unittest
 from spectra_scheduler.comparison import (
     run_comparison,
     run_repeated_comparison,
+    run_repeated_track_evaluation,
+    run_track_evaluation,
 )
 from spectra_scheduler.scenarios import (
     SCENARIO_NAMES,
@@ -108,6 +110,31 @@ class DemoTests(unittest.TestCase):
         parallel = run_repeated_comparison(runs=8, start_seed=11, workers=2)
 
         self.assertEqual(parallel, sequential)
+
+    def test_repeated_track_evaluation_summarizes_association(self) -> None:
+        stats = run_repeated_track_evaluation(
+            runs=4,
+            start_seed=8,
+            scenario="crowded",
+        )
+
+        self.assertEqual(stats.runs, 4)
+        self.assertGreater(stats.mean_assigned_measurements, 0)
+        self.assertGreater(stats.mean_detected_emitters, 0)
+        self.assertTrue(0.0 <= stats.mean_association_purity <= 1.0)
+        self.assertTrue(0.0 <= stats.mean_pairwise_f1 <= 1.0)
+
+    def test_parallel_track_evaluation_matches_sequential_result(self) -> None:
+        sequential = run_repeated_track_evaluation(runs=8, start_seed=11)
+        parallel = run_repeated_track_evaluation(runs=8, start_seed=11, workers=2)
+
+        self.assertEqual(parallel, sequential)
+
+    def test_single_track_evaluation_is_repeatable(self) -> None:
+        self.assertEqual(
+            run_track_evaluation(seed=17, scenario="crowded"),
+            run_track_evaluation(seed=17, scenario="crowded"),
+        )
 
     def test_repeated_comparison_requires_a_worker(self) -> None:
         with self.assertRaises(ValueError):

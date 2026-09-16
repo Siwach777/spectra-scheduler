@@ -57,6 +57,27 @@ Available scenarios are `mixed`, `acquisition`, `tracking`, `change`, and `crowd
 The crowded case is longer and deliberately contains emitters with similar measured
 signatures, so it is mainly useful for checking track association.
 
+Include track-association quality in the terminal output:
+
+```bash
+PYTHONPATH=src python3 -m spectra_scheduler --scenario crowded --runs 100 --association
+```
+
+Save a complete, repeatable experiment report for later analysis:
+
+```bash
+PYTHONPATH=src python3 -m spectra_scheduler \
+  --scenario crowded --runs 100 --workers 4 \
+  --output reports/crowded.json
+```
+
+The output format is inferred from `.json` or `.csv`, or can be selected with
+`--format`. Reports include the scenario, seed range, scheduler summaries, association
+summary, and a schema version. They do not contain timestamps. The older
+`scripts/run_comparison.py` command remains available as a wrapper.
+
+See [docs/report-format.md](docs/report-format.md) for the stable fields.
+
 Run the tests with:
 
 ```bash

@@ -5,7 +5,12 @@ from itertools import repeat
 from multiprocessing import get_all_start_methods, get_context
 from statistics import fmean, pstdev
 
-from spectra_scheduler.metrics import ScanMetrics, calculate_metrics
+from spectra_scheduler.metrics import (
+    ScanMetrics,
+    TrackMetrics,
+    calculate_metrics,
+    calculate_track_metrics,
+)
 from spectra_scheduler.scenarios import build_scenario
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
@@ -50,6 +55,12 @@ def run_comparison(seed: int = 0, scenario: str = "mixed") -> dict[str, ScanMetr
     }
 
 
+def run_track_evaluation(seed: int = 0, scenario: str = "mixed") -> TrackMetrics:
+    simulation = build_scenario(scenario, seed)
+    result = simulation.run(TrackAwareScheduler())
+    return calculate_track_metrics(result)
+
+
 def print_comparison(results: dict[str, ScanMetrics]) -> None:
     print("Spectra Scheduler - basic simulation")
     print(
@@ -86,6 +97,20 @@ class ComparisonStats:
     mean_sensitivity_loss_rate: float
     mean_retuning_fraction: float
     mean_max_band_gap: float
+
+
+@dataclass(frozen=True)
+class TrackStats:
+    runs: int
+    mean_assigned_measurements: float
+    mean_confirmed_tracks: float
+    mean_mixed_tracks: float
+    mean_association_purity: float
+    mean_pairwise_precision: float
+    mean_pairwise_recall: float
+    mean_pairwise_f1: float
+    mean_detected_emitters: float
+    mean_tracks_per_emitter: float
 
 
 def run_repeated_comparison(
@@ -164,6 +189,62 @@ def run_repeated_comparison(
     return summaries
 
 
+def run_repeated_track_evaluation(
+    runs: int,
+    start_seed: int = 0,
+    workers: int = 1,
+    scenario: str = "mixed",
+) -> TrackStats:
+    if runs <= 0:
+        raise ValueError("runs must be positive")
+    if workers <= 0:
+        raise ValueError("workers must be positive")
+
+    build_scenario(scenario, start_seed)
+    seeds = range(start_seed, start_seed + runs)
+    if workers == 1:
+        samples = list(map(run_track_evaluation, seeds, repeat(scenario)))
+    else:
+        worker_count = min(workers, runs)
+        process_context = (
+            get_context("fork") if "fork" in get_all_start_methods() else None
+        )
+        with ProcessPoolExecutor(
+            max_workers=worker_count,
+            mp_context=process_context,
+        ) as executor:
+            chunk_size = max(1, runs // (worker_count * 4))
+            samples = list(
+                executor.map(
+                    run_track_evaluation,
+                    seeds,
+                    repeat(scenario),
+                    chunksize=chunk_size,
+                )
+            )
+
+    return TrackStats(
+        runs=runs,
+        mean_assigned_measurements=fmean(
+            sample.assigned_measurements for sample in samples
+        ),
+        mean_confirmed_tracks=fmean(sample.confirmed_tracks for sample in samples),
+        mean_mixed_tracks=fmean(sample.mixed_tracks for sample in samples),
+        mean_association_purity=fmean(
+            sample.association_purity for sample in samples
+        ),
+        mean_pairwise_precision=fmean(
+            sample.pairwise_precision for sample in samples
+        ),
+        mean_pairwise_recall=fmean(sample.pairwise_recall for sample in samples),
+        mean_pairwise_f1=fmean(sample.pairwise_f1 for sample in samples),
+        mean_detected_emitters=fmean(sample.detected_emitters for sample in samples),
+        mean_tracks_per_emitter=fmean(
+            sample.mean_tracks_per_emitter for sample in samples
+        ),
+    )
+
+
 def print_repeated_comparison(results: dict[str, ComparisonStats]) -> None:
     runs = next(iter(results.values())).runs if results else 0
     print(f"Spectra Scheduler - {runs} seeded simulation runs")
@@ -185,3 +266,15 @@ def print_repeated_comparison(results: dict[str, ComparisonStats]) -> None:
             f"{stats.mean_false_alarms:>13.1f} "
             f"{stats.mean_first_detection_delay:>12.1f}"
         )
+
+
+def print_track_evaluation(stats: TrackStats) -> None:
+    print("Track association")
+    print(
+        f"purity {stats.mean_association_purity:.1%}, "
+        f"pair F1 {stats.mean_pairwise_f1:.1%} "
+        f"(precision {stats.mean_pairwise_precision:.1%}, "
+        f"recall {stats.mean_pairwise_recall:.1%}), "
+        f"tracks/emitter {stats.mean_tracks_per_emitter:.2f}, "
+        f"mixed tracks {stats.mean_mixed_tracks:.2f}"
+    )
