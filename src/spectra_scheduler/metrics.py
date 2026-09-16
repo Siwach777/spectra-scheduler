@@ -38,6 +38,9 @@ class TrackMetrics:
     confirmed_tracks: int
     mixed_tracks: int
     association_purity: float
+    pairwise_precision: float
+    pairwise_recall: float
+    pairwise_f1: float
     detected_emitters: int
     mean_tracks_per_emitter: float
 
@@ -182,6 +185,30 @@ def calculate_track_metrics(
     correctly_grouped = sum(
         max(Counter(labels).values(), default=0) for labels in labels_by_track.values()
     )
+    true_label_counts = Counter(
+        label for labels in labels_by_track.values() for label in labels
+    )
+    correctly_joined_pairs = sum(
+        _pair_count(label_count)
+        for labels in labels_by_track.values()
+        for label_count in Counter(labels).values()
+    )
+    joined_pairs = sum(
+        _pair_count(len(labels)) for labels in labels_by_track.values()
+    )
+    true_pairs = sum(_pair_count(count) for count in true_label_counts.values())
+    pairwise_precision = (
+        correctly_joined_pairs / joined_pairs if joined_pairs else 0.0
+    )
+    pairwise_recall = correctly_joined_pairs / true_pairs if true_pairs else 0.0
+    pairwise_f1 = (
+        2.0
+        * pairwise_precision
+        * pairwise_recall
+        / (pairwise_precision + pairwise_recall)
+        if pairwise_precision + pairwise_recall
+        else 0.0
+    )
     confirmed_tracks = sum(len(labels) >= 2 for labels in labels_by_track.values())
     mixed_tracks = sum(
         len(set(labels)) > 1 for labels in labels_by_track.values() if len(labels) >= 2
@@ -194,6 +221,9 @@ def calculate_track_metrics(
         association_purity=(
             correctly_grouped / assigned_measurements if assigned_measurements else 0.0
         ),
+        pairwise_precision=pairwise_precision,
+        pairwise_recall=pairwise_recall,
+        pairwise_f1=pairwise_f1,
         detected_emitters=len(track_ids_by_emitter),
         mean_tracks_per_emitter=(
             sum(tracks_per_emitter) / len(tracks_per_emitter)
@@ -201,3 +231,7 @@ def calculate_track_metrics(
             else 0.0
         ),
     )
+
+
+def _pair_count(item_count: int) -> int:
+    return item_count * (item_count - 1) // 2
