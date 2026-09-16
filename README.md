@@ -79,6 +79,16 @@ summary, and a schema version. They do not contain timestamps. The older
 
 See [docs/report-format.md](docs/report-format.md) for the stable fields.
 
+Run an experiment without editing Python by supplying a JSON scenario:
+
+```bash
+PYTHONPATH=src python3 -m spectra_scheduler \
+  --scenario-file examples/custom-scenario.json --runs 100 \
+  --output reports/custom.json
+```
+
+The format is described in [docs/scenario-format.md](docs/scenario-format.md).
+
 Run the tests with:
 
 ```bash

@@ -61,6 +61,13 @@ def example_definition() -> dict[str, object]:
 
 
 class ScenarioIoTests(unittest.TestCase):
+    def test_repository_example_is_runnable(self) -> None:
+        path = Path(__file__).parents[1] / "examples" / "custom-scenario.json"
+
+        scenario = load_scenario_file(path, seed=2)
+
+        self.assertGreater(len(scenario.generate_truth()), 0)
+
     def test_builds_supported_emitters_from_definition(self) -> None:
         scenario = build_scenario_from_definition(example_definition(), seed=3)
 

@@ -1,0 +1,57 @@
+{
+  "name": "custom-example",
+  "num_bands": 6,
+  "duration": 80,
+  "receiver": {
+    "detection_probability": 0.9,
+    "false_alarm_probability": 0.02,
+    "sensitivity_dbm": -90.0,
+    "noise_std_db": 2.0,
+    "pulse_width_noise_fraction": 0.05,
+    "retune_steps": 1,
+    "tuning_speed_bands_per_step": 2,
+    "seed_offset": 20
+  },
+  "emitters": [
+    {
+      "type": "periodic",
+      "emitter_id": "fixed",
+      "band": 1,
+      "period": 4,
+      "phase": "random",
+      "power_dbm": -76.0,
+      "pulse_width_us": 0.8
+    },
+    {
+      "type": "frequency-hopping",
+      "emitter_id": "hopper",
+      "bands": [0, 3, 5, 2],
+      "period": 3,
+      "phase": "random",
+      "power_dbm": -82.0,
+      "pulse_width_us": 0.5
+    },
+    {
+      "type": "mode-switching",
+      "switch_time": 40,
+      "first_mode": {
+        "type": "periodic",
+        "emitter_id": "changing",
+        "band": 2,
+        "period": 5,
+        "phase": "random",
+        "power_dbm": -80.0,
+        "pulse_width_us": 1.4
+      },
+      "second_mode": {
+        "type": "periodic",
+        "emitter_id": "changing",
+        "band": 4,
+        "period": 3,
+        "phase": "random",
+        "power_dbm": -80.0,
+        "pulse_width_us": 1.4
+      }
+    }
+  ]
+}
