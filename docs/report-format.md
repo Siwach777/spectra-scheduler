@@ -10,6 +10,7 @@ Every report contains:
 
 - `schema_version`: the report contract version;
 - `scenario`: the selected built-in scenario;
+- `scenario_definition`: the complete custom definition, or `null` for a built-in;
 - `start_seed`: the first deterministic seed;
 - `runs`: the number of consecutive seeds evaluated;
 - `strategy_results`: one aggregate record per scheduler;

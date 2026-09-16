@@ -22,11 +22,16 @@ def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--runs", type=int, default=1, help="number of seeded runs")
     parser.add_argument("--seed", type=int, default=0, help="first random seed")
-    parser.add_argument(
+    scenario_group = parser.add_mutually_exclusive_group()
+    scenario_group.add_argument(
         "--scenario",
         choices=SCENARIO_NAMES,
         default="mixed",
         help="generated evaluation scenario",
+    )
+    scenario_group.add_argument(
+        "--scenario-file",
+        help="JSON definition for a custom generated scenario",
     )
     parser.add_argument(
         "--workers",
@@ -60,6 +65,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             start_seed=args.seed,
             workers=args.workers,
             scenario=args.scenario,
+            scenario_file=args.scenario_file,
         )
         print_repeated_comparison(report.strategy_results)
         print_track_evaluation(report.track_association)
@@ -72,7 +78,9 @@ def main(arguments: Sequence[str] | None = None) -> int:
         return 0
 
     if args.runs == 1:
-        print_comparison(run_comparison(args.seed, args.scenario))
+        print_comparison(
+            run_comparison(args.seed, args.scenario, args.scenario_file)
+        )
     else:
         print_repeated_comparison(
             run_repeated_comparison(
@@ -80,6 +88,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 args.seed,
                 args.workers,
                 args.scenario,
+                args.scenario_file,
             )
         )
     if args.association:
@@ -89,6 +98,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 args.seed,
                 args.workers,
                 args.scenario,
+                args.scenario_file,
             )
         )
     return 0
