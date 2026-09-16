@@ -120,6 +120,12 @@ uses truth labels only after assignment. It reports purity, mixed tracks, confir
 tracks, and the number of track fragments per detected emitter. These values are not
 available to a scheduler during simulation.
 
+A longer crowded scenario now places eight emitters in three deliberately similar
+signature groups. Pairwise association precision, recall, and F1 complement purity so
+that splitting every measurement into a separate track cannot appear successful.
+Simultaneous measurements are assigned jointly by lowest normalized cost instead of
+depending on their input order.
+
 Pulse-width measurements now include independent seeded relative error. The existing
 power-noise sample keys are preserved, so enabling the new uncertainty does not change
 the received-power sequence or unrelated scheduler baselines.
@@ -135,8 +141,8 @@ on the current short scenarios and adds no new estimator state.
 
 ## Later stages
 
-- Reduce track fragmentation without merging signals that only look similar.
-- Add a longer crowded association scenario before revisiting uncertainty estimation.
+- Add structured experiment reports and stable file export before more strategy work.
+- Add another measured signal feature before attempting more crowded-track tuning.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.

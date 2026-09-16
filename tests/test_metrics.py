@@ -171,6 +171,9 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.confirmed_tracks, 2)
         self.assertEqual(metrics.mixed_tracks, 0)
         self.assertEqual(metrics.association_purity, 1.0)
+        self.assertEqual(metrics.pairwise_precision, 1.0)
+        self.assertEqual(metrics.pairwise_recall, 1.0)
+        self.assertEqual(metrics.pairwise_f1, 1.0)
         self.assertEqual(metrics.mean_tracks_per_emitter, 1.0)
 
     def test_detects_ambiguous_signal_association(self) -> None:
@@ -194,6 +197,9 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.confirmed_tracks, 1)
         self.assertEqual(metrics.mixed_tracks, 1)
         self.assertEqual(metrics.association_purity, 0.5)
+        self.assertAlmostEqual(metrics.pairwise_precision, 1 / 3)
+        self.assertEqual(metrics.pairwise_recall, 1.0)
+        self.assertEqual(metrics.pairwise_f1, 0.5)
 
 
 if __name__ == "__main__":

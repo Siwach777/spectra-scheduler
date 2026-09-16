@@ -11,7 +11,7 @@ remain in [experiments.md](experiments.md).
 | Fair evaluation | Randomized phases and repeated seeded comparisons | Prevent fixed timing from favoring one scan pattern |
 | Truth separation | Public observations contain no emitter identity or false-alarm label | Prevent future policies from using hidden simulator information |
 | Metrics | Interception, discovery, coverage, delay, sensitivity, and reacquisition | Keep scheduler, receiver, and change-response effects separate |
-| Association metrics | Truth-only purity, mixed-track, and fragmentation measurements | Diagnose tracking without exposing labels to the scheduler |
+| Association metrics | Truth-only purity, pairwise precision/recall/F1, mixed-track, and fragmentation measurements | Diagnose both mistaken joins and track splitting without exposing labels to the scheduler |
 | Baselines | Fixed, random, shuffled, revisit, UCB, sliding UCB, period-aware, fixed-dwell, and adaptive-dwell scans | Compare simple ideas before adding a larger learning model |
 | Dynamic behavior | Emitters can enter, leave, and change operating modes | Test whether learned behavior becomes stale |
 | RF strength | Received power, sensitivity threshold, and measurement noise | Separate weak-signal loss from choosing the wrong band |
@@ -23,7 +23,7 @@ remain in [experiments.md](experiments.md).
 | Bayesian scheduler | Decaying per-band hit beliefs with exploration and switching cost | Add an inspectable probability-based policy before larger learning models |
 | Transition scheduler | A decaying table scores bands that followed recent detected bands | Test whether anonymous hit-to-hit motion is useful before adding signal tracking |
 | Change detection | Per-band older and recent hit windows trigger a local belief reset | React to sustained behavior shifts without using simulator change labels |
-| Focused scenarios | Separate acquisition, adjacent tracking, and mode-change cases | Measure each scheduler behavior without hiding it inside the mixed scenario |
+| Focused scenarios | Separate acquisition, adjacent tracking, mode-change, and crowded association cases | Measure each behavior without hiding it inside the mixed scenario |
 | Performance | Shared scenario truth and parallel independent runs | Support larger experiments before considering native code |
 
 New work should add or update one short row here describing both the change and its

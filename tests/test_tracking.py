@@ -40,6 +40,38 @@ class SignalTrackerTests(unittest.TestCase):
 
         self.assertEqual(len(tracks), 2)
 
+    def test_jointly_assigns_multiple_measurements(self) -> None:
+        tracker = SignalTracker()
+        tracker.update(
+            Observation(
+                time_step=0,
+                band=1,
+                detections=2,
+                measurements=(
+                    SignalMeasurement(-80.0, 1.0),
+                    SignalMeasurement(-70.0, 1.3),
+                ),
+            )
+        )
+
+        tracks = tracker.update(
+            Observation(
+                time_step=1,
+                band=1,
+                detections=2,
+                measurements=(
+                    SignalMeasurement(-75.0, 1.15),
+                    SignalMeasurement(-80.0, 1.0),
+                ),
+            )
+        )
+
+        self.assertEqual(len(tracks), 2)
+        self.assertEqual(
+            [assignment.track_id for assignment in tracker.last_assignments],
+            [1, 0],
+        )
+
     def test_expires_old_tracks(self) -> None:
         tracker = SignalTracker(max_age_steps=3)
         tracker.update(measured_observation(1, 1, -80.0, 1.0))

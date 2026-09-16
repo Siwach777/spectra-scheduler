@@ -152,71 +152,84 @@ class SignalTracker:
             self._last_assignments = ()
             return self.tracks
 
-        available_track_ids = {track.track_id for track in self._tracks}
-        available_archived_ids = {
-            track.track_id for track in self._archived_tracks
+        active_matches = self._best_matches(
+            observation.measurements,
+            self._tracks,
+            self.pulse_width_tolerance_us,
+            self.power_tolerance_db,
+        )
+        unmatched_measurements = tuple(
+            measurement
+            for index, measurement in enumerate(observation.measurements)
+            if index not in active_matches
+        )
+        unmatched_indices = tuple(
+            index
+            for index in range(len(observation.measurements))
+            if index not in active_matches
+        )
+        archived_matches = {
+            unmatched_indices[local_index]: track
+            for local_index, track in self._best_matches(
+                unmatched_measurements,
+                self._archived_tracks,
+                self.reconnect_pulse_width_tolerance_us,
+                self.reconnect_power_tolerance_db,
+            ).items()
         }
         assignments = []
         for measurement_index, measurement in enumerate(observation.measurements):
-            track = self._best_match(
-                measurement,
-                self._tracks,
-                available_track_ids,
-                self.pulse_width_tolerance_us,
-                self.power_tolerance_db,
-            )
-            reconnected = False
-            if track is None:
-                track = self._best_match(
-                    measurement,
-                    self._archived_tracks,
-                    available_archived_ids,
-                    self.reconnect_pulse_width_tolerance_us,
-                    self.reconnect_power_tolerance_db,
-                )
-                reconnected = track is not None
-            if track is None:
-                track = self._new_track(observation, measurement)
-            else:
-                if reconnected:
-                    self._archived_tracks.remove(track)
-                    self._tracks.append(track)
-                    available_archived_ids.remove(track.track_id)
-                else:
-                    available_track_ids.remove(track.track_id)
+            track = active_matches.get(measurement_index)
+            if track is not None:
                 track.update(observation.time_step, observation.band, measurement)
+            elif measurement_index in archived_matches:
+                track = archived_matches[measurement_index]
+                self._archived_tracks.remove(track)
+                self._tracks.append(track)
+                track.update(observation.time_step, observation.band, measurement)
+            else:
+                track = self._new_track(observation, measurement)
             assignments.append(TrackAssignment(measurement_index, track.track_id))
         self._last_assignments = tuple(assignments)
         return self.tracks
 
-    def _best_match(
+    def _best_matches(
         self,
-        measurement: SignalMeasurement,
+        measurements: tuple[SignalMeasurement, ...],
         tracks: list[SignalTrack],
-        available_track_ids: set[int],
         pulse_width_tolerance_us: float,
         power_tolerance_db: float,
-    ) -> SignalTrack | None:
+    ) -> dict[int, SignalTrack]:
         candidates = []
-        for track in tracks:
-            if track.track_id not in available_track_ids:
-                continue
-            width_difference = abs(
-                measurement.pulse_width_us - track.mean_pulse_width_us
-            )
-            power_difference = abs(measurement.power_dbm - track.mean_power_dbm)
-            if (
-                width_difference <= pulse_width_tolerance_us
-                and power_difference <= power_tolerance_db
-            ):
-                score = (
-                    width_difference / pulse_width_tolerance_us
-                    + power_difference / power_tolerance_db
+        for measurement_index, measurement in enumerate(measurements):
+            for track in tracks:
+                width_difference = abs(
+                    measurement.pulse_width_us - track.mean_pulse_width_us
                 )
-                candidates.append((score, track.track_id, track))
-        if not candidates:
-            return None
-        return min(candidates, key=lambda candidate: candidate[:2])[2]
+                power_difference = abs(measurement.power_dbm - track.mean_power_dbm)
+                if (
+                    width_difference <= pulse_width_tolerance_us
+                    and power_difference <= power_tolerance_db
+                ):
+                    score = (
+                        width_difference / pulse_width_tolerance_us
+                        + power_difference / power_tolerance_db
+                    )
+                    candidates.append(
+                        (score, measurement_index, track.track_id, track)
+                    )
+
+        matches: dict[int, SignalTrack] = {}
+        used_track_ids = set()
+        for _, measurement_index, track_id, track in sorted(
+            candidates,
+            key=lambda candidate: candidate[:3],
+        ):
+            if measurement_index in matches or track_id in used_track_ids:
+                continue
+            matches[measurement_index] = track
+            used_track_ids.add(track_id)
+        return matches
 
     def _new_track(
         self,
