@@ -146,7 +146,7 @@ on the current short scenarios and adds no new estimator state.
 
 ## Later stages
 
-- Add user-defined scenario configuration after the built-in report workflow settles.
+- Validate a manageable external dataset subset through the same report workflow.
 - Import a manageable scan-mode dataset subset and preserve its emitter labels only for evaluation.
 - Add a TOA-derived or finer-frequency feature before more crowded-track tuning.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.

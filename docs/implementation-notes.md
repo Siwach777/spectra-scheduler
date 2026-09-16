@@ -27,6 +27,7 @@ remain in [experiments.md](experiments.md).
 | Performance | Shared scenario truth and parallel independent runs | Support larger experiments before considering native code |
 | Experiment reports | Versioned JSON/CSV files combine scheduler and association summaries without timestamps | Make results reproducible and easy to compare outside the terminal |
 | Command interface | Package command, module entry point, and compatibility script share one argument parser | Keep one tested path for running and exporting experiments |
+| Scenario files | Strict JSON definitions support all emitter models, seed offsets, nested modes, and self-contained reports | Run new experiments without editing package code |
 
 New work should add or update one short row here describing both the change and its
 reason.

@@ -11,7 +11,9 @@ from spectra_scheduler.metrics import (
     calculate_metrics,
     calculate_track_metrics,
 )
+from spectra_scheduler.scenario_io import load_scenario_file
 from spectra_scheduler.scenarios import build_scenario
+from spectra_scheduler.simulation import Simulation
 from spectra_scheduler.schedulers import (
     AdaptiveDwellScheduler,
     BayesianBandScheduler,
@@ -30,8 +32,12 @@ from spectra_scheduler.schedulers import (
 )
 
 
-def run_comparison(seed: int = 0, scenario: str = "mixed") -> dict[str, ScanMetrics]:
-    simulation = build_scenario(scenario, seed)
+def run_comparison(
+    seed: int = 0,
+    scenario: str = "mixed",
+    scenario_file: str | None = None,
+) -> dict[str, ScanMetrics]:
+    simulation = _build_simulation(scenario, seed, scenario_file)
     truth = simulation.generate_truth()
     scheduler_factories: dict[str, Callable[[], Scheduler]] = {
         "round-robin": RoundRobinScheduler,
@@ -55,8 +61,12 @@ def run_comparison(seed: int = 0, scenario: str = "mixed") -> dict[str, ScanMetr
     }
 
 
-def run_track_evaluation(seed: int = 0, scenario: str = "mixed") -> TrackMetrics:
-    simulation = build_scenario(scenario, seed)
+def run_track_evaluation(
+    seed: int = 0,
+    scenario: str = "mixed",
+    scenario_file: str | None = None,
+) -> TrackMetrics:
+    simulation = _build_simulation(scenario, seed, scenario_file)
     result = simulation.run(TrackAwareScheduler())
     return calculate_track_metrics(result)
 
@@ -121,13 +131,14 @@ def run_repeated_comparison(
     start_seed: int = 0,
     workers: int = 1,
     scenario: str = "mixed",
+    scenario_file: str | None = None,
 ) -> dict[str, ComparisonStats]:
     if runs <= 0:
         raise ValueError("runs must be positive")
     if workers <= 0:
         raise ValueError("workers must be positive")
 
-    build_scenario(scenario, start_seed)
+    _build_simulation(scenario, start_seed, scenario_file)
 
     collected: dict[str, list[ScanMetrics]] = {}
     seeds = range(start_seed, start_seed + runs)
@@ -138,7 +149,7 @@ def run_repeated_comparison(
                 collected.setdefault(name, []).append(metrics)
 
     if workers == 1:
-        collect(map(run_comparison, seeds, repeat(scenario)))
+        collect(map(run_comparison, seeds, repeat(scenario), repeat(scenario_file)))
     else:
         worker_count = min(workers, runs)
         process_context = (
@@ -154,6 +165,7 @@ def run_repeated_comparison(
                     run_comparison,
                     seeds,
                     repeat(scenario),
+                    repeat(scenario_file),
                     chunksize=chunk_size,
                 )
             )
@@ -197,16 +209,24 @@ def run_repeated_track_evaluation(
     start_seed: int = 0,
     workers: int = 1,
     scenario: str = "mixed",
+    scenario_file: str | None = None,
 ) -> TrackStats:
     if runs <= 0:
         raise ValueError("runs must be positive")
     if workers <= 0:
         raise ValueError("workers must be positive")
 
-    build_scenario(scenario, start_seed)
+    _build_simulation(scenario, start_seed, scenario_file)
     seeds = range(start_seed, start_seed + runs)
     if workers == 1:
-        samples = list(map(run_track_evaluation, seeds, repeat(scenario)))
+        samples = list(
+            map(
+                run_track_evaluation,
+                seeds,
+                repeat(scenario),
+                repeat(scenario_file),
+            )
+        )
     else:
         worker_count = min(workers, runs)
         process_context = (
@@ -222,6 +242,7 @@ def run_repeated_track_evaluation(
                     run_track_evaluation,
                     seeds,
                     repeat(scenario),
+                    repeat(scenario_file),
                     chunksize=chunk_size,
                 )
             )
@@ -285,3 +306,13 @@ def print_track_evaluation(stats: TrackStats) -> None:
         f"tracks/emitter {stats.mean_tracks_per_emitter:.2f}, "
         f"mixed tracks {stats.mean_mixed_tracks:.2f}"
     )
+
+
+def _build_simulation(
+    scenario: str,
+    seed: int,
+    scenario_file: str | None,
+) -> Simulation:
+    if scenario_file is not None:
+        return load_scenario_file(scenario_file, seed)
+    return build_scenario(scenario, seed)

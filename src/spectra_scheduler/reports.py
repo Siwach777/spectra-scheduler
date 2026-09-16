@@ -2,6 +2,7 @@ import csv
 import json
 from dataclasses import asdict, dataclass, fields
 from pathlib import Path
+from typing import Any
 
 from spectra_scheduler.comparison import (
     ComparisonStats,
@@ -9,6 +10,7 @@ from spectra_scheduler.comparison import (
     run_repeated_comparison,
     run_repeated_track_evaluation,
 )
+from spectra_scheduler.scenario_io import load_scenario_definition, scenario_name
 
 REPORT_SCHEMA_VERSION = 1
 
@@ -17,6 +19,7 @@ REPORT_SCHEMA_VERSION = 1
 class ExperimentReport:
     schema_version: int
     scenario: str
+    scenario_definition: dict[str, Any] | None
     start_seed: int
     runs: int
     strategy_results: dict[str, ComparisonStats]
@@ -28,22 +31,34 @@ def build_experiment_report(
     start_seed: int = 0,
     workers: int = 1,
     scenario: str = "mixed",
+    scenario_file: str | None = None,
 ) -> ExperimentReport:
+    scenario_definition = None
+    report_scenario = scenario
+    if scenario_file is not None:
+        scenario_definition = load_scenario_definition(scenario_file)
+        report_scenario = scenario_name(
+            scenario_definition,
+            fallback=Path(scenario_file).stem,
+        )
     strategy_results = run_repeated_comparison(
         runs=runs,
         start_seed=start_seed,
         workers=workers,
         scenario=scenario,
+        scenario_file=scenario_file,
     )
     track_association = run_repeated_track_evaluation(
         runs=runs,
         start_seed=start_seed,
         workers=workers,
         scenario=scenario,
+        scenario_file=scenario_file,
     )
     return ExperimentReport(
         schema_version=REPORT_SCHEMA_VERSION,
-        scenario=scenario,
+        scenario=report_scenario,
+        scenario_definition=scenario_definition,
         start_seed=start_seed,
         runs=runs,
         strategy_results=strategy_results,
@@ -93,6 +108,7 @@ def _write_csv(report: ExperimentReport, path: Path) -> None:
     fieldnames = [
         "schema_version",
         "scenario",
+        "scenario_definition",
         "start_seed",
         "runs",
         "record_type",
@@ -103,6 +119,11 @@ def _write_csv(report: ExperimentReport, path: Path) -> None:
     base_row = {
         "schema_version": report.schema_version,
         "scenario": report.scenario,
+        "scenario_definition": (
+            json.dumps(report.scenario_definition, sort_keys=True, separators=(",", ":"))
+            if report.scenario_definition is not None
+            else ""
+        ),
         "start_seed": report.start_seed,
         "runs": report.runs,
     }

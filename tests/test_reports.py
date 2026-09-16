@@ -42,6 +42,7 @@ class ReportTests(unittest.TestCase):
 
         self.assertEqual(data["schema_version"], REPORT_SCHEMA_VERSION)
         self.assertEqual(data["scenario"], "crowded")
+        self.assertIsNone(data["scenario_definition"])
         self.assertIn("track-aware", data["strategy_results"])
         self.assertIn("mean_pairwise_f1", data["track_association"])
         self.assertIn("mean_v_measure", data["track_association"])
