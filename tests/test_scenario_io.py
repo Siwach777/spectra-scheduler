@@ -3,6 +3,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from spectra_scheduler.comparison import (
+    run_repeated_comparison,
+    run_repeated_track_evaluation,
+)
 from spectra_scheduler.scenario_io import (
     build_scenario_from_definition,
     load_scenario_file,
@@ -81,6 +85,26 @@ class ScenarioIoTests(unittest.TestCase):
     def test_reads_scenario_name(self) -> None:
         self.assertEqual(scenario_name(example_definition()), "file-example")
         self.assertEqual(scenario_name({}, fallback="fallback"), "fallback")
+
+    def test_file_scenario_runs_parallel_comparison(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "scenario.json"
+            path.write_text(json.dumps(example_definition()), encoding="utf-8")
+
+            sequential = run_repeated_comparison(runs=4, scenario_file=str(path))
+            parallel = run_repeated_comparison(
+                runs=4,
+                workers=2,
+                scenario_file=str(path),
+            )
+            association = run_repeated_track_evaluation(
+                runs=4,
+                workers=2,
+                scenario_file=str(path),
+            )
+
+        self.assertEqual(parallel, sequential)
+        self.assertEqual(association.runs, 4)
 
     def test_rejects_unknown_emitter_type(self) -> None:
         definition = example_definition()
