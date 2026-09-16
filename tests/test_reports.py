@@ -44,6 +44,7 @@ class ReportTests(unittest.TestCase):
         self.assertEqual(data["scenario"], "crowded")
         self.assertIn("track-aware", data["strategy_results"])
         self.assertIn("mean_pairwise_f1", data["track_association"])
+        self.assertIn("mean_v_measure", data["track_association"])
         self.assertNotIn("timestamp", data)
 
     def test_writes_csv_report(self) -> None:

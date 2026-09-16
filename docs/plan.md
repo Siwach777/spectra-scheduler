@@ -147,7 +147,7 @@ on the current short scenarios and adds no new estimator state.
 ## Later stages
 
 - Add user-defined scenario configuration after the built-in report workflow settles.
-- Add V-measure to align association evaluation with the external benchmark.
+- Import a manageable scan-mode dataset subset and preserve its emitter labels only for evaluation.
 - Add a TOA-derived or finer-frequency feature before more crowded-track tuning.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.

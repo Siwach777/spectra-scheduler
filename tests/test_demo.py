@@ -123,6 +123,7 @@ class DemoTests(unittest.TestCase):
         self.assertGreater(stats.mean_detected_emitters, 0)
         self.assertTrue(0.0 <= stats.mean_association_purity <= 1.0)
         self.assertTrue(0.0 <= stats.mean_pairwise_f1 <= 1.0)
+        self.assertTrue(0.0 <= stats.mean_v_measure <= 1.0)
 
     def test_parallel_track_evaluation_matches_sequential_result(self) -> None:
         sequential = run_repeated_track_evaluation(runs=8, start_seed=11)

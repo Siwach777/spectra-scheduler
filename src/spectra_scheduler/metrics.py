@@ -1,5 +1,7 @@
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
+from math import log
 
 from spectra_scheduler.models import SimulationResult
 from spectra_scheduler.tracking import SignalTracker
@@ -41,6 +43,9 @@ class TrackMetrics:
     pairwise_precision: float
     pairwise_recall: float
     pairwise_f1: float
+    homogeneity: float
+    completeness: float
+    v_measure: float
     detected_emitters: int
     mean_tracks_per_emitter: float
 
@@ -209,6 +214,7 @@ def calculate_track_metrics(
         if pairwise_precision + pairwise_recall
         else 0.0
     )
+    homogeneity, completeness, v_measure = _clustering_scores(labels_by_track)
     confirmed_tracks = sum(len(labels) >= 2 for labels in labels_by_track.values())
     mixed_tracks = sum(
         len(set(labels)) > 1 for labels in labels_by_track.values() if len(labels) >= 2
@@ -224,6 +230,9 @@ def calculate_track_metrics(
         pairwise_precision=pairwise_precision,
         pairwise_recall=pairwise_recall,
         pairwise_f1=pairwise_f1,
+        homogeneity=homogeneity,
+        completeness=completeness,
+        v_measure=v_measure,
         detected_emitters=len(track_ids_by_emitter),
         mean_tracks_per_emitter=(
             sum(tracks_per_emitter) / len(tracks_per_emitter)
@@ -235,3 +244,63 @@ def calculate_track_metrics(
 
 def _pair_count(item_count: int) -> int:
     return item_count * (item_count - 1) // 2
+
+
+def _clustering_scores(
+    labels_by_track: dict[int, list[tuple[str, str]]],
+) -> tuple[float, float, float]:
+    assigned_measurements = sum(len(labels) for labels in labels_by_track.values())
+    if assigned_measurements == 0:
+        return 0.0, 0.0, 0.0
+
+    label_counts_by_track = {
+        track_id: Counter(labels) for track_id, labels in labels_by_track.items()
+    }
+    true_label_counts: Counter[tuple[str, str]] = Counter()
+    for counts in label_counts_by_track.values():
+        true_label_counts.update(counts)
+    class_entropy = _entropy(true_label_counts.values())
+    cluster_entropy = _entropy(
+        sum(counts.values()) for counts in label_counts_by_track.values()
+    )
+    conditional_class_entropy = sum(
+        sum(counts.values()) / assigned_measurements * _entropy(counts.values())
+        for counts in label_counts_by_track.values()
+    )
+    counts_by_label: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for counts in label_counts_by_track.values():
+        for label, count in counts.items():
+            counts_by_label[label].append(count)
+    conditional_cluster_entropy = sum(
+        true_label_counts[label]
+        / assigned_measurements
+        * _entropy(counts_by_track)
+        for label, counts_by_track in counts_by_label.items()
+    )
+
+    homogeneity = (
+        1.0
+        if class_entropy == 0.0
+        else 1.0 - conditional_class_entropy / class_entropy
+    )
+    completeness = (
+        1.0
+        if cluster_entropy == 0.0
+        else 1.0 - conditional_cluster_entropy / cluster_entropy
+    )
+    v_measure = (
+        2.0 * homogeneity * completeness / (homogeneity + completeness)
+        if homogeneity + completeness
+        else 0.0
+    )
+    return homogeneity, completeness, v_measure
+
+
+def _entropy(counts: Iterable[int]) -> float:
+    values = tuple(counts)
+    total = sum(values)
+    if total == 0:
+        return 0.0
+    return -sum(
+        (count / total) * log(count / total) for count in values if count
+    )

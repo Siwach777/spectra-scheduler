@@ -36,7 +36,7 @@ receiver-visible measurements and dataset-compatible evaluation.
 
 ## Decisions
 
-- Add homogeneity, completeness, and V-measure to association evaluation and reports.
+- Use homogeneity, completeness, and V-measure in association evaluation and reports.
 - Keep pairwise precision/recall/F1 because it makes false joins and fragmentation
   independently visible.
 - Treat time-of-arrival-derived repetition structure or a finer frequency measurement

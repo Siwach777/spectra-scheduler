@@ -9,6 +9,7 @@ from spectra_scheduler.metrics import calculate_metrics, calculate_track_metrics
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.schedulers import RoundRobinScheduler
 from spectra_scheduler.simulation import Simulation
+from spectra_scheduler.tracking import SignalTracker
 
 
 class MetricsTests(unittest.TestCase):
@@ -174,6 +175,9 @@ class MetricsTests(unittest.TestCase):
         self.assertEqual(metrics.pairwise_precision, 1.0)
         self.assertEqual(metrics.pairwise_recall, 1.0)
         self.assertEqual(metrics.pairwise_f1, 1.0)
+        self.assertEqual(metrics.homogeneity, 1.0)
+        self.assertEqual(metrics.completeness, 1.0)
+        self.assertEqual(metrics.v_measure, 1.0)
         self.assertEqual(metrics.mean_tracks_per_emitter, 1.0)
 
     def test_detects_ambiguous_signal_association(self) -> None:
@@ -200,6 +204,27 @@ class MetricsTests(unittest.TestCase):
         self.assertAlmostEqual(metrics.pairwise_precision, 1 / 3)
         self.assertEqual(metrics.pairwise_recall, 1.0)
         self.assertEqual(metrics.pairwise_f1, 0.5)
+        self.assertEqual(metrics.homogeneity, 0.0)
+        self.assertEqual(metrics.completeness, 1.0)
+        self.assertEqual(metrics.v_measure, 0.0)
+
+    def test_v_measure_penalizes_fragmented_signal(self) -> None:
+        simulation = Simulation(
+            num_bands=1,
+            duration=4,
+            emitters=(PeriodicEmitter("fixed", band=0, period=2),),
+        )
+        tracker = SignalTracker(max_age_steps=1, reconnect_max_age_steps=1)
+
+        metrics = calculate_track_metrics(
+            simulation.run(RoundRobinScheduler()),
+            tracker,
+        )
+
+        self.assertEqual(metrics.mean_tracks_per_emitter, 2.0)
+        self.assertEqual(metrics.homogeneity, 1.0)
+        self.assertEqual(metrics.completeness, 0.0)
+        self.assertEqual(metrics.v_measure, 0.0)
 
 
 if __name__ == "__main__":

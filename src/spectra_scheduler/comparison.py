@@ -109,6 +109,9 @@ class TrackStats:
     mean_pairwise_precision: float
     mean_pairwise_recall: float
     mean_pairwise_f1: float
+    mean_homogeneity: float
+    mean_completeness: float
+    mean_v_measure: float
     mean_detected_emitters: float
     mean_tracks_per_emitter: float
 
@@ -238,6 +241,9 @@ def run_repeated_track_evaluation(
         ),
         mean_pairwise_recall=fmean(sample.pairwise_recall for sample in samples),
         mean_pairwise_f1=fmean(sample.pairwise_f1 for sample in samples),
+        mean_homogeneity=fmean(sample.homogeneity for sample in samples),
+        mean_completeness=fmean(sample.completeness for sample in samples),
+        mean_v_measure=fmean(sample.v_measure for sample in samples),
         mean_detected_emitters=fmean(sample.detected_emitters for sample in samples),
         mean_tracks_per_emitter=fmean(
             sample.mean_tracks_per_emitter for sample in samples
@@ -272,6 +278,7 @@ def print_track_evaluation(stats: TrackStats) -> None:
     print("Track association")
     print(
         f"purity {stats.mean_association_purity:.1%}, "
+        f"V-measure {stats.mean_v_measure:.1%}, "
         f"pair F1 {stats.mean_pairwise_f1:.1%} "
         f"(precision {stats.mean_pairwise_precision:.1%}, "
         f"recall {stats.mean_pairwise_recall:.1%}), "
