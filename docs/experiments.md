@@ -444,6 +444,9 @@ arrives after the run is underway. Association quality is measured over 1,000 se
 | Track-aware interception | 6.6% |
 | Emitter discovery | 90.8% |
 | Association purity | 80.1% |
+| Homogeneity | 82.7% |
+| Completeness | 67.4% |
+| V-measure | 74.1% |
 | Pairwise association precision | 51.2% |
 | Pairwise association recall | 31.3% |
 | Pairwise association F1 | 37.4% |

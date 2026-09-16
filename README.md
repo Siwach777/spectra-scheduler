@@ -25,7 +25,8 @@ how quickly transmissions are detected.
 
 See [docs/plan.md](docs/plan.md) for the working plan and
 [docs/implementation-notes.md](docs/implementation-notes.md) for a brief explanation of
-what each part is for.
+what each part is for. The implementation-facing literature review is in
+[docs/related-work.md](docs/related-work.md).
 
 ## Run the prototype
 
