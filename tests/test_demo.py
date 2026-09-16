@@ -9,6 +9,7 @@ from spectra_scheduler.scenarios import (
     build_acquisition_scenario,
     build_change_scenario,
     build_comparison_scenario,
+    build_crowded_scenario,
     build_scenario,
     build_tracking_scenario,
 )
@@ -132,6 +133,27 @@ class DemoTests(unittest.TestCase):
         for scenario in SCENARIO_NAMES:
             results = run_repeated_comparison(runs=2, scenario=scenario)
             self.assertEqual(set(results), set(run_comparison(scenario=scenario)))
+
+    def test_crowded_scenario_stresses_similar_signal_association(self) -> None:
+        scenario = build_crowded_scenario(seed=4)
+        truth = scenario.generate_truth()
+        signatures = {
+            event.emitter_id: (event.power_dbm, event.pulse_width_us)
+            for event in truth
+        }
+
+        self.assertEqual(scenario.duration, 180)
+        self.assertEqual(scenario.num_bands, 8)
+        self.assertEqual(len(signatures), 8)
+        self.assertLess(
+            abs(signatures["scanner-a"][1] - signatures["scanner-b"][1]),
+            0.1,
+        )
+        late_times = [
+            event.time_step for event in truth if event.emitter_id == "late-arrival"
+        ]
+        self.assertTrue(late_times)
+        self.assertGreaterEqual(min(late_times), 60)
 
     def test_rejects_unknown_scenario(self) -> None:
         with self.assertRaises(ValueError):

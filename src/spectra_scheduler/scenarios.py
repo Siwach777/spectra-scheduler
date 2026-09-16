@@ -12,7 +12,7 @@ from spectra_scheduler.emitters import (
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.simulation import Simulation
 
-SCENARIO_NAMES = ("mixed", "acquisition", "tracking", "change")
+SCENARIO_NAMES = ("mixed", "acquisition", "tracking", "change", "crowded")
 
 
 def build_comparison_scenario(seed: int = 0) -> Simulation:
@@ -200,12 +200,105 @@ def build_change_scenario(seed: int = 0) -> Simulation:
     )
 
 
+def build_crowded_scenario(seed: int = 0) -> Simulation:
+    """Stress signal association with several deliberately similar emitters."""
+
+    generator = random.Random(seed)
+    return Simulation(
+        num_bands=8,
+        duration=180,
+        emitters=(
+            ScanningEmitter(
+                "scanner-a",
+                lowest_band=0,
+                highest_band=7,
+                period=2,
+                phase=generator.randrange(2),
+                power_dbm=-77.0,
+                pulse_width_us=1.00,
+            ),
+            ScanningEmitter(
+                "scanner-b",
+                lowest_band=1,
+                highest_band=6,
+                period=2,
+                phase=generator.randrange(2),
+                power_dbm=-81.0,
+                pulse_width_us=1.08,
+            ),
+            FrequencyHoppingEmitter(
+                "hopper-a",
+                bands=(0, 4, 2, 6),
+                period=3,
+                phase=generator.randrange(3),
+                power_dbm=-82.0,
+                pulse_width_us=0.55,
+            ),
+            FrequencyHoppingEmitter(
+                "hopper-b",
+                bands=(7, 3, 5, 1),
+                period=3,
+                phase=generator.randrange(3),
+                power_dbm=-85.0,
+                pulse_width_us=0.62,
+            ),
+            PeriodicEmitter(
+                "fixed-a",
+                band=2,
+                period=4,
+                phase=generator.randrange(4),
+                power_dbm=-75.0,
+                pulse_width_us=1.45,
+            ),
+            PeriodicEmitter(
+                "fixed-b",
+                band=6,
+                period=5,
+                phase=generator.randrange(5),
+                power_dbm=-79.0,
+                pulse_width_us=1.52,
+            ),
+            WindowedEmitter(
+                PeriodicEmitter(
+                    "late-arrival",
+                    band=4,
+                    period=4,
+                    phase=generator.randrange(4),
+                    power_dbm=-78.0,
+                    pulse_width_us=1.48,
+                ),
+                start_time=60,
+            ),
+            BurstEmitter(
+                "burst",
+                band=7,
+                burst_period=16,
+                pulses_per_burst=3,
+                phase=generator.randrange(16),
+                power_dbm=-87.0,
+                pulse_width_us=0.30,
+            ),
+        ),
+        receiver=Receiver(
+            detection_probability=0.9,
+            false_alarm_probability=0.03,
+            sensitivity_dbm=-90.0,
+            noise_std_db=2.5,
+            pulse_width_noise_fraction=0.05,
+            retune_steps=1,
+            tuning_speed_bands_per_step=2,
+            seed=seed + 30,
+        ),
+    )
+
+
 def build_scenario(name: str, seed: int = 0) -> Simulation:
     builders = {
         "mixed": build_comparison_scenario,
         "acquisition": build_acquisition_scenario,
         "tracking": build_tracking_scenario,
         "change": build_change_scenario,
+        "crowded": build_crowded_scenario,
     }
     try:
         builder = builders[name]
