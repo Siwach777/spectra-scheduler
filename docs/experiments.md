@@ -432,3 +432,36 @@ too much stationary tracking time.
 The three-observation default improves focused motion tracking and the mixed result
 without materially changing mode-change performance. Variance-based association needs
 longer tracks and a harder crowded scenario before it is worth revisiting.
+
+## Crowded association stress test
+
+The crowded scenario runs for 180 receiver steps across eight bands. Eight emitters
+form three groups with deliberately similar power and pulse width, and one signal
+arrives after the run is underway. Association quality is measured over 1,000 seeds.
+
+| Metric | Result |
+|---|---:|
+| Track-aware interception | 6.6% |
+| Emitter discovery | 90.8% |
+| Association purity | 80.1% |
+| Pairwise association precision | 51.2% |
+| Pairwise association recall | 31.3% |
+| Pairwise association F1 | 37.4% |
+| Tracks per emitter | 2.53 |
+| Mixed tracks per run | 4.42 |
+
+Pairwise scoring counts whether pairs of measurements that belong together share a
+track and whether unrelated pairs were joined. It exposes both failure directions:
+purity alone rewards excessive splitting, while fragmentation alone does not penalize
+mixed tracks.
+
+Fixed tolerance sweeps, motion-weighted scores, hard band-speed limits, mature-track
+tightening, and adaptive lifetime experiments were rejected. Each either left F1
+unchanged or traded false joins for more fragmentation. Power and pulse width do not
+contain enough information to cleanly distinguish the deliberately overlapping
+groups. The next large association step should add another receiver-visible signal
+descriptor rather than continue tuning the same two features.
+
+Multiple detections in one receiver observation are now assigned jointly by normalized
+measurement cost. This removes dependence on measurement input order. It fixes a
+structural ambiguity but does not materially change the aggregate crowded result.

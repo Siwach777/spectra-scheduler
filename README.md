@@ -53,7 +53,9 @@ Use a focused scenario to inspect one scheduler behavior at a time:
 PYTHONPATH=src python3 scripts/run_comparison.py --scenario change --runs 100
 ```
 
-Available scenarios are `mixed`, `acquisition`, `tracking`, and `change`.
+Available scenarios are `mixed`, `acquisition`, `tracking`, `change`, and `crowded`.
+The crowded case is longer and deliberately contains emitters with similar measured
+signatures, so it is mainly useful for checking track association.
 
 Run the tests with:
 
