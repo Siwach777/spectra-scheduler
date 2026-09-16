@@ -17,7 +17,7 @@ remain in [experiments.md](experiments.md).
 | RF strength | Received power, sensitivity threshold, and measurement noise | Separate weak-signal loss from choosing the wrong band |
 | Signal measurements | Detected pulses expose independently seeded noisy power and pulse width without emitter IDs | Provide realistic association inputs while preserving the truth boundary |
 | Signal tracks | Similar measurements form active tracks; tighter matching can reconnect a recently expired track | Preserve motion history while limiting accidental merges in crowded traffic |
-| Track-aware scheduler | Adaptive dwell acquires signals; confirmed tracks guide tuning until misses or the coverage guard interrupt pursuit | Combine broad search and focused tracking with explicit recovery limits |
+| Track-aware scheduler | Adaptive dwell acquires signals; three associated measurements confirm a track before it guides tuning | Reduce short false pursuits while retaining explicit miss and coverage recovery |
 | Retuning | Band changes can use a fixed delay or a delay based on band distance; repeated selections mean dwell | Account for hardware cost without complicating the scheduler interface |
 | Adaptive dwell | A sweep waits through retuning and extends productive bands after a hit | Trade broad coverage against longer observation of useful bands |
 | Bayesian scheduler | Decaying per-band hit beliefs with exploration and switching cost | Add an inspectable probability-based policy before larger learning models |

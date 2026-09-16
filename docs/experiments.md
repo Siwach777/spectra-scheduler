@@ -309,10 +309,11 @@ reliably associate separated detections with the same moving emitter.
 
 ## Measurement-based signal tracks
 
-Detected power and pulse width are now associated into expiring tracks. Two associated
-observations confirm a track and provide a linear band-motion estimate. The scheduler
-uses adaptive dwell for acquisition, follows confirmed predictions, and interrupts a
-pursuit when the configured coverage gap is reached.
+Detected power and pulse width are now associated into expiring tracks. The initial
+implementation used two associated observations to confirm a track and provide a
+linear band-motion estimate. The scheduler uses adaptive dwell for acquisition,
+follows confirmed predictions, and interrupts a pursuit when the configured coverage
+gap is reached. A later experiment below raises the current default to three.
 
 | Scenario | Track-aware interception | Main baseline | Other outcome |
 |---|---:|---:|---:|
@@ -408,3 +409,26 @@ fragmentation increases in the isolated tracking and mode-change cases. This con
 that exact pulse width was masking some association loss. The next association change
 should reconnect compatible expired tracks conservatively rather than simply widening
 the matching tolerance.
+
+### Track confirmation threshold
+
+An uncertainty-aware matching experiment estimated online power and pulse-width
+variance after three observations, then normalized residuals by that spread. Even with
+noise-based floors and fixed hard caps, it increased fragmentation and reduced
+mode-change interception. The extra estimator state was removed.
+
+A simpler comparison changed only the number of associations required before a track
+can guide tuning. Three observations performed better than two; requiring four lost
+too much stationary tracking time.
+
+| Scenario | Two observations | Three observations |
+|---|---:|---:|
+| Mixed interception | 8.2% | 8.4% |
+| Mixed discovery | 61.4% | 61.9% |
+| Adjacent tracking interception | 11.4% | 12.3% |
+| Mode-change interception | 34.6% | 34.1% |
+| Mode-change reacquisition | 93.0% | 93.4% |
+
+The three-observation default improves focused motion tracking and the mixed result
+without materially changing mode-change performance. Variance-based association needs
+longer tracks and a harder crowded scenario before it is worth revisiting.
