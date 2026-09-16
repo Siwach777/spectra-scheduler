@@ -25,6 +25,8 @@ remain in [experiments.md](experiments.md).
 | Change detection | Per-band older and recent hit windows trigger a local belief reset | React to sustained behavior shifts without using simulator change labels |
 | Focused scenarios | Separate acquisition, adjacent tracking, mode-change, and crowded association cases | Measure each behavior without hiding it inside the mixed scenario |
 | Performance | Shared scenario truth and parallel independent runs | Support larger experiments before considering native code |
+| Experiment reports | Versioned JSON/CSV files combine scheduler and association summaries without timestamps | Make results reproducible and easy to compare outside the terminal |
+| Command interface | Package command, module entry point, and compatibility script share one argument parser | Keep one tested path for running and exporting experiments |
 
 New work should add or update one short row here describing both the change and its
 reason.

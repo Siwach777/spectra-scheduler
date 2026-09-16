@@ -126,6 +126,11 @@ that splitting every measurement into a separate track cannot appear successful.
 Simultaneous measurements are assigned jointly by lowest normalized cost instead of
 depending on their input order.
 
+Repeated association evaluation now supports the same seed range and worker-process
+options as strategy comparison. A versioned report combines both summaries and writes
+deterministic JSON or tabular CSV without runtime timestamps. The package command,
+module entry point, and compatibility script all use the same tested interface.
+
 Pulse-width measurements now include independent seeded relative error. The existing
 power-noise sample keys are preserved, so enabling the new uncertainty does not change
 the received-power sequence or unrelated scheduler baselines.
@@ -141,7 +146,7 @@ on the current short scenarios and adds no new estimator state.
 
 ## Later stages
 
-- Add structured experiment reports and stable file export before more strategy work.
+- Add user-defined scenario configuration after the built-in report workflow settles.
 - Add another measured signal feature before attempting more crowded-track tuning.
 - Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
 - Profile the simulator before deciding whether any part should move to Rust.
