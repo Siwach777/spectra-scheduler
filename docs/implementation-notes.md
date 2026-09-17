@@ -32,3 +32,7 @@ remain in [experiments.md](experiments.md).
 
 New work should add or update one short row here describing both the change and its
 reason.
+
+Dataset ingestion now validates completed TSRD HDF5 files, canonicalises feature
+order, streams full-file statistics and draws reproducible bounded samples. Labels
+remain separate from measurements. See [dataset-workflow.md](dataset-workflow.md).
