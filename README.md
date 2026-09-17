@@ -6,6 +6,9 @@ range with a receiver that can listen to only a small part of it at once.
 The Python implementation includes a dynamic emitter simulator, a narrow-band
 receiver, adaptive scan strategies and repeatable evaluation. A separate dataset
 pipeline streams TSRD HDF5 files and benchmarks offline pulse association.
+A supervised hit-prediction baseline now supports bounded training, portable JSON
+models and held-out comparison; it is experimental, not the default strategy.
+See [the learning workflow](docs/learning-workflow.md) for commands and measured results.
 
 ## Current direction
 

@@ -160,7 +160,8 @@ Recorded scan data remains separate from the interactive simulation.
 - Extend training-file coverage and evaluate frozen association configurations on validation files.
 - Keep held-out test files untouched until preprocessing and model choices are fixed.
 - Add a TOA-derived or finer-frequency feature before more crowded-track tuning.
-- Establish a training/evaluation contract for a learned scheduling policy in simulation.
+- Extend the implemented observation-only training/evaluation contract to broader
+  scenario layouts; retain current baselines until a learned policy demonstrates value.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
 

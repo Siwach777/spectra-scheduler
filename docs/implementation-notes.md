@@ -42,3 +42,10 @@ baselines, deterministic per-file samples, file-local clustering metrics and bot
 noise-scoring conventions. The dataset command supports process-level parallelism,
 optional profiling and atomic JSON reports. Real scan training files and larger
 stare files were exercised without touching the validation or test splits.
+
+The first trained scheduler now uses bounded observation-only sampling and logistic
+hit prediction, with portable JSON models and explicit dwell/coverage rules.
+Held-out evaluation reuses all existing baselines and adds a constant-model ablation
+to distinguish prediction gains from scheduling-rule gains. Existing defaults are
+unchanged because the fitted model does not consistently outperform them. Commands,
+measured results and limitations are in [learning-workflow.md](learning-workflow.md).
