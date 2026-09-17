@@ -39,7 +39,14 @@ def run_comparison(
 ) -> dict[str, ScanMetrics]:
     simulation = _build_simulation(scenario, seed, scenario_file)
     truth = simulation.generate_truth()
-    scheduler_factories: dict[str, Callable[[], Scheduler]] = {
+    return {
+        name: calculate_metrics(simulation.run(factory(), truth=truth))
+        for name, factory in scheduler_factories(seed).items()
+    }
+
+
+def scheduler_factories(seed: int = 0) -> dict[str, Callable[[], Scheduler]]:
+    return {
         "round-robin": RoundRobinScheduler,
         "dwell-sweep": DwellSweepScheduler,
         "adaptive-dwell": AdaptiveDwellScheduler,
@@ -54,12 +61,6 @@ def run_comparison(
         "track-aware": TrackAwareScheduler,
         "period-aware": PeriodAwareScheduler,
     }
-
-    return {
-        name: calculate_metrics(simulation.run(factory(), truth=truth))
-        for name, factory in scheduler_factories.items()
-    }
-
 
 def run_track_evaluation(
     seed: int = 0,

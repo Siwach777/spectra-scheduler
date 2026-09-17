@@ -15,8 +15,10 @@ dependencies = [
 [project.scripts]
 spectra-scheduler = "spectra_scheduler.cli:main"
 spectra-dataset = "spectra_scheduler.dataset_cli:main"
+spectra-learn = "spectra_scheduler.learning_cli:main"
 
 [project.optional-dependencies]
+learning = ["scikit-learn>=1.5,<2"]
 dataset = [
   "h5py>=3.11,<4",
   "scikit-learn>=1.5,<2",

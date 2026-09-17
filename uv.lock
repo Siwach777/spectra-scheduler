@@ -207,6 +207,9 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+learning = [
+    { name = "scikit-learn" },
+]
 dataset = [
     { name = "h5py" },
     { name = "scikit-learn" },
@@ -223,8 +226,9 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3,<9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.6,<1" },
     { name = "scikit-learn", marker = "extra == 'dataset'", specifier = ">=1.5,<2" },
+    { name = "scikit-learn", marker = "extra == 'learning'", specifier = ">=1.5,<2" },
 ]
-provides-extras = ["dataset", "dev"]
+provides-extras = ["dataset", "dev", "learning"]
 
 [[package]]
 name = "threadpoolctl"
