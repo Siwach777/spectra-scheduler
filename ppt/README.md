@@ -1,5 +1,9 @@
 # SIH idea presentation
 
+[PROJECT-BRIEF.md](PROJECT-BRIEF.md) is the detailed project reference for preparing
+slides and speaker notes. It includes the dataset-integration milestone, which is
+not yet reflected in the existing PowerPoint/PDF.
+
 - `SIH2026-IDEA-Presentation-Format.pptx`: supplied template, unchanged.
 - `Spectra-Scheduler-SIH2026.pptx`: editable six-slide presentation with speaker notes.
 - `Spectra-Scheduler-SIH2026.pdf`: matching six-page presentation for review and submission.
