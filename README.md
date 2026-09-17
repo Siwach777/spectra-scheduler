@@ -3,9 +3,9 @@
 A prototype for SIH26055, which asks for a smarter way to scan a wide frequency
 range with a receiver that can listen to only a small part of it at once.
 
-The first version is a Python simulation. It will contain a few kinds of emitters,
-a narrow-band receiver, simple scan strategies, and measurements of how often and
-how quickly transmissions are detected.
+The Python implementation includes a dynamic emitter simulator, a narrow-band
+receiver, adaptive scan strategies and repeatable evaluation. A separate dataset
+pipeline streams TSRD HDF5 files and benchmarks offline pulse association.
 
 ## Current direction
 
@@ -116,3 +116,21 @@ Run the tests with:
 ```bash
 PYTHONPATH=src python3 -m unittest discover -s tests -v
 ```
+
+## Work with downloaded pulse data
+
+Install the optional dataset dependencies, then inspect completed files or run a
+bounded HDBSCAN association baseline while the remaining files download:
+
+```bash
+uv sync --extra dataset --extra dev
+.venv/bin/spectra-dataset inspect --max-files 10
+.venv/bin/spectra-dataset evaluate --max-files 10 --sample-rows 10000 \
+  --workers 2 --output reports/generated/association.json
+```
+
+The pipeline streams HDF5 validation/statistics and clusters a reproducible sample
+per file. Reports include association scores, noise coverage, sample fingerprints
+and explicit file failures. It does not reinterpret recordings as simulator events
+or use emitter labels as model inputs. See [dataset-workflow.md](docs/dataset-workflow.md)
+for feature transforms, split boundaries, profiling and measured integration results.

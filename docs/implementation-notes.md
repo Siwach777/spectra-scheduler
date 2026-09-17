@@ -36,3 +36,9 @@ reason.
 Dataset ingestion now validates completed TSRD HDF5 files, canonicalises feature
 order, streams full-file statistics and draws reproducible bounded samples. Labels
 remain separate from measurements. See [dataset-workflow.md](dataset-workflow.md).
+
+Offline association evaluation now offers raw-PDW and scaled-signature HDBSCAN
+baselines, deterministic per-file samples, file-local clustering metrics and both
+noise-scoring conventions. The dataset command supports process-level parallelism,
+optional profiling and atomic JSON reports. Real scan training files and larger
+stare files were exercised without touching the validation or test splits.

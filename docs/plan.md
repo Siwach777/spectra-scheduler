@@ -144,12 +144,23 @@ Track-guided scheduling now requires three associated measurements instead of tw
 This small evidence threshold performed better than an attempted variance-based gate
 on the current short scenarios and adds no new estimator state.
 
+## Dataset milestone
+
+The HDF5 adapter and standalone dataset command are implemented. They validate
+completed scan/stare files, stream statistics, sample reproducibly and evaluate
+file-local HDBSCAN association baselines. Full scan training-file ingestion and
+bounded raw/scaled-feature comparisons have been exercised on downloaded data.
+See [dataset-workflow.md](dataset-workflow.md) for commands and measured scope.
+
+This is an unsupervised association baseline, not a trained receiver scheduler.
+Recorded scan data remains separate from the interactive simulation.
+
 ## Later stages
 
-- Validate a manageable external dataset subset through the same report workflow.
-- Import a manageable scan-mode dataset subset and preserve its emitter labels only for evaluation.
+- Extend training-file coverage and evaluate frozen association configurations on validation files.
+- Keep held-out test files untouched until preprocessing and model choices are fixed.
 - Add a TOA-derived or finer-frequency feature before more crowded-track tuning.
-- Import a manageable subset of the Turing Synthetic Radar Dataset for calibration.
+- Establish a training/evaluation contract for a learned scheduling policy in simulation.
 - Profile the simulator before deciding whether any part should move to Rust.
 - Add an API and graphical demonstration only after the experiment format is stable.
 
