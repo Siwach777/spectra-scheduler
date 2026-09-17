@@ -89,6 +89,28 @@ PYTHONPATH=src python3 -m spectra_scheduler \
 
 The format is described in [docs/scenario-format.md](docs/scenario-format.md).
 
+Download the current radar dataset after obtaining Hugging Face access and running
+`uvx hf auth login`:
+
+```bash
+bash scripts/download_dataset.sh
+```
+
+This uses 32 workers and high-performance transfers, keeps all current scan/stare
+splits, and excludes the older archive. Files stay in the Git-ignored `data/tsrd/`.
+Rerun to resume; optionally supply a worker count. Stop any older manually started
+download first. For a detached download with output saved locally:
+
+```bash
+mkdir -p data/tsrd
+nohup bash scripts/download_dataset.sh > data/tsrd/download.log 2>&1 < /dev/null &
+tail -f data/tsrd/download.log
+```
+
+Interactive runs show the downloader's progress; redirected logs may update less
+frequently. The script prevents duplicate script instances, not manually launched
+`hf download` commands.
+
 Run the tests with:
 
 ```bash
