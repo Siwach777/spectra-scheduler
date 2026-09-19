@@ -16,6 +16,7 @@ dependencies = [
 spectra-scheduler = "spectra_scheduler.cli:main"
 spectra-dataset = "spectra_scheduler.dataset_cli:main"
 spectra-learn = "spectra_scheduler.learning_cli:main"
+spectra-rl = "spectra_scheduler.rl_cli:main"
 
 [project.optional-dependencies]
 learning = ["scikit-learn>=1.5,<2"]

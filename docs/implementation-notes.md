@@ -49,3 +49,12 @@ Held-out evaluation reuses all existing baselines and adds a constant-model abla
 to distinguish prediction gains from scheduling-rule gains. Existing defaults are
 unchanged because the fitted model does not consistently outperform them. Commands,
 measured results and limitations are in [learning-workflow.md](learning-workflow.md).
+
+Direct-action reinforcement learning adds a neural Double-DQN reference, randomized
+train/validation/test worlds and paired benchmarks with untrained-model controls.
+Three reference training seeds show gains on randomized layouts but poor coverage
+and uneven legacy performance. The main training path now uses SB3-Contrib recurrent
+PPO, a Gymnasium adapter over the shared receiver step engine, CUDA optimization,
+parallel rollout workers and resumable checkpoints. Larger-model results remain
+unproven until benchmarked. See [rl-training.md](rl-training.md) and
+[rl-benchmark.md](rl-benchmark.md). The organic-development restriction no longer applies.
