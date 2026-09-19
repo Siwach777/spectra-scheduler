@@ -4,6 +4,30 @@ The collect–train–validate loop is in `spectra_scheduler.mpc_training`. It s
 from a neural model, not a handcrafted scheduling policy. Demonstration initialization
 is optional; otherwise all trajectories come from search with learned weights.
 
+## Code layout
+
+Implementation lives in `src/spectra_scheduler/mpc/`:
+
+| Module | Responsibility |
+|---|---|
+| `config.py` | Model dimensions, reward defaults and training settings |
+| `observation.py` | Causal receiver-history encoding and legacy reward helper |
+| `model.py` | GRU representation, dynamics, policy and value networks |
+| `search.py` | Single-root and batched MCTS |
+| `scheduler.py` | Simulator scheduler adapter |
+| `data.py` | Demonstrations, parallel search actors and replay storage |
+| `learning.py` | Pretraining, n-step targets and multi-step losses |
+| `checkpoints.py` | Atomic saves, loads and implementation hashes |
+| `evaluation.py` | Validation, fixed probes, test evaluation and benchmarks |
+| `trainer.py` | Collect–learn–validate loop and resume orchestration |
+| `cli.py` | Argument parsing for existing commands |
+
+`neural_mpc.py` and `mpc_training.py` are compatibility entry points. Existing module
+commands, public imports, model state-dict keys and checkpoint versions are unchanged.
+New code can import directly, for example `from spectra_scheduler.mpc.model import
+NeuralMPCModel`. This is a structural refactor, not a change to the learning algorithm.
+Provenance now hashes every implementation module rather than only the entry points.
+
 ## Learning loop
 
 1. CPU actors receive latest weights and independent training worlds. Each actor

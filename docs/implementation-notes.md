@@ -65,3 +65,10 @@ minibatches and resumable optimizer/replay checkpoints. Fixed validation selects
 best model; independent diagnostic trajectories track reward-prediction error. Test
 evaluation does not train or select checkpoints. See [mpc-training.md](mpc-training.md)
 for commands and verification. Competitive performance is not yet established.
+
+Neural-MPC is now split into focused modules under `spectra_scheduler.mpc`: model,
+observation encoding, search, scheduler adapter, data/replay, losses, checkpoints,
+evaluation, trainer and CLI. The former single-file entry points re-export existing
+APIs, preserving commands and checkpoint formats. Seeded collection/search/loss
+outputs were checked for exact parity before and after the split; source provenance
+now covers the full implementation package.
