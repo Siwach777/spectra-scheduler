@@ -55,7 +55,7 @@ it once per seed and reuse it across strategies. Independent seeds can also run 
 separate worker processes. Native code is still unnecessary at this scale.
 
 The comparison environment now includes a late-arriving emitter, an emitter that
-leaves, and a radar that changes band and repetition interval. The next scheduler
+leaves, and an emitter that changes band and repetition interval. The next scheduler
 iteration should detect that its older timing evidence has become stale.
 
 Evaluation now reports the fraction of mode changes reacquired and the delay from a

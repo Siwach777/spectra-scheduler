@@ -178,7 +178,7 @@ def build_change_scenario(seed: int = 0) -> Simulation:
         emitters=(
             ModeSwitchingEmitter(
                 first_mode=PeriodicEmitter(
-                    "changing-radar",
+                    "changing-emitter",
                     band=1,
                     period=2,
                     phase=generator.randrange(2),
@@ -186,7 +186,7 @@ def build_change_scenario(seed: int = 0) -> Simulation:
                     pulse_width_us=1.4,
                 ),
                 second_mode=PeriodicEmitter(
-                    "changing-radar",
+                    "changing-emitter",
                     band=4,
                     period=2,
                     phase=generator.randrange(2),

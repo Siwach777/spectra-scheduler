@@ -14,17 +14,17 @@ from spectra_scheduler.models import Transmission
 
 class PeriodicEmitterTests(unittest.TestCase):
     def test_generates_events_until_duration(self) -> None:
-        emitter = PeriodicEmitter("search-radar", band=2, period=3, phase=1)
+        emitter = PeriodicEmitter("search-emitter", band=2, period=3, phase=1)
 
         events = emitter.transmissions(duration=11, num_bands=4)
 
         self.assertEqual(
             events,
             [
-                Transmission(1, 2, "search-radar"),
-                Transmission(4, 2, "search-radar"),
-                Transmission(7, 2, "search-radar"),
-                Transmission(10, 2, "search-radar"),
+                Transmission(1, 2, "search-emitter"),
+                Transmission(4, 2, "search-emitter"),
+                Transmission(7, 2, "search-emitter"),
+                Transmission(10, 2, "search-emitter"),
             ],
         )
 
@@ -36,7 +36,7 @@ class PeriodicEmitterTests(unittest.TestCase):
 
     def test_attaches_signal_properties_to_events(self) -> None:
         emitter = PeriodicEmitter(
-            "weak-radar",
+            "weak-emitter",
             band=1,
             period=2,
             power_dbm=-87.5,

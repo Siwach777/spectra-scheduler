@@ -2,7 +2,9 @@
 
 ## 1. Project identity and pitch
 
-**Problem statement:** SIH26055 — Smart Scan strategy for Electronic Warfare.
+**Problem statement:** SIH26055 — Smart Scan Strategy for Electronic Support (DRDO: Development of Smart Scan Strategy for Electronic Warfare in the absence of prior reliable intelligence of emitters and their operating characteristics).
+
+**Expected solution:** Machine learning based Electronic Support receiver scheduler software.
 
 **Category:** Software. **Organisation:** DRDO.
 
@@ -41,7 +43,7 @@ visiting productive bands can leave other regions unobserved. Retuning delays, m
 detections and false alarms further complicate the decision.
 
 The project addresses this resource-allocation problem through passive-receiver
-simulation and offline data analysis. It does not implement transmission or jamming.
+simulation and offline data analysis. It focuses strictly on passive reception and cognitive scheduling without active transmission.
 
 ## 3. Objectives and intended outcomes
 

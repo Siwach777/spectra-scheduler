@@ -43,7 +43,7 @@ class ObservationTests(unittest.TestCase):
 
     def test_transmission_requires_finite_power(self) -> None:
         with self.assertRaises(ValueError):
-            Transmission(2, 1, "radar", power_dbm=math.inf)
+            Transmission(2, 1, "source", power_dbm=math.inf)
 
     def test_signal_measurement_requires_finite_power(self) -> None:
         with self.assertRaises(ValueError):
@@ -51,7 +51,7 @@ class ObservationTests(unittest.TestCase):
 
     def test_pulse_width_must_be_positive(self) -> None:
         with self.assertRaises(ValueError):
-            Transmission(2, 1, "radar", pulse_width_us=0.0)
+            Transmission(2, 1, "source", pulse_width_us=0.0)
         with self.assertRaises(ValueError):
             SignalMeasurement(power_dbm=-70.0, pulse_width_us=0.0)
 

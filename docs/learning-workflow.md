@@ -5,7 +5,7 @@
 The project can now collect observation-only training examples, fit a hit predictor,
 save a portable JSON model and evaluate a frozen model against all thirteen existing
 strategies. This is supervised logistic regression with explicit scheduling rules,
-not reinforcement learning or an operationally validated radar controller.
+not reinforcement learning or an operationally validated receiver controller.
 
 `learned_scheduler.py` provides the history features, artifact schema and inference.
 `learning.py` handles bounded sampling, fitting and held-out comparison.

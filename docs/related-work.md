@@ -1,6 +1,6 @@
 # Related work notes
 
-This note records the parts of radar pulse deinterleaving research that directly
+This note records the parts of RF pulse deinterleaving research that directly
 affect the simulator, evaluation, and next implementation stages. It is intentionally
 short; it is not a general literature survey.
 

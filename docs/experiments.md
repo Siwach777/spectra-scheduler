@@ -119,7 +119,7 @@ were kept unchanged and the comparison used 100 seeds.
 
 The period-aware policy still has the best average interception, but it reacquires
 fewer changed emitters and takes longer than the shuffled sweep or random scan. Its
-old timing evidence remains active after the radar has moved. A sliding-window policy
+old timing evidence remains active after the emitter has moved. A sliding-window policy
 is the next experiment so observations eventually become stale.
 
 ## Sliding-window UCB baseline
@@ -285,14 +285,14 @@ belief and retains the rest of the scheduler state. Retuning observations are ex
 Across 1,000 seeds, the detector fired in 81.7% of runs with 1.20 detected changes per
 run on average. It improves discovery and reacquisition modestly without changing
 interception. The detector sees aggregate activity on a band, not individual emitters,
-so a detected rate shift is not necessarily the known simulated radar mode change.
+so a detected rate shift is not necessarily the known simulated emitter mode change.
 Focused evaluation scenarios are needed before combining this detector with more
 prediction rules.
 
 ## Focused scenario checks
 
 Three smaller scenarios isolate initial acquisition, one adjacent-band scanner, and
-one periodic radar that changes band halfway through the run. Each result below uses
+one periodic emitter that changes band halfway through the run. Each result below uses
 1,000 seeds with the same retuning model as the mixed comparison.
 
 | Scenario | Leading strategy | Interception | Relevant outcome |
@@ -312,7 +312,7 @@ reliably associate separated detections with the same moving emitter.
 Detected power and pulse width are now associated into expiring tracks. The initial
 implementation used two associated observations to confirm a track and provide a
 linear band-motion estimate. The scheduler uses adaptive dwell for acquisition,
-follows confirmed predictions, and interrupts a pursuit when the configured coverage
+follows confirmed predictions, and interrupts track following when the configured coverage
 gap is reached. A later experiment below raises the current default to three.
 
 | Scenario | Track-aware interception | Main baseline | Other outcome |
@@ -327,7 +327,7 @@ traffic; the end of a short run can still finish before an overdue correction. T
 tracker is especially effective after confirming a stationary periodic signal, while
 linear extrapolation loses the adjacent scanner when it reverses direction. The next
 tracking change should represent motion confidence and boundary reversal rather than
-increasing pursuit time.
+increasing dwell/tracking time.
 
 ### Miss recovery and observed reversal
 
@@ -342,7 +342,7 @@ they reflect within the learned band range.
 | Adjacent tracking interception | 9.7% | 10.4% | 100.0% discovery |
 | Mode-change reacquisition | 92.9% | 93.1% | 13.9-step delay |
 
-Recovery improves the reversing-scanner case and prevents long pursuit of a missed
+Recovery improves the reversing-scanner case and prevents prolonged tracking of a missed
 prediction. It gives up a small amount of mixed interception, where measurements from
 several emitters compete for attention. Adaptive dwell still leads adjacent tracking
 at 11.3%, so association quality should be measured directly before adding more

@@ -81,7 +81,7 @@ def train_run(args):
         "gamma": 0.99,
         "gae_lambda": 0.95,
         "clip_range": 0.2,
-        "entropy_coefficient": 0.01,
+        "entropy_coefficient": args.entropy_coefficient,
         "target_kl": 0.03,
         "policy_kwargs": POLICY_KWARGS,
         "reward": asdict(reward),
@@ -128,7 +128,7 @@ def train_run(args):
                 gamma=0.99,
                 gae_lambda=0.95,
                 clip_range=0.2,
-                ent_coef=0.01,
+                ent_coef=args.entropy_coefficient,
                 target_kl=0.03,
                 policy_kwargs=POLICY_KWARGS,
                 seed=args.seed,
@@ -319,7 +319,8 @@ def main(argv=None):
         p.add_argument("--torch-threads", type=int, default=2)
         p.add_argument("--seed", type=int, default=0)
         p.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
-        p.add_argument("--coverage-penalty", type=float, default=0.2)
+        p.add_argument("--coverage-penalty", type=float, default=0.5)
+        p.add_argument("--entropy-coefficient", type=float, default=0.05)
         p.add_argument("--checkpoint-steps", type=int, default=50000)
         p.add_argument("--resume", action="store_true")
     p = sub.add_parser("benchmark")
@@ -356,6 +357,7 @@ def main(argv=None):
                     "seed",
                     "device",
                     "coverage_penalty",
+                    "entropy_coefficient",
                     "checkpoint_steps",
                 ):
                     command.extend(["--" + key.replace("_", "-"), str(getattr(args, key))])

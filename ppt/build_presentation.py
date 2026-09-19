@@ -146,7 +146,7 @@ def node(x, y, w, title, detail, accent=BLUE):
 begin(1, 'TITLE PAGE  /  SMART SCAN STRATEGY')
 txt(44, 101, 500, 'Spectra\nScheduler', 56, INK, True)
 txt(47, 262, 458, 'Adaptive band selection\nfrom incomplete observations.', 23, MUTED)
-txt(47, 350, 458, 'Smart Scan strategy for Electronic Warfare', 15, INK, True)
+txt(47, 350, 458, 'Smart Scan Strategy for Electronic Support', 15, INK, True)
 txt(47, 382, 450, 'SIH26055  •  DRDO  •  Software', 13, BLUE)
 txt(47, 432, 480, 'Team name: __________________    Team ID: __________', 10, MUTED)
 txt(47, 455, 460, 'Theme: pending official confirmation', 10, MUTED)

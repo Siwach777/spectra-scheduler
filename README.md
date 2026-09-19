@@ -1,5 +1,8 @@
 # Spectra Scheduler
 
+For task-by-task commands, setup and troubleshooting, see the
+[running manual](docs/runbook.md).
+
 A prototype for SIH26055, which asks for a smarter way to scan a wide frequency
 range with a receiver that can listen to only a small part of it at once.
 
@@ -92,7 +95,7 @@ PYTHONPATH=src python3 -m spectra_scheduler \
 
 The format is described in [docs/scenario-format.md](docs/scenario-format.md).
 
-Download the current radar dataset after obtaining Hugging Face access and running
+Download the current reference pulse dataset (TSRD) after obtaining Hugging Face access and running
 `uvx hf auth login`:
 
 ```bash
@@ -117,7 +120,7 @@ frequently. The script prevents duplicate script instances, not manually launche
 Run the tests with:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -v
+.venv/bin/python -m pytest -q
 ```
 
 ## Work with downloaded pulse data
