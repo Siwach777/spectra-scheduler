@@ -21,6 +21,11 @@ bars and a receiver-resource trade-off diagram. No generated artwork, stock phot
 or raster illustrations are included. White space, restrained blue accents and
 short labels replace the previous dense card layout.
 
+A refinement pass adds an instantaneous-bandwidth annotation, explicit control-loop
+signals and dwell/coverage constraints, an evaluation-only truth path, a calibrated
+0–1 association-score axis, labelled trade-offs and subtle slide-progress markers.
+These clarify the same content without adding slides or introducing image assets.
+
 Dataset and learned-policy results are explicitly scoped. Planned calibration and
 API/dashboard work remain labelled as planned. Speaker notes contain experimental
 settings, limitations and source details; the template's six sections are retained.

@@ -127,6 +127,8 @@ def begin(n, section, title=None, sub=None):
     line(44, 506, 916, 506, LINE, .7)
     txt(44, 516, 450, 'SPECTRA SCHEDULER   /   SIH26055', 8, MUTED, True)
     txt(879, 515, 40, f'0{n} / 06', 8, MUTED)
+    for index in range(6):
+        box(738+index*17, 520, 11, 2, BLUE if index == n-1 else LINE)
 
 
 def end(notes):
@@ -149,12 +151,17 @@ txt(47, 382, 450, 'SIH26055  •  DRDO  •  Software', 13, BLUE)
 txt(47, 432, 480, 'Team name: __________________    Team ID: __________', 10, MUTED)
 txt(47, 455, 460, 'Theme: pending official confirmation', 10, MUTED)
 txt(566, 107, 345, 'WIDE SPECTRUM', 11, MUTED, True)
+txt(566, 81, 345, 'THE BANDWIDTH BOTTLENECK', 9, BLUE, True)
 box(629, 139, 76, 112, 'EEF3FF')
 for i, height in enumerate([22, 42, 29, 67, 92, 48, 28, 56, 78, 33, 45, 65, 24, 38]):
     box(567+i*23, 238-height, 9, height, BLUE if 3 <= i <= 5 else 'D9E3EF')
 line(565, 249, 898, 249, MUTED, 1)
 line(629, 139, 629, 251, BLUE, 1)
 line(705, 139, 705, 251, BLUE, 1)
+line(629, 129, 705, 129, BLUE, 1)
+line(629, 126, 629, 133, BLUE, 1)
+line(705, 126, 705, 133, BLUE, 1)
+txt(720, 124, 180, 'Instantaneous bandwidth', 9, BLUE)
 txt(710, 258, 205, 'Frequency →', 11, MUTED)
 line(667, 262, 667, 306, BLUE, 1.8, arrow=True)
 node(560, 322, 337, 'Limited-bandwidth receiver', 'Select band  →  dwell  →  revisit')
@@ -165,19 +172,20 @@ end('Spectrum is conceptual, not measured. Passive scheduling under partial obse
 begin(2, 'IDEA TITLE', 'A closed loop, not a fixed sweep.',
       'Proposed solution: adapt the observation schedule as evidence changes.')
 node(75, 192, 305, '01  Observe', 'Hits, misses, signal measurements')
-node(580, 192, 305, '02  Estimate', 'Activity history + track confidence')
+node(580, 192, 305, '02  Estimate', 'Hit probability / confirmed tracks')
 node(580, 365, 305, '03  Schedule', 'Next band + listening dwell')
 node(75, 365, 305, '04  Retune & listen', 'Respect hardware observation cost')
 line(380, 232, 578, 232, BLUE, 1.8, arrow=True)
 txt(425, 209, 150, 'feedback', 11, MUTED)
 line(733, 273, 733, 363, BLUE, 1.8, arrow=True)
-txt(747, 308, 150, 'decision', 11, MUTED)
+txt(747, 308, 150, 'predicted utility', 11, MUTED)
 line(578, 405, 382, 405, BLUE, 1.8, arrow=True)
-txt(422, 381, 150, 'action', 11, MUTED)
+txt(422, 381, 150, 'band + dwell', 11, MUTED)
 line(226, 363, 226, 273, BLUE, 1.8, arrow=True)
 txt(90, 308, 126, 'new observation', 11, MUTED)
-txt(366, 294, 236, 'Search ↔ Revisit', 22, INK, True)
-txt(375, 329, 224, 'Coverage + switching cost', 12, MUTED)
+txt(373, 286, 236, 'Search / Revisit', 22, INK, True)
+txt(383, 324, 224, 'Minimum listening dwell', 11, MUTED)
+txt(383, 344, 224, 'Overdue-band priority', 11, MUTED)
 txt(76, 474, 815, 'DISTINCTIVE DESIGN   Observation-only inference • Drift response • Explicit receiver constraints', 12, BLUE)
 end('System-level control loop. Bayesian, track-aware and fitted-hit schedulers are separate baselines, '
     'not a fully fused controller. Policies do not receive emitter IDs, future transmissions or false-alarm '
@@ -185,22 +193,27 @@ end('System-level control loop. Bayesian, track-aware and fitted-hit schedulers 
 
 begin(3, 'TECHNICAL APPROACH', 'Two pipelines. One evaluation discipline.',
       'Python / NumPy  •  h5py / HDF5  •  scikit-learn  •  JSON model artifacts')
-txt(44, 177, 870, 'ONLINE SIMULATION', 11, BLUE, True)
+txt(44, 165, 870, 'A / CLOSED-LOOP SIMULATION', 11, BLUE, True)
+line(180, 222, 180, 198, MUTED, 1, dashed=True)
+line(180, 198, 780, 198, MUTED, 1, dashed=True)
+line(780, 198, 780, 222, MUTED, 1, arrow=True, dashed=True)
+box(344, 187, 287, 20, WHITE)
+txt(353, 189, 270, 'Hidden truth: evaluation only', 10, MUTED)
 for x, title, detail in [(44, 'RF simulator', 'Dynamic emitters + noise'),
                         (344, 'Policy inference', 'History → band selection'),
                         (644, 'Paired evaluation', 'Interception + latency')]:
-    node(x, 205, 272, title, detail)
-line(317, 245, 341, 245, BLUE, 1.5, arrow=True)
-line(617, 245, 641, 245, BLUE, 1.5, arrow=True)
-txt(344, 292, 555, '13 baselines + logistic hit predictor; truth hidden from policies', 10.5, MUTED)
-txt(44, 329, 870, 'OFFLINE PULSE ASSOCIATION', 11, GREEN, True)
+    node(x, 222, 272, title, detail)
+line(317, 262, 341, 262, BLUE, 1.5, arrow=True)
+line(617, 262, 641, 262, BLUE, 1.5, arrow=True)
+txt(344, 308, 555, '13 baselines + logistic hit predictor; identical seeded receiver conditions', 10.5, MUTED)
+txt(44, 341, 870, 'B / OFFLINE PULSE ASSOCIATION', 11, GREEN, True)
 for x, title, detail in [(44, 'TSRD pulse data', 'Validate → stream → sample'),
                         (344, 'Feature + cluster', 'Scaling → HDBSCAN'),
                         (644, 'File-local scoring', 'V-measure + pairwise F1')]:
-    node(x, 355, 272, title, detail, GREEN)
-line(317, 395, 341, 395, GREEN, 1.5, arrow=True)
-line(617, 395, 641, 395, GREEN, 1.5, arrow=True)
-line(58, 436, 58, 471, AMBER, 1.3, dashed=True)
+    node(x, 365, 272, title, detail, GREEN)
+line(317, 405, 341, 405, GREEN, 1.5, arrow=True)
+line(617, 405, 641, 405, GREEN, 1.5, arrow=True)
+line(58, 446, 58, 471, AMBER, 1.3, dashed=True)
 line(58, 471, 331, 471, AMBER, 1.3, arrow=True, dashed=True)
 txt(344, 456, 572, 'PLANNED: dataset-derived simulation calibration', 13, AMBER, True)
 txt(344, 478, 572, 'Recorded scans do not reveal every alternative tuning outcome.', 10, MUTED)
@@ -217,11 +230,15 @@ txt(44, 178, 385, '233.2M', 58, BLUE, True)
 txt(47, 259, 360, 'scan-training pulses validated', 18, INK, True)
 txt(47, 297, 360, '2,500 files  •  chunked HDF5 processing\nBounded samples; no full-dataset RAM load', 12, MUTED)
 txt(475, 179, 440, 'ASSOCIATION / PAIRWISE F1', 11, MUTED, True)
+for x, value in [(475, '0'), (650, '0.5'), (815, '1.0')]:
+    txt(x, 202, 30, value, 8, MUTED)
+for x in (475, 650, 825):
+    line(x, 218, x, 314, LINE, .6)
 for y, title, score, color in [(219, 'Raw features', .1815, 'B7C6D9'),
                              (272, 'Scaled signatures', .8121, BLUE)]:
     txt(475, y, 260, title, 14, INK)
     box(475, y+26, 350*score, 13, color)
-    txt(847, y+13, 68, f'{score:.3f}', 20, INK, True)
+    txt(838, y+13, 78, f'{score:.4f}', 18, INK, True)
 txt(475, 328, 440, '10 training files • 100k sampled pulses • not held-out', 10.5, MUTED)
 line(44, 368, 916, 368, LINE)
 for x, title, body in [(44, 'Incomplete observations', 'Truth-separated evaluation\nRetuning excluded from targets'),
@@ -229,7 +246,7 @@ for x, title, body in [(44, 'Incomplete observations', 'Truth-separated evaluati
                        (644, 'Unproven policy gain', 'Constant-model ablation\nExisting defaults retained')]:
     txt(x, 390, 275, title, 16, INK, True)
     txt(x, 424, 275, body, 12, MUTED)
-txt(44, 480, 873, 'Learning result: the fitted policy does not consistently outperform the strongest existing baseline.', 11, AMBER)
+txt(44, 480, 873, 'VALIDATION GATE   Learned policy remains experimental; constant-model ablation isolates the learning effect.', 11, AMBER)
 end('Sources: docs/dataset-workflow.md, docs/learning-workflow.md and generated JSON reports. '
     'Audit: 233172417 pulses, 2500 scan training files, eight empty, no read/schema errors. '
     'Association comparison: first ten lexicographic training files, 10000 sampled pulses/file, seed 0, '
@@ -246,9 +263,15 @@ for a, b in [(0, 1), (1, 2), (2, 0)]:
     line(*points[a], *points[b], LINE, 2)
 for x, y in points:
     box(x-6, y-6, 12, 12, BLUE, ellipse=True)
+for x, y in points:
+    line(x, y, 258, 330, LINE, .8, dashed=True)
+box(180, 318, 165, 30, WHITE)
 txt(192, 165, 230, 'Interception', 20, INK, True)
+txt(209, 194, 180, 'Capture more activity', 10, MUTED)
 txt(44, 427, 180, 'Discovery', 20, INK, True)
+txt(44, 456, 195, 'Avoid neglected bands', 10, MUTED)
 txt(350, 427, 165, 'Retuning cost', 20, INK, True)
+txt(350, 456, 170, 'Preserve listening time', 10, MUTED)
 txt(186, 320, 210, 'Receiver budget', 17, BLUE, True)
 txt(541, 192, 375, 'Earlier detection', 23, INK, True)
 txt(541, 229, 375, 'Measure first-detection and reacquisition delay.', 12, MUTED)
