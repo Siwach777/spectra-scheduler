@@ -145,7 +145,7 @@ def node(x, y, w, title, detail, accent=BLUE):
 
 begin(1, 'TITLE PAGE  /  SMART SCAN STRATEGY')
 txt(44, 101, 500, 'Spectra\nScheduler', 56, INK, True)
-txt(47, 262, 458, 'Smarter listening.\nUnder real receiver constraints.', 23, MUTED)
+txt(47, 262, 458, 'Adaptive band selection\nfrom incomplete observations.', 23, MUTED)
 txt(47, 350, 458, 'Smart Scan strategy for Electronic Warfare', 15, INK, True)
 txt(47, 382, 450, 'SIH26055  •  DRDO  •  Software', 13, BLUE)
 txt(47, 432, 480, 'Team name: __________________    Team ID: __________', 10, MUTED)
@@ -169,54 +169,56 @@ txt(569, 426, 333, 'One observation window.\nMany signals outside it.', 19, INK,
 end('Spectrum is conceptual, not measured. Passive scheduling under partial observations; no live RF hardware. '
     'Theme needs official confirmation. Team fields intentionally blank.')
 
-begin(2, 'IDEA TITLE', 'A closed loop, not a fixed sweep.',
-      'Proposed solution: adapt the observation schedule as evidence changes.')
-node(75, 192, 305, '01  Observe', 'Hits, misses, signal measurements')
-node(580, 192, 305, '02  Estimate', 'Hit probability / confirmed tracks')
-node(580, 365, 305, '03  Schedule', 'Next band + listening dwell')
-node(75, 365, 305, '04  Retune & listen', 'Respect hardware observation cost')
-line(380, 232, 578, 232, BLUE, 1.8, arrow=True)
-txt(425, 209, 150, 'feedback', 11, MUTED)
-line(733, 273, 733, 363, BLUE, 1.8, arrow=True)
-txt(747, 308, 150, 'predicted utility', 11, MUTED)
-line(578, 405, 382, 405, BLUE, 1.8, arrow=True)
-txt(422, 381, 150, 'band + dwell', 11, MUTED)
-line(226, 363, 226, 273, BLUE, 1.8, arrow=True)
-txt(90, 308, 126, 'new observation', 11, MUTED)
-txt(373, 286, 236, 'Search / Revisit', 22, INK, True)
-txt(383, 324, 224, 'Minimum listening dwell', 11, MUTED)
-txt(383, 344, 224, 'Overdue-band priority', 11, MUTED)
-txt(76, 474, 815, 'DISTINCTIVE DESIGN   Observation-only inference • Drift response • Explicit receiver constraints', 12, BLUE)
+begin(2, 'IDEA TITLE', 'Listen where evidence and constraints agree.',
+      'Proposed solution: jointly manage frequency selection, listening dwell and discovery coverage.')
+for x, title, detail in [
+    (44, 'Signals occur elsewhere', 'Limited bandwidth creates missed opportunities.'),
+    (344, 'Switching consumes time', 'Retuning reduces useful listening time.'),
+    (644, 'Activity changes', 'Old evidence can misdirect the next revisit.')]:
+    txt(x, 172, 272, title, 17, INK, True)
+    txt(x, 204, 272, detail, 11, MUTED)
+for x, title, detail in [
+    (44, 'Observe', 'Hits, misses and\nsignal measurements'),
+    (276, 'Estimate', 'Activity probability\nor confirmed tracks'),
+    (508, 'Allocate', 'Band choice + dwell\nCoverage safeguards'),
+    (740, 'Execute', 'Retune, then listen\nReceiver constraints')]:
+    node(x, 277, 176, title, detail)
+for x in (222, 454, 686):
+    line(x, 317, x+51, 317, BLUE, 1.6, arrow=True)
+line(828, 358, 828, 391, BLUE, 1.5)
+line(828, 391, 132, 391, BLUE, 1.5)
+line(132, 391, 132, 358, BLUE, 1.5, arrow=True)
+box(332, 381, 300, 23, WHITE)
+txt(345, 383, 285, 'Feedback updates the next scan decision', 11, BLUE)
+txt(44, 433, 872, 'PROPOSED CONTRIBUTION', 10, BLUE, True)
+txt(44, 456, 872, 'Connect pulse association, predictive revisits and constrained scanning in one evaluated workflow.', 15, INK)
+txt(44, 484, 872, 'Components exist as separate baselines; their unified integration remains planned.', 10, MUTED)
 end('System-level control loop. Bayesian, track-aware and fitted-hit schedulers are separate baselines, '
     'not a fully fused controller. Policies do not receive emitter IDs, future transmissions or false-alarm '
     'truth labels. Dwell and coverage safeguards balance exploration and exploitation. No proven algorithmic novelty is claimed.')
 
-begin(3, 'TECHNICAL APPROACH', 'Two pipelines. One evaluation discipline.',
+begin(3, 'TECHNICAL APPROACH', 'From observed history to a receiver decision.',
       'Python / NumPy  •  h5py / HDF5  •  scikit-learn  •  JSON model artifacts')
-txt(44, 165, 870, 'A / CLOSED-LOOP SIMULATION', 11, BLUE, True)
-line(180, 222, 180, 198, MUTED, 1, dashed=True)
-line(180, 198, 780, 198, MUTED, 1, dashed=True)
-line(780, 198, 780, 222, MUTED, 1, arrow=True, dashed=True)
-box(344, 187, 287, 20, WHITE)
-txt(353, 189, 270, 'Hidden truth: evaluation only', 10, MUTED)
-for x, title, detail in [(44, 'RF simulator', 'Dynamic emitters + noise'),
-                        (344, 'Policy inference', 'History → band selection'),
-                        (644, 'Paired evaluation', 'Interception + latency')]:
-    node(x, 222, 272, title, detail)
-line(317, 262, 341, 262, BLUE, 1.5, arrow=True)
-line(617, 262, 641, 262, BLUE, 1.5, arrow=True)
-txt(344, 308, 555, '13 baselines + logistic hit predictor; identical seeded receiver conditions', 10.5, MUTED)
-txt(44, 341, 870, 'B / OFFLINE PULSE ASSOCIATION', 11, GREEN, True)
+txt(44, 165, 870, 'A / IMPLEMENTED ML BASELINE — SIMULATED RECEIVER FEEDBACK', 11, BLUE, True)
+for x, title, detail in [(44, 'Observation context', 'Hit rates, recency, dwell\nDistance + neighbour activity'),
+                        (344, 'Logistic hit predictor', 'P(observed hit | past history)\nFrozen weights at evaluation'),
+                        (644, 'Band + dwell control', 'Prediction minus switching cost\nMinimum dwell + overdue coverage')]:
+    node(x, 195, 272, title, detail)
+line(317, 235, 341, 235, BLUE, 1.5, arrow=True)
+line(617, 235, 641, 235, BLUE, 1.5, arrow=True)
+txt(44, 287, 872, 'Training target: observed hit / miss. Retuning excluded. No emitter IDs or future truth in model inputs.', 11, MUTED)
+txt(44, 309, 872, 'Validation: separate seeds, 13 existing strategies and a constant-prediction ablation.', 11, MUTED)
+txt(44, 347, 870, 'B / IMPLEMENTED OFFLINE ASSOCIATION — TSRD PULSE DESCRIPTOR WORDS', 11, GREEN, True)
 for x, title, detail in [(44, 'TSRD pulse data', 'Validate → stream → sample'),
-                        (344, 'Feature + cluster', 'Scaling → HDBSCAN'),
+                        (344, 'Feature + cluster', 'Robust scaling + circular angle\nHDBSCAN density clustering'),
                         (644, 'File-local scoring', 'V-measure + pairwise F1')]:
     node(x, 365, 272, title, detail, GREEN)
 line(317, 405, 341, 405, GREEN, 1.5, arrow=True)
 line(617, 405, 641, 405, GREEN, 1.5, arrow=True)
 line(58, 446, 58, 471, AMBER, 1.3, dashed=True)
 line(58, 471, 331, 471, AMBER, 1.3, arrow=True, dashed=True)
-txt(344, 456, 572, 'PLANNED: dataset-derived simulation calibration', 13, AMBER, True)
-txt(344, 478, 572, 'Recorded scans do not reveal every alternative tuning outcome.', 10, MUTED)
+txt(344, 456, 572, 'PLANNED: calibrated simulation + association-guided scheduling', 12, AMBER, True)
+txt(344, 478, 572, 'Fixed-scan recordings alone cannot evaluate alternative receiver actions.', 10, MUTED)
 end('Implemented independent pipelines; dashed annotation marks an unimplemented calibration bridge. '
     'PDW: pulse descriptor word. Signature preprocessing scales frequency/log1p pulse width/amplitude, '
     'encodes AoA with sine/cosine, excludes absolute ToA. HDBSCAN is per-file unsupervised clustering. '
@@ -224,8 +226,8 @@ end('Implemented independent pipelines; dashed annotation marks an unimplemented
     'Rust/C++ is unimplemented. Process parallelism supports existing comparisons and dataset files; '
     'learning evaluation is sequential. Dataset amplitude dB is not assumed to be simulator dBm.')
 
-begin(4, 'FEASIBILITY AND VIABILITY', 'Evidence first. Claims kept in scope.',
-      'Implemented ingestion and association benchmarks; learned scheduling remains experimental.')
+begin(4, 'FEASIBILITY AND VIABILITY', 'A working foundation, with clear validation gates.',
+      'Simulator, streaming data pipeline and model evaluation are operational as software prototypes.')
 txt(44, 178, 385, '233.2M', 58, BLUE, True)
 txt(47, 259, 360, 'scan-training pulses validated', 18, INK, True)
 txt(47, 297, 360, '2,500 files  •  chunked HDF5 processing\nBounded samples; no full-dataset RAM load', 12, MUTED)
@@ -241,12 +243,12 @@ for y, title, score, color in [(219, 'Raw features', .1815, 'B7C6D9'),
     txt(838, y+13, 78, f'{score:.4f}', 18, INK, True)
 txt(475, 328, 440, '10 training files • 100k sampled pulses • not held-out', 10.5, MUTED)
 line(44, 368, 916, 368, LINE)
-for x, title, body in [(44, 'Incomplete observations', 'Truth-separated evaluation\nRetuning excluded from targets'),
-                       (344, 'Scale & domain shift', 'Chunked I/O + bounded sampling\nUnit calibration remains open'),
-                       (644, 'Unproven policy gain', 'Constant-model ablation\nExisting defaults retained')]:
+for x, title, body in [(44, 'False alarms / ambiguity', 'Track confirmation + expiry\nExplicit clustering-noise scoring'),
+                       (344, 'Scale / simulation mismatch', 'Bounded samples + parallel file jobs\nPlanned unit and behaviour calibration'),
+                       (644, 'Predictor may not help', 'Paired evaluation + model ablation\nRetain strong non-ML baselines')]:
     txt(x, 390, 275, title, 16, INK, True)
     txt(x, 424, 275, body, 12, MUTED)
-txt(44, 480, 873, 'VALIDATION GATE   Learned policy remains experimental; constant-model ablation isolates the learning effect.', 11, AMBER)
+txt(44, 480, 873, 'CURRENT LIMIT   Learned scheduling does not consistently beat the strongest existing policy.', 11, AMBER)
 end('Sources: docs/dataset-workflow.md, docs/learning-workflow.md and generated JSON reports. '
     'Audit: 233172417 pulses, 2500 scan training files, eight empty, no read/schema errors. '
     'Association comparison: first ten lexicographic training files, 10000 sampled pulses/file, seed 0, '
@@ -256,34 +258,34 @@ end('Sources: docs/dataset-workflow.md, docs/learning-workflow.md and generated 
     'change 13.00/34.20, mixed 6.59/8.55, tracking 8.40/13.47 percent. Crowded 8.57 versus 6.91 percent, '
     'but constant-model also 8.57; learning cannot claim that improvement.')
 
-begin(5, 'IMPACT AND BENEFITS', 'Optimise the trade-off. Not a single metric.',
-      'Intended users: receiver-algorithm researchers and spectrum-system evaluation teams.')
-points = [(258, 212), (95, 403), (421, 403)]
-for a, b in [(0, 1), (1, 2), (2, 0)]:
-    line(*points[a], *points[b], LINE, 2)
-for x, y in points:
-    box(x-6, y-6, 12, 12, BLUE, ellipse=True)
-for x, y in points:
-    line(x, y, 258, 330, LINE, .8, dashed=True)
-box(180, 318, 165, 30, WHITE)
-txt(192, 165, 230, 'Interception', 20, INK, True)
-txt(209, 194, 180, 'Capture more activity', 10, MUTED)
-txt(44, 427, 180, 'Discovery', 20, INK, True)
-txt(44, 456, 195, 'Avoid neglected bands', 10, MUTED)
-txt(350, 427, 165, 'Retuning cost', 20, INK, True)
-txt(350, 456, 170, 'Preserve listening time', 10, MUTED)
-txt(186, 320, 210, 'Receiver budget', 17, BLUE, True)
-txt(541, 192, 375, 'Earlier detection', 23, INK, True)
-txt(541, 229, 375, 'Measure first-detection and reacquisition delay.', 12, MUTED)
-txt(541, 280, 375, 'Repeatable experimentation', 23, INK, True)
-txt(541, 317, 375, 'Compare policies under identical seeded conditions.', 12, MUTED)
-txt(541, 368, 375, 'Controlled compute demand', 23, INK, True)
-txt(541, 405, 375, 'Stream data; profile memory and decision latency.', 12, MUTED)
-txt(44, 479, 872, 'PLANNED DELIVERY   Calibration bridge  →  broader validation  →  experiment API / dashboard', 11, BLUE)
-end('Triangle is a conceptual trade-off, not a measured Pareto frontier. Benefits are objectives, '
-    'not operational savings. Tests include unit, integration, deterministic regression and split-boundary '
-    'checks; broader structural generalisation remains unverified. API, GUI, calibration and hardware '
-    'integration are not implemented. Delivery line is a proposal, not an implemented pipeline.')
+begin(5, 'IMPACT AND BENEFITS', 'Better observation. A usable evaluation platform.',
+      'For receiver-algorithm researchers and spectrum-system evaluation teams; benefits are intended outcomes.')
+txt(44, 171, 430, 'OUTCOME / HOW WE WILL MEASURE IT', 10, BLUE, True)
+for y, title, detail in [
+    (207, 'Capture more useful activity', 'Interception and emitter discovery at equal bandwidth.'),
+    (292, 'Respond faster to changing emitters', 'First-detection and mode-change reacquisition delay.'),
+    (377, 'Use receiver and compute budgets well', 'Coverage gaps, retuning fraction, memory and latency.')]:
+    txt(44, y, 440, title, 19, INK, True)
+    txt(44, y+34, 440, detail, 12, MUTED)
+line(512, 175, 512, 444, LINE, 1)
+txt(553, 171, 365, 'DELIVERY SCOPE', 10, BLUE, True)
+line(565, 227, 565, 406, LINE, 2)
+for y, status, title, detail, color in [
+    (206, 'WORKING', 'Reproducible experiment engine', 'Simulator, data pipeline and saved model reports', GREEN),
+    (291, 'PLANNED', 'Integrated scheduling workflow', 'Dataset calibration + association-informed decisions', AMBER),
+    (376, 'PLANNED', 'Experiment API and dashboard', 'Run jobs, inspect results and compare configurations', AMBER)]:
+    box(560, y+17, 10, 10, color, ellipse=True)
+    txt(586, y, 330, status, 9, color, True)
+    txt(586, y+20, 330, title, 16, INK, True)
+    txt(586, y+49, 330, detail, 10.5, MUTED)
+txt(44, 469, 873, 'SUCCESS CRITERION', 10, BLUE, True)
+txt(44, 487, 873, 'Improve the interception–latency trade-off without unacceptable coverage or resource costs on unseen scenarios.', 10.5, INK)
+end('Benefits are intended, not claimed operational savings. Equal receiver resources means matched '
+    'bandwidth, sensitivity, noise and retuning assumptions. No final numerical acceptance target is yet fixed. '
+    'The implemented engine is a software research prototype, not a deployed service. Calibration, unified '
+    'association-guided scheduling, API and GUI remain planned. Hardware integration is outside current '
+    'implementation. Validation includes unit, integration, seeded regression, split boundaries and ablations; '
+    'broader unseen layouts and resource/decision-latency measurements remain evaluation work.')
 
 begin(6, 'RESEARCH AND REFERENCES', 'Grounded in research. Tested independently.',
       'References inform the methods; published scores are not presented as project results.')

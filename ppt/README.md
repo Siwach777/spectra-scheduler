@@ -16,15 +16,18 @@ in PowerPoint. The PDF uses the same content and layout with embedded fonts.
 ## Diagram-led version
 
 The current deck uses editable vector elements only: a spectrum/bandwidth
-schematic, closed-loop control flowchart, two-path architecture, association-result
-bars and a receiver-resource trade-off diagram. No generated artwork, stock photos
+schematic, closed-loop control flowchart, ML/data pipelines, association-result
+bars and an implementation/deliverables map. No generated artwork, stock photos
 or raster illustrations are included. White space, restrained blue accents and
 short labels replace the previous dense card layout.
 
-A refinement pass adds an instantaneous-bandwidth annotation, explicit control-loop
-signals and dwell/coverage constraints, an evaluation-only truth path, a calibrated
-0–1 association-score axis, labelled trade-offs and subtle slide-progress markers.
-These clarify the same content without adding slides or introducing image assets.
+The content revision explains missed opportunities, retuning cost and changing
+activity before introducing the control loop. The technical slide now names the
+model inputs, predicted probability, decision rules, training target and evaluation
+boundary. The impact slide replaces the abstract trade-off triangle with measurable
+outcomes and a working/planned deliverables map. Risks have concrete mitigations;
+preliminary scores remain scoped and the unproven learned-policy gain is explicit.
+The bandwidth annotation, 0–1 score axis and subtle slide-progress markers remain.
 
 Dataset and learned-policy results are explicitly scoped. Planned calibration and
 API/dashboard work remain labelled as planned. Speaker notes contain experimental
