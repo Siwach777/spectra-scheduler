@@ -1,9 +1,11 @@
-# Neural-MPC experiment
+# Neural-MPC demonstration pretraining
 
 This is an experimental learned-model planner, not an established replacement
 for the current schedulers. The design is inspired by
-[MuZero](https://arxiv.org/abs/1911.08265), but currently implements demonstration
-pretraining only. Search-target self-improvement is not implemented.
+[MuZero](https://arxiv.org/abs/1911.08265). This page describes the original
+demonstration-pretraining path and its initial results. Search-driven training
+is now implemented separately; see [mpc-training.md](mpc-training.md) for current
+training, checkpoint/resume and evaluation commands.
 
 ## Implemented
 
@@ -63,7 +65,7 @@ for policy-only, excluding observation processing. These small-sample results
 do not establish a ranking; they specifically do not demonstrate planning gains.
 The complete local report is `reports/generated/neural-mpc-smoke.json`.
 
-The smoke run checks execution, not convergence or superior performance. Training
+The smoke run checks execution, not convergence or superior performance. Legacy pretraining
 is currently one complete trajectory per update, with vectorized rollout starts;
 there is no parallel environment collection, episode minibatching, resume support,
 automatic validation checkpoint selection or MCTS self-improvement yet.

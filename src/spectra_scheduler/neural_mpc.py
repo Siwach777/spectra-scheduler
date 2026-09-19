@@ -18,7 +18,7 @@ Training pipeline:
   - Collect demonstration episodes from baseline scheduling policies.
   - Pre-train the world model with policy imitation, value prediction,
     dynamics consistency and reward prediction losses.
-  - Search-target self-improvement is not implemented yet.
+  - Search-driven training is available in spectra_scheduler.mpc_training.
 
 Usage::
 
@@ -1007,7 +1007,9 @@ def save_model(
     if metadata:
         checkpoint["metadata"] = metadata
 
-    torch.save(checkpoint, path)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    torch.save(checkpoint, temporary)
+    temporary.replace(path)
 
     # Write sidecar JSON
     sidecar = path.with_suffix(".json")
@@ -1018,7 +1020,9 @@ def save_model(
     }
     if metadata:
         info["metadata"] = metadata
-    sidecar.write_text(json.dumps(info, indent=2) + "\n")
+    temporary = sidecar.with_suffix(".json.tmp")
+    temporary.write_text(json.dumps(info, indent=2, allow_nan=False) + "\n")
+    temporary.replace(sidecar)
 
     return path
 

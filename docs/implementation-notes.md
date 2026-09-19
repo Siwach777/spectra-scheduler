@@ -58,3 +58,10 @@ PPO, a Gymnasium adapter over the shared receiver step engine, CUDA optimization
 parallel rollout workers and resumable checkpoints. Larger-model results remain
 unproven until benchmarked. See [rl-training.md](rl-training.md) and
 [rl-benchmark.md](rl-benchmark.md). The organic-development restriction no longer applies.
+
+Search-driven Neural-MPC adds batched tree inference, parallel actors, observation-only
+replay, search policy targets, n-step returns, EMA latent consistency, GPU-capable
+minibatches and resumable optimizer/replay checkpoints. Fixed validation selects the
+best model; independent diagnostic trajectories track reward-prediction error. Test
+evaluation does not train or select checkpoints. See [mpc-training.md](mpc-training.md)
+for commands and verification. Competitive performance is not yet established.
