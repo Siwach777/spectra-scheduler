@@ -170,6 +170,26 @@ def collect_worker(payload, progress=None):
     return records
 
 
+def _collect_serialized(payload):
+    """Use array transport: Torch IPC tensors retain a descriptor per storage.
+
+    Replay intentionally keeps many episodes alive. Sending their tensors through
+    multiprocessing would therefore also keep thousands of shared-memory file
+    descriptors alive. Arrays cross the queue by value and become local tensors
+    only after receipt. The small weight snapshot uses the same transport.
+    """
+    weights, *settings = payload
+    weights = {key: torch.from_numpy(value) for key, value in weights.items()}
+    records = collect_worker((weights, *settings))
+    return [
+        {
+            key: value.numpy() if isinstance(value, torch.Tensor) else value
+            for key, value in record.items()
+        }
+        for record in records
+    ]
+
+
 def collect(
     model,
     cfg,
@@ -182,6 +202,8 @@ def collect(
     progress=None,
 ):
     weights = {k: v.detach().cpu() for k, v in model.state_dict().items()}
+    if pool is not None:
+        weights = {key: value.numpy().copy() for key, value in weights.items()}
     groups = [
         list(map(int, x)) for x in np.array_split(seeds, min(cfg.workers, len(seeds))) if len(x)
     ]
@@ -201,12 +223,18 @@ def collect(
             batches.append(batch)
             completed += len(batch) * (180 if shifted else 120)
     else:
-        futures = {pool.submit(collect_worker, job): i for i, job in enumerate(jobs)}
+        futures = {pool.submit(_collect_serialized, job): i for i, job in enumerate(jobs)}
         pending, batches, completed = set(futures), [None] * len(jobs), 0
         while pending:
             finished, pending = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
             for future in finished:
-                batch = future.result()
+                batch = [
+                    {
+                        key: torch.from_numpy(value) if isinstance(value, np.ndarray) else value
+                        for key, value in record.items()
+                    }
+                    for record in future.result()
+                ]
                 batches[futures[future]] = batch
                 completed += len(batch) * (180 if shifted else 120)
             if progress:

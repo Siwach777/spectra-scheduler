@@ -77,3 +77,9 @@ MPC training now displays live foreground collection/update progress, current lo
 stage ETA, validation metrics and checkpoint-save messages. Parallel worker waits
 refresh the display without changing replay ordering. Full JSON history remains in
 `progress.json`; there is no need to follow a background log to see training activity.
+
+Fixed descriptor exhaustion in parallel collection: weight snapshots and actor results
+now cross process queues as arrays, not shared Torch tensor storages. Replay keeps
+local tensors without retaining IPC file handles. A low-limit spawned-worker regression
+verifies bounded descriptor usage and exact serial/parallel data parity. Checkpoint
+format and training behavior are unchanged.

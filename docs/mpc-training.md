@@ -109,6 +109,12 @@ Training and inference checkpoints use atomic replacement and restricted
 weights-only loading. A directory lock prevents concurrent trainers. Existing runs
 are not silently overwritten. `environment.json` records versions and source hashes.
 
+Worker transport copies arrays through process queues and restores local Torch tensors
+in the learner. Replay therefore does not keep shared-memory file descriptors alive
+per tensor. This fixes descriptor exhaustion during longer runs without raising the
+system file limit. A regression retains 64 episodes (320 tensor storages) with spawned
+workers under a 128-descriptor limit. Existing checkpoints remain compatible.
+
 ## Evaluate without training
 
 ```bash
