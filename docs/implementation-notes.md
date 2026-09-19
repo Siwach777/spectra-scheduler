@@ -72,3 +72,8 @@ evaluation, trainer and CLI. The former single-file entry points re-export exist
 APIs, preserving commands and checkpoint formats. Seeded collection/search/loss
 outputs were checked for exact parity before and after the split; source provenance
 now covers the full implementation package.
+
+MPC training now displays live foreground collection/update progress, current losses,
+stage ETA, validation metrics and checkpoint-save messages. Parallel worker waits
+refresh the display without changing replay ordering. Full JSON history remains in
+`progress.json`; there is no need to follow a background log to see training activity.

@@ -22,7 +22,7 @@ from .learning import batch_loss
 from .scheduler import NeuralMPCScheduler
 
 
-def validate(model, cfg, pool, split="validation"):
+def validate(model, cfg, pool, split="validation", progress=None, prefix="Validation"):
     results = {}
     for shifted in (False, True):
         for policy_only in (False, True):
@@ -37,6 +37,7 @@ def validate(model, cfg, pool, split="validation"):
                 pool,
                 shifted=shifted,
                 policy_only=policy_only,
+                progress=progress.callback(f"{prefix}: {name}") if progress else None,
             )
             results[name] = {
                 "reward": float(np.mean([float(e["rewards"].mean()) for e in episodes])),
@@ -50,6 +51,11 @@ def validate(model, cfg, pool, split="validation"):
                     model, model, episodes, cfg, np.random.default_rng(0), cfg.device
                 )
             results[name]["prediction_losses"] = errors
+            if progress:
+                progress.message(
+                    f"  {name}: reward={results[name]['reward']:.4f}, "
+                    f"interception={results[name]['interception_ratio']:.2%}"
+                )
     return results
 
 

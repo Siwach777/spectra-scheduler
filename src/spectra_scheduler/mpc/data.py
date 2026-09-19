@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from concurrent.futures import FIRST_COMPLETED, wait
 from dataclasses import asdict
 from typing import Any
 
@@ -98,7 +99,7 @@ def _run_and_record(
     return transitions
 
 
-def collect_worker(payload):
+def collect_worker(payload, progress=None):
     """Spawn-safe actor: independent CPU model and deterministic per-job RNG."""
     weights, cfg_dict, seeds, split, explore, shifted, policy_only = payload
     cfg = Config(**cfg_dict)
@@ -158,6 +159,8 @@ def collect_worker(payload):
                     row[key].append(value)
             x = torch.from_numpy(np.stack(features)).unsqueeze(1)
             _, hidden = model.representation(x, hidden)
+            if progress is not None:
+                progress((step + 1) * len(seeds), sims[0].duration * len(seeds))
     for record, env in zip(records, envs, strict=True):
         for key in ("features", "actions", "rewards", "policies", "values"):
             record[key] = torch.tensor(
@@ -167,13 +170,48 @@ def collect_worker(payload):
     return records
 
 
-def collect(model, cfg, seeds, split, pool=None, explore=False, shifted=False, policy_only=False):
+def collect(
+    model,
+    cfg,
+    seeds,
+    split,
+    pool=None,
+    explore=False,
+    shifted=False,
+    policy_only=False,
+    progress=None,
+):
     weights = {k: v.detach().cpu() for k, v in model.state_dict().items()}
     groups = [
         list(map(int, x)) for x in np.array_split(seeds, min(cfg.workers, len(seeds))) if len(x)
     ]
     jobs = [(weights, asdict(cfg), group, split, explore, shifted, policy_only) for group in groups]
-    batches = map(collect_worker, jobs) if pool is None else pool.map(collect_worker, jobs)
+    total = len(seeds) * (180 if shifted else 120)
+    if progress:
+        progress(0, total)
+    if pool is None:
+        batches, completed = [], 0
+        for job in jobs:
+
+            def report(done, _total, offset=completed):
+                if progress:
+                    progress(offset + done, total)
+
+            batch = collect_worker(job, report if progress else None)
+            batches.append(batch)
+            completed += len(batch) * (180 if shifted else 120)
+    else:
+        futures = {pool.submit(collect_worker, job): i for i, job in enumerate(jobs)}
+        pending, batches, completed = set(futures), [None] * len(jobs), 0
+        while pending:
+            finished, pending = wait(pending, timeout=1, return_when=FIRST_COMPLETED)
+            for future in finished:
+                batch = future.result()
+                batches[futures[future]] = batch
+                completed += len(batch) * (180 if shifted else 120)
+            if progress:
+                progress(completed, total)
+    # Keep submission order: completion timing must not change replay sampling.
     return [episode for batch in batches for episode in batch]
 
 

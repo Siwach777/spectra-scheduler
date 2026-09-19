@@ -21,6 +21,7 @@ Implementation lives in `src/spectra_scheduler/mpc/`:
 | `evaluation.py` | Validation, fixed probes, test evaluation and benchmarks |
 | `trainer.py` | Collect–learn–validate loop and resume orchestration |
 | `cli.py` | Argument parsing for existing commands |
+| `progress.py` | Live foreground terminal progress |
 
 `neural_mpc.py` and `mpc_training.py` are compatibility entry points. Existing module
 commands, public imports, model state-dict keys and checkpoint versions are unchanged.
@@ -78,7 +79,16 @@ dataset is not consumed by this loop.
 
 ## Inspect, stop and resume
 
-Each iteration prints a JSON record. `progress.json` contains losses, fixed-probe
+Training runs in the foreground and now displays live stage progress: iteration,
+collection steps, learner updates, current losses, elapsed duration, estimated stage
+time remaining, validation scores and checkpoint saves. Interactive terminals update
+one line; redirected output uses throttled, flushed lines. Parallel collection counts
+steps when actor batches finish and keeps refreshing elapsed time while waiting;
+single-worker collection reports each simulation step. ETA is an estimate, not an
+overall training-time guarantee. No background launcher is involved: keep the terminal
+open, and do not append `&` or use `nohup` if you want foreground execution.
+
+`progress.json` still contains the full machine-readable history, losses, fixed-probe
 reward MSE, validation and elapsed durations, without authored wall-clock timestamps.
 
 ```bash
