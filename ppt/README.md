@@ -1,8 +1,8 @@
 # SIH idea presentation
 
 [PROJECT-BRIEF.md](PROJECT-BRIEF.md) is the detailed project reference for preparing
-slides and speaker notes. It includes the dataset-integration milestone, which is
-not yet reflected in the existing PowerPoint/PDF.
+slides and speaker notes. The current deck includes dataset integration and the
+first fitted-model evaluation; the brief predates that learning milestone.
 
 - `SIH2026-IDEA-Presentation-Format.pptx`: supplied template, unchanged.
 - `Spectra-Scheduler-SIH2026.pptx`: editable six-slide presentation with speaker notes.
@@ -12,6 +12,32 @@ The presentation follows the template's title, idea, technical approach, feasibi
 impact and references sections. The instructions-only slide is omitted, as the
 template requires a maximum of six slides. Diagrams and slide text remain editable
 in PowerPoint. The PDF uses the same content and layout with embedded fonts.
+
+## Diagram-led version
+
+The current deck uses editable vector elements only: a spectrum/bandwidth
+schematic, closed-loop control flowchart, two-path architecture, association-result
+bars and a receiver-resource trade-off diagram. No generated artwork, stock photos
+or raster illustrations are included. White space, restrained blue accents and
+short labels replace the previous dense card layout.
+
+Dataset and learned-policy results are explicitly scoped. Planned calibration and
+API/dashboard work remain labelled as planned. Speaker notes contain experimental
+settings, limitations and source details; the template's six sections are retained.
+
+Rebuild both outputs with:
+
+```bash
+uv pip install --python .venv/bin/python -r ppt/requirements.txt
+.venv/bin/python ppt/build_presentation.py
+```
+
+The builder requires Noto Sans regular and bold at the Linux font paths declared in
+the script. Presentation dependencies are separate from the application lockfile.
+Running it replaces the generated PPTX and PDF. The PDF is rendered from the same
+layout using ReportLab, not exported through PowerPoint. All six PDF pages were
+visually checked; final PowerPoint rendering should also be checked in the target
+presentation application. The supplied template is untouched.
 
 ## Before submission
 
@@ -52,7 +78,7 @@ distinguish existing infrastructure from planned experiments and capabilities.
 Verification commands:
 
 ```bash
-PYTHONPATH=src python3 -m unittest discover -s tests -q
+.venv/bin/python -m pytest -q
 PYTHONPATH=src python3 -m spectra_scheduler --scenario mixed --runs 100 --association
 ```
 
