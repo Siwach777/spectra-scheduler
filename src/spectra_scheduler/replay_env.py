@@ -123,6 +123,12 @@ class ReplayEnv:
             raise RuntimeError("call reset before metrics")
         return self._replay.report()
 
+    def evaluation_outcome(self):
+        """Evaluator-only last-window truth; excluded from Transition and policy inputs."""
+        if self._replay is None:
+            raise RuntimeError("call reset before evaluation")
+        return self._replay.evaluation_outcome()
+
     def close(self):
         if self._replay is not None:
             self._replay.close()

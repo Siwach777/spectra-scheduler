@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 
 from .dataset_io import inspect_header, iter_pulses
+from .evaluation_contract import TruthOutcome
 
 
 @dataclass(frozen=True)
@@ -123,6 +124,13 @@ class PulseReplay:
         )
         self._listening_us = 0.0
         self._retuning_us = 0.0
+        self._last_outcome = None
+
+    def evaluation_outcome(self) -> TruthOutcome:
+        """Evaluator-only truth for the last action; never part of PulseObservation."""
+        if self._last_outcome is None:
+            raise RuntimeError("no completed action to evaluate")
+        return self._last_outcome
 
     @property
     def done(self):
@@ -189,6 +197,8 @@ class PulseReplay:
         if end <= start:
             raise ValueError("dwell is too small to advance simulation time")
         size = intercepted = 0
+        truth_count = eligible_count = detectable_count = 0
+        first_intercept = None
         while self._ensure_batch():
             batch = self._batch
             times = batch.features[:, 0]
@@ -203,19 +213,25 @@ class PulseReplay:
                 if c.sensitivity_db is not None:
                     detectable &= x[:, 4] >= c.sensitivity_db
                 self._counts["truth_pulses"] += int(in_range.sum())
+                truth_count += int(in_range.sum())
                 self._counts["detectable_pulses"] += int(detectable.sum())
                 self._first_seen(
                     self._truth_first,
                     labels[in_range] if labels is not None else None,
                     x[in_range, 0],
                 )
-                mask = detectable & (x[:, 0] >= listen) & (x[:, 0] + x[:, 2] <= end)
-                mask &= (x[:, 1] >= low) & (x[:, 1] < high)
+                eligible = in_range & (x[:, 0] >= listen) & (x[:, 0] + x[:, 2] <= end)
+                eligible &= (x[:, 1] >= low) & (x[:, 1] < high)
+                eligible_count += int(eligible.sum())
+                mask = detectable & eligible
+                detectable_count += int(mask.sum())
                 if c.detection_probability < 1:
                     mask &= (
                         _uniform_rows(batch.start + left, len(x), c.seed) < c.detection_probability
                     )
                 indices = np.flatnonzero(mask)
+                if len(indices) and first_intercept is None:
+                    first_intercept = (float(x[indices[0], 0]) - start) / 1_000_000
                 intercepted += len(indices)
                 take = indices[: c.max_observation_pulses - size]
                 self._buffer[size : size + len(take)] = x[take]
@@ -233,6 +249,14 @@ class PulseReplay:
         self._counts["overflow_pulses"] += intercepted - size
         self._listening_us += end - listen
         self._retuning_us += listen - start
+        self._last_outcome = TruthOutcome(
+            elapsed_seconds=(end - start) / 1_000_000,
+            truth_count=truth_count,
+            eligible_count=eligible_count,
+            detectable_count=detectable_count,
+            captured_count=intercepted,
+            first_intercept_seconds=first_intercept,
+        )
         pulses = self._buffer[:size].copy()
         pulses.flags.writeable = False
         return PulseObservation(start, listen, end, center, pulses, intercepted - size)

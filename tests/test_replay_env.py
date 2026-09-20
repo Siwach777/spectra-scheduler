@@ -156,3 +156,51 @@ def test_evaluation_closes_stream_on_policy_failure(recording, monkeypatch):
     with pytest.raises(RuntimeError, match="inference failed"):
         evaluate_policy(recording, BrokenPolicy(), *settings())
     assert closed == [True]
+
+
+def test_forecasts_are_evaluated_for_selected_action_before_feedback(recording):
+    from spectra_scheduler.evaluation_contract import Decision, Forecast
+
+    class ForecastPolicy(ReferencePolicy):
+        def act(self, observation):
+            # First decision receives no future pulse information.
+            if self.step == 0:
+                assert not observation[:-2].any()
+            return Decision(super().act(observation), Forecast(1, 0, 0.5))
+
+    report = evaluate_policy(recording, ForecastPolicy(), *settings())
+    metrics = report["evaluation"]
+    assert metrics["windows"] == 3
+    # Third action reaches episode end during retuning and has no listening window.
+    assert metrics["counts"] == dict(truth=30, eligible=10, detectable=10, captured=10)
+    assert metrics["probability_of_detection"] == 1
+    assert metrics["probability_of_false_alarm"] is None
+    assert metrics["false_alarm_status"] == "not_modelled"
+    assert metrics["prediction"]["coverage"] == 1
+    assert metrics["prediction"]["percentage_correct"] == pytest.approx(200 / 3)
+    assert metrics["average_intercept_rate_per_second"] == pytest.approx(10 / 0.00003)
+    assert metrics["prediction"]["average_intercept_time_error_seconds"] == pytest.approx(
+        (1 + 6) / 2 / 1e6
+    )
+    json.dumps(report, allow_nan=False)
+
+
+def test_legacy_policy_reports_missing_forecasts(recording):
+    report = evaluate_policy(recording, ReferencePolicy(), *settings())
+    p = report["evaluation"]["prediction"]
+    assert p["coverage"] == 0
+    assert p["percentage_correct"] is None
+    assert p["average_intercept_time_error_seconds"] is None
+
+
+def test_truth_is_not_added_to_transition_and_reset_clears_last_outcome(recording):
+    with ReplayEnv(recording, *settings()) as env:
+        env.reset()
+        with pytest.raises(RuntimeError, match="no completed"):
+            env.evaluation_outcome()
+        transition = env.step(1)
+        assert not hasattr(transition, "truth_count")
+        assert env.evaluation_outcome().truth_count == 10
+        env.reset()
+        with pytest.raises(RuntimeError, match="no completed"):
+            env.evaluation_outcome()

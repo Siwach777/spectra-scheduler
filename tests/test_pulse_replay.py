@@ -95,6 +95,12 @@ class ReplayTests(unittest.TestCase):
             self.assertEqual(obs.overflow_pulses, 3)
             self.assertEqual(env.report()["detectable_pulses"], 5)
             self.assertEqual(env.report()["emitters_discovered"], 2)
+            outcome = env.evaluation_outcome()
+            self.assertEqual(outcome.truth_count, 30)
+            self.assertEqual(outcome.eligible_count, 30)
+            self.assertEqual(outcome.detectable_count, 5)
+            self.assertEqual(outcome.captured_count, 5)  # Before overflow.
+            self.assertEqual(outcome.first_intercept_seconds, 0)
 
     def test_empty_and_unlabelled(self):
         for rows in ([], [[1, 5, 1, 0, -20]]):
@@ -120,6 +126,10 @@ class ReplayTests(unittest.TestCase):
             obs = env.step(DwellAction(15, 10))
             self.assertEqual((obs.listening_start_us, obs.end_us), (30, 30))
             self.assertEqual(env.report()["retuning_us"], 20)
+            outcome = env.evaluation_outcome()
+            self.assertEqual(outcome.truth_count, 20)
+            self.assertEqual(outcome.eligible_count, 0)
+            self.assertIsNone(outcome.first_intercept_seconds)
 
     def test_invalid_source_action_and_config(self):
         self.write([])
@@ -191,6 +201,16 @@ class ReplayTests(unittest.TestCase):
                     ]
                     actual = env.step(DwellAction(center, dwell))
                     np.testing.assert_array_equal(actual.pulses, expected)
+                    outcome = env.evaluation_outcome()
+                    self.assertEqual(outcome.captured_count, len(expected))
+                    self.assertEqual(outcome.detectable_count, len(expected))
+                    self.assertEqual(
+                        outcome.truth_count, int(((rows[:, 0] >= time) & (rows[:, 0] < end)).sum())
+                    )
+                    self.assertEqual(
+                        outcome.first_intercept_seconds,
+                        (expected[0, 0] - time) / 1e6 if len(expected) else None,
+                    )
                     total += len(expected)
                     time, previous = end, center
                 self.assertEqual(env.report()["truth_pulses"], len(rows))

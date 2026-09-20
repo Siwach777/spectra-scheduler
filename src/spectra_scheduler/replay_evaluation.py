@@ -14,13 +14,14 @@ from typing import Protocol
 import numpy as np
 
 from .dataset_io import discover_files
+from .evaluation_contract import Decision, EvaluationAccumulator
 from .pulse_replay import ReplayConfig
 from .replay_env import InterfaceConfig, ReplayEnv
 
 
 class Policy(Protocol):
     def reset(self, specification: dict, seed: int) -> None: ...
-    def act(self, observation: np.ndarray) -> int: ...
+    def act(self, observation: np.ndarray) -> int | Decision: ...
 
 
 class ReferencePolicy:
@@ -54,24 +55,37 @@ def evaluate_policy(path, policy: Policy, receiver=None, interface=None):
     begin = perf_counter()
     inference_seconds = maximum_latency = reward = 0.0
     steps = 0
+    evaluation = EvaluationAccumulator()
     with ReplayEnv(path, receiver, interface) as env:
         observation = env.reset()
         spec = env.specification()
         policy.reset(spec, receiver.seed)
         while True:
             t = perf_counter()
-            action = policy.act(observation)
+            decision = policy.act(observation)
+            action = decision.action if isinstance(decision, Decision) else decision
+            forecast = decision.forecast if isinstance(decision, Decision) else None
             latency = perf_counter() - t
             inference_seconds += latency
             maximum_latency = max(maximum_latency, latency)
             transition = env.step(action)
+            evaluation.add(env.evaluation_outcome(), transition.reward, forecast)
             reward += transition.reward
             observation = transition.observation
             steps += 1
             if transition.terminated:
                 break
         report = env.metrics()
+    figures = evaluation.report()
+    figures["sensitivity"] = {
+        "threshold": receiver.sensitivity_db,
+        "unit": "dataset_db",
+        "status": "configured" if receiver.sensitivity_db is not None else "disabled",
+        "calibrated_dbm": False,
+    }
+    figures["false_alarm_status"] = "not_modelled"
     report.update(
+        evaluation=figures,
         specification=spec,
         reward_sum=reward,
         elapsed_seconds=perf_counter() - begin,
