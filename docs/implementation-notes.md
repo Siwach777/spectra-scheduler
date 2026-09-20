@@ -99,3 +99,10 @@ evaluation-only emitter metrics. Vectorized chunk processing avoids whole-file
 loading. A fixed-sweep command provides a runnable reference; the existing synthetic
 simulator and ML interfaces are unchanged. See [pulse-replay.md](pulse-replay.md)
 for commands, receiver semantics, verification and remaining model limitations.
+
+Added shared replay features, a model-independent reset/step environment and an
+inference policy contract. Rewards use delivered observations only; variable-duration
+actions return physical-time discounts. The evaluation runner supports paired
+recording-level reference checks, bounded per-worker replay and latency reporting.
+Existing MPC and presentation edits were left untouched. This adds reusable
+infrastructure, not a newly trained model or learned emitter association.

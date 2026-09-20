@@ -14,6 +14,10 @@
 - Interactive physical-time stare replay: frequency/bandwidth and dwell actions,
   retuning/slew, sensitivity and seeded missed detections, bounded observations,
   evaluator-only labels and aggregate receiver metrics. See [pulse replay](pulse-replay.md).
+- Reusable replay reset/step interface, causal PDW summaries, band/dwell action
+  mapping, observable rewards and time-dependent discounts. A shared inference
+  runner measures receiver results and policy latency; paired file-level evaluation
+  supports CPU workers. See [replay interface](replay-interface.md).
 - Experimental learned hit models, DQN, recurrent PPO and recurrent model-based
   search training, with saved artifacts. Available algorithms are not evidence of
   satisfactory final scheduling performance; the latest MPC repair is mixed.
@@ -34,9 +38,10 @@ Emitter labels are file-local; they cannot be treated as universal emitter class
 
 ## Useful integration paths, not yet implemented
 
-1. **Replay-to-learning integration:** connect the implemented stare replay interface
-   to a learned scheduler with physical-time rewards and sequence observations.
-   The existing discrete-step MPC interface is not automatically compatible.
+1. **Strategy-specific learning adapter:** consume the shared replay features,
+   actions and physical-time discounts in the chosen learner. The shared environment
+   and inference contract are implemented; old discrete-step MPC checkpoints are not
+   automatically compatible with the new feature/action space.
 2. **Perception training:** use file-local labels for association/contrastive targets,
    or self-supervised timing/next-pulse prediction, then feed estimated track state
    into the scheduler. Labels must not enter runtime observations.

@@ -145,3 +145,7 @@ For interactive physical-time receiver simulation on full-spectrum stare recordi
 see [pulse replay](docs/pulse-replay.md). It adds frequency/bandwidth, dwell/retune,
 sensitivity, deterministic detection and bounded PDW observations without changing
 the existing synthetic simulator or ML training interface.
+
+The [reusable learning and inference interface](docs/replay-interface.md) adds
+band/dwell actions, causal PDW features, physical-time rewards/discounts and a
+strategy-independent evaluation runner. It can be exercised without training.
