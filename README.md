@@ -140,3 +140,8 @@ per file. Reports include association scores, noise coverage, sample fingerprint
 and explicit file failures. It does not reinterpret recordings as simulator events
 or use emitter labels as model inputs. See [dataset-workflow.md](docs/dataset-workflow.md)
 for feature transforms, split boundaries, profiling and measured integration results.
+
+For interactive physical-time receiver simulation on full-spectrum stare recordings,
+see [pulse replay](docs/pulse-replay.md). It adds frequency/bandwidth, dwell/retune,
+sensitivity, deterministic detection and bounded PDW observations without changing
+the existing synthetic simulator or ML training interface.

@@ -91,3 +91,11 @@ inference remains supported; training semantics are versioned separately. The bo
 control comparison improves observation collection and prediction but not both
 validation distributions; see [mpc-repair.md](mpc-repair.md). Dataset integration and
 remaining backend scope are documented in [project-status.md](project-status.md).
+
+Added a separate physical-time PDW replay backend using the existing streamed HDF5
+reader. Stare recordings now support frequency/dwell actions, bandwidth, retuning
+and slew, sensitivity, deterministic detection, bounded observation buffers and
+evaluation-only emitter metrics. Vectorized chunk processing avoids whole-file
+loading. A fixed-sweep command provides a runnable reference; the existing synthetic
+simulator and ML interfaces are unchanged. See [pulse-replay.md](pulse-replay.md)
+for commands, receiver semantics, verification and remaining model limitations.

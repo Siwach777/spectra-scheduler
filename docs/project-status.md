@@ -11,14 +11,18 @@
   reproducible reports and paired baseline comparison tools.
 - Streamed HDF5 pulse ingestion, schema/unit validation, bounded samples,
   per-file parallel offline clustering and label-based evaluation.
+- Interactive physical-time stare replay: frequency/bandwidth and dwell actions,
+  retuning/slew, sensitivity and seeded missed detections, bounded observations,
+  evaluator-only labels and aggregate receiver metrics. See [pulse replay](pulse-replay.md).
 - Experimental learned hit models, DQN, recurrent PPO and recurrent model-based
   search training, with saved artifacts. Available algorithms are not evidence of
   satisfactory final scheduling performance; the latest MPC repair is mixed.
 
 ## How the dataset is used now
 
-TSRD currently feeds offline ingestion and pulse association experiments, not MPC
-training. The saved scan-training audit validated 2,500 files containing 233,172,417
+TSRD now feeds physical-time stare replay as well as offline ingestion and pulse
+association experiments, but not MPC training. The saved scan-training audit validated
+2,500 files containing 233,172,417
 pulses. An HDBSCAN signature-feature experiment scored 100,000 sampled pulses from
 10 training files; it is neither a learned scheduler nor held-out operational proof.
 The saved stare inspection covered three files, not the full stare collection.
@@ -30,10 +34,9 @@ Emitter labels are file-local; they cannot be treated as universal emitter class
 
 ## Useful integration paths, not yet implemented
 
-1. **Stare replay environment:** use the full-spectrum pulse stream as hidden
-   reference data. Expose only pulses inside chosen time/frequency windows after
-   accounting for receiver retuning and observation errors. This supports controlled
-   counterfactual schedule evaluation on the recorded full-spectrum scenario.
+1. **Replay-to-learning integration:** connect the implemented stare replay interface
+   to a learned scheduler with physical-time rewards and sequence observations.
+   The existing discrete-step MPC interface is not automatically compatible.
 2. **Perception training:** use file-local labels for association/contrastive targets,
    or self-supervised timing/next-pulse prediction, then feed estimated track state
    into the scheduler. Labels must not enter runtime observations.
@@ -42,24 +45,25 @@ Emitter labels are file-local; they cannot be treated as universal emitter class
 
 Scan recordings are already censored by their recorded schedule; missing bands are
 not negative examples and cannot be reconstructed as complete truth. Stare replay
-also requires explicit MHz-to-band mapping and microseconds-to-simulation-time
-handling. Dataset amplitude in dB is not assumed to be calibrated receiver dBm.
-Replay would be a PDW-level synthetic-data evaluation, not real RF validation.
+uses explicit MHz and microsecond units. Dataset amplitude in dB is not assumed to
+be calibrated receiver dBm. Replay is PDW-level synthetic-data evaluation, not real
+RF validation.
 
 ## Is the simulation complete?
 
-The current abstract simulator is functional for algorithm experiments. It is not a
-complete high-fidelity RF or hardware model. Dataset replay, continuous-frequency
-bandwidth/window semantics, realistic physical-time dwell actions, calibrated pulse
-processing and scale/performance validation still need work. Interference, waveform
-propagation and hardware integration are not validated by this simulator.
+Both the abstract synthetic simulator and the physical-time PDW replay engine are
+implemented and tested. Replay supports continuous-frequency passbands and explicit
+dwell/retune semantics, with a real-data full-recording smoke run. It is not a complete
+high-fidelity RF or hardware model: calibrated pulse processing, interference,
+waveform propagation and hardware integration are not validated. Its explicit model
+limitations and recording-horizon assumptions are listed in the replay manual.
 
 ## Remaining work beyond a GUI
 
 - A learned scheduler that reliably improves held-out performance, including coverage
   and reacquisition, across multiple seeds and stronger receiver shifts.
-- Dataset-driven environment integration and perception-to-scheduling state flow.
-- Explicit band/dwell action semantics, unit conversions and calibrated receiver model.
+- Replay-to-learning integration and perception-to-scheduling state flow.
+- Calibration of the receiver model against a specific hardware target.
 - End-to-end streaming, latency/resource profiling and long-run robustness at realistic
   pulse rates; native acceleration only where profiling demonstrates a need.
 - Frozen acceptance criteria, separate validation/test runs, reproducible comparisons
