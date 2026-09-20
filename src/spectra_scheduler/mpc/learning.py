@@ -161,16 +161,57 @@ def value_targets(rewards, values, gamma, steps):
     return result
 
 
-def batch_loss(model, target, episodes, cfg, rng, device):
+class BatchWorkspace:
+    """Reusable host/device staging buffers; cached n-step targets per episode."""
+
+    def __init__(self):
+        self.signature = None
+        self.host, self.device_buffers = {}, {}
+        self.transfer = None
+
+    def prepare(self, episodes, cfg, device):
+        device = torch.device(device)
+        signature = (len(episodes), len(episodes[0]["actions"]), str(device))
+        if self.transfer is not None:
+            self.transfer.synchronize()  # Host staging must outlive its asynchronous copy.
+        if signature != self.signature:
+            self.signature = signature
+            for key in ("features", "actions", "rewards", "policies", "returns"):
+                source = episodes[0]["rewards" if key == "returns" else key]
+                self.host[key] = torch.empty(
+                    (len(episodes), *source.shape),
+                    dtype=source.dtype,
+                    pin_memory=device.type == "cuda",
+                )
+                self.device_buffers[key] = (
+                    torch.empty_like(self.host[key], device=device)
+                    if device.type == "cuda"
+                    else self.host[key]
+                )
+        for e in episodes:
+            cache_key = (cfg.gamma, cfg.td_steps)
+            if e.get("_return_config") != cache_key:
+                e["_returns"] = value_targets(e["rewards"], e["values"], *cache_key)
+                e["_return_config"] = cache_key
+        for key, buffer in self.host.items():
+            torch.stack([e["_returns" if key == "returns" else key] for e in episodes], out=buffer)
+            if device.type == "cuda":
+                self.device_buffers[key].copy_(buffer, non_blocking=True)
+        if device.type == "cuda":
+            if self.transfer is None:
+                self.transfer = torch.cuda.Event()
+            self.transfer.record()
+        return self.device_buffers
+
+
+def batch_loss(model, target, episodes, cfg, rng, device, workspace=None):
     """Batched full-history representation; masked multi-step latent rollouts."""
     # Collection groups have equal length; replay currently uses 120-step train worlds.
-    features = torch.stack([e["features"] for e in episodes]).to(device)
-    actions = torch.stack([e["actions"] for e in episodes]).to(device)
-    rewards = torch.stack([e["rewards"] for e in episodes]).to(device)
-    policies = torch.stack([e["policies"] for e in episodes]).to(device)
-    returns = torch.stack(
-        [value_targets(e["rewards"], e["values"], cfg.gamma, cfg.td_steps) for e in episodes]
-    ).to(device)
+    workspace = workspace or BatchWorkspace()
+    buffers = workspace.prepare(episodes, cfg, device)
+    features, actions, rewards, policies, returns = (
+        buffers[key] for key in ("features", "actions", "rewards", "policies", "returns")
+    )
     b, length, _ = features.shape
     h = model.representation.initial_state(b).to(device)
     latent, _ = model.representation(features, h)
@@ -181,34 +222,48 @@ def batch_loss(model, target, episodes, cfg, rng, device):
     starts = torch.tensor(rng.integers(length, size=b), device=device)
     rows = torch.arange(b, device=device)
     state = states[rows, starts]
-    terms = {key: torch.zeros((), device=device) for key in ("policy", "value", "reward", "latent")}
-    counts = dict.fromkeys(terms, 0)
+    terms = {
+        key: torch.zeros((), device=device)
+        for key in ("policy", "value", "reward", "latent", "observation")
+    }
+    counts = {key: torch.zeros((), device=device) for key in terms}
     for k in range(cfg.unroll + 1):
         pos = starts + k
-        valid = pos < length
+        valid = (pos < length).float()
         idx = pos.clamp(max=length - 1)
         logits, estimates = model.predict(state)
-        if valid.any():
-            terms["policy"] += (-(policies[rows, idx] * logits.log_softmax(-1)).sum(-1))[
-                valid
-            ].sum()
-            terms["value"] += F.smooth_l1_loss(
-                estimates[valid], returns[rows, idx][valid], reduction="sum"
-            )
-            counts["policy"] += int(valid.sum())
-            counts["value"] += int(valid.sum())
+        terms["policy"] += (-(policies[rows, idx] * logits.log_softmax(-1)).sum(-1) * valid).sum()
+        terms["value"] += (
+            F.smooth_l1_loss(estimates, returns[rows, idx], reduction="none") * valid
+        ).sum()
+        counts["policy"] += valid.sum()
+        counts["value"] += valid.sum()
         if k == cfg.unroll:
             break
         next_state, predicted_reward = model.dynamics(state, actions[rows, idx])
-        if valid.any():
-            terms["reward"] += F.mse_loss(
-                predicted_reward[valid], rewards[rows, idx][valid], reduction="sum"
-            )
-            target_state = target_states[rows, (pos + 1).clamp(max=length)]
-            terms["latent"] += ((next_state - target_state) ** 2).mean(-1)[valid].sum()
-            counts["reward"] += int(valid.sum())
-            counts["latent"] += int(valid.sum())
+        terms["reward"] += (((predicted_reward - rewards[rows, idx]) ** 2) * valid).sum()
+        target_state = target_states[rows, (pos + 1).clamp(max=length)]
+        terms["latent"] += (((next_state - target_state) ** 2).mean(-1) * valid).sum()
+        counts["reward"] += valid.sum()
+        counts["latent"] += valid.sum()
+        observation_logits = model.predict_observation(next_state)
+        if observation_logits is not None:
+            observed = features[rows, idx, 8:10]
+            terms["observation"] += (
+                F.binary_cross_entropy_with_logits(
+                    observation_logits, observed, reduction="none"
+                ).mean(-1)
+                * valid
+            ).sum()
+            counts["observation"] += valid.sum()
         state = next_state
-    terms = {key: value / max(1, counts[key]) for key, value in terms.items()}
-    loss = terms["policy"] + terms["value"] + terms["reward"] + 0.5 * terms["latent"]
-    return loss, {k: float(v.detach()) for k, v in terms.items()}
+    terms = {key: value / counts[key].clamp_min(1) for key, value in terms.items()}
+    loss = (
+        terms["policy"]
+        + terms["value"]
+        + terms["reward"]
+        + 0.5 * terms["latent"]
+        + cfg.observation_loss_weight * terms["observation"]
+    )
+    values = torch.stack(list(terms.values())).detach().cpu().tolist()
+    return loss, dict(zip(terms, values, strict=True))

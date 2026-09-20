@@ -142,7 +142,7 @@ class MCTS:
 
     # ------------------------------------------------------------------
 
-    def _select_child(self, node: MCTSNode) -> tuple[int, MCTSNode]:
+    def _select_child(self, node: MCTSNode, bounds=None) -> tuple[int, MCTSNode]:
         total = sum(c.visit_count for c in node.children.values())
         sqrt_total = math.sqrt(total + 1)
 
@@ -152,6 +152,13 @@ class MCTS:
 
         for action, child in node.children.items():
             q = child.reward + self.gamma * child.value if child.visit_count > 0 else 0.0
+            if bounds is not None:
+                low, high = bounds
+                q = (
+                    min(1.0, max(0.0, (q - low) / (high - low)))
+                    if child.visit_count and high > low + 1e-8
+                    else 0.0
+                )
             u = self.c_puct * child.prior * sqrt_total / (1 + child.visit_count)
             score = q + u
             if score > best_score:
@@ -180,6 +187,7 @@ def search_batch(model, states, remaining, cfg, rng, explore=False):
     logits, _ = model.predict(states)
     priors = logits.softmax(-1).cpu().numpy()
     roots = []
+    bounds = [[math.inf, -math.inf] for _ in states]
     for i, state in enumerate(states):
         root = MCTSNode(1.0)
         root.latent_state = state
@@ -194,7 +202,9 @@ def search_batch(model, states, remaining, cfg, rng, explore=False):
             node, path = root, [root]
             limit = min(cfg.depth, int(remaining[i]))
             while node.expanded and node.children and len(path) - 1 < limit:
-                action, node = helper._select_child(node)
+                action, node = helper._select_child(
+                    node, bounds[i] if cfg.normalize_search else None
+                )
                 path.append(node)
             paths.append(path)
             if not node.expanded:
@@ -228,6 +238,11 @@ def search_batch(model, states, remaining, cfg, rng, explore=False):
             bound = (1 - cfg.gamma ** max(0, steps_left)) / (1 - cfg.gamma)
             value = float(np.clip(value, -0.25 * bound, bound))
             helper._backprop(path, value)
+            if cfg.normalize_search:
+                for node in path[1:]:
+                    q = node.reward + cfg.gamma * node.value
+                    bounds[i][0] = min(bounds[i][0], q)
+                    bounds[i][1] = max(bounds[i][1], q)
     visits = np.array(
         [[c.visit_count for c in r.children.values()] for r in roots], dtype=np.float32
     )

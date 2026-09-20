@@ -37,6 +37,7 @@ def save_model(
             "step_dim": STEP_FEATURE_DIM,
             "hidden_size": GRU_HIDDEN,
             "max_bands": MAX_BANDS,
+            "observation_head": model._observation is not None,
         },
     }
     if metadata:
@@ -68,7 +69,7 @@ def load_model(path: str | Path, device: torch.device | None = None) -> NeuralMP
     checkpoint = torch.load(path, map_location=device, weights_only=True)
 
     version = checkpoint.get("version", 0)
-    if version != MODEL_VERSION:
+    if version not in (2, MODEL_VERSION):
         raise ValueError(f"Model version {version} != expected {MODEL_VERSION}")
 
     cfg = checkpoint["config"]
@@ -76,6 +77,7 @@ def load_model(path: str | Path, device: torch.device | None = None) -> NeuralMP
         step_dim=cfg["step_dim"],
         hidden_size=cfg["hidden_size"],
         max_bands=cfg["max_bands"],
+        observation_head=cfg.get("observation_head", False),
     )
     model.load_state_dict(checkpoint["state_dict"])
     model.to(device)

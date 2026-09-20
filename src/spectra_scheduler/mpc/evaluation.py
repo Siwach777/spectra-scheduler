@@ -16,7 +16,7 @@ import torch.nn.functional as F
 from spectra_scheduler.rl import RewardConfig
 
 from .checkpoints import atomic_json, implementation_hashes, load_model
-from .config import MAX_BANDS, Config
+from .config import MAX_BANDS, saved_config
 from .data import collect
 from .learning import batch_loss
 from .scheduler import NeuralMPCScheduler
@@ -46,6 +46,16 @@ def validate(model, cfg, pool, split="validation", progress=None, prefix="Valida
                     for key in ("interception_ratio", "emitter_discovery_ratio", "max_band_gap")
                 },
             }
+            actions = torch.cat([e["actions"] for e in episodes])
+            results[name]["dominant_band_fraction"] = float(
+                torch.bincount(actions, minlength=MAX_BANDS).max() / len(actions)
+            )
+            results[name]["bands_visited_mean"] = float(
+                np.mean([len(e["actions"].unique()) for e in episodes])
+            )
+            results[name]["listening_fraction"] = float(
+                np.mean([float(e["features"][:, 9].mean()) for e in episodes])
+            )
             with torch.no_grad():
                 _, errors = batch_loss(
                     model, model, episodes, cfg, np.random.default_rng(0), cfg.device
@@ -56,6 +66,8 @@ def validate(model, cfg, pool, split="validation", progress=None, prefix="Valida
                     f"  {name}: reward={results[name]['reward']:.4f}, "
                     f"interception={results[name]['interception_ratio']:.2%}"
                 )
+                if results[name]["dominant_band_fraction"] > 0.95:
+                    progress.message("  Warning: more than 95% of actions choose one band.")
     return results
 
 
@@ -79,7 +91,7 @@ def evaluate_run(directory, split="test", episodes=30, workers=1):
     metadata = torch.load(checkpoint, map_location="cpu", weights_only=True)["metadata"]
     settings = dict(metadata["config"])
     settings.update(device="cpu", workers=workers, validation_episodes=episodes)
-    cfg = Config(**settings)
+    cfg = saved_config(settings)
     model = load_model(checkpoint)
     torch.set_num_threads(1)
     pool = ProcessPoolExecutor(workers, mp_context=mp.get_context("spawn")) if workers > 1 else None

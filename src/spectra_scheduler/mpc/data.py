@@ -14,7 +14,7 @@ from spectra_scheduler.rl import Context, RewardConfig
 from spectra_scheduler.rl_scenarios import procedural_scenario
 from spectra_scheduler.simulation import SimulationEpisode
 
-from .config import MAX_BANDS, REWARD, Config, TrainConfig
+from .config import MAX_BANDS, REWARD, STEP_FEATURE_DIM, Config, TrainConfig
 from .model import NeuralMPCModel
 from .observation import ObservationEncoder
 from .search import search_batch
@@ -104,7 +104,7 @@ def collect_worker(payload, progress=None):
     weights, cfg_dict, seeds, split, explore, shifted, policy_only = payload
     cfg = Config(**cfg_dict)
     torch.set_num_threads(1)
-    model = NeuralMPCModel()
+    model = NeuralMPCModel(observation_head="_observation.0.weight" in weights)
     model.load_state_dict(weights)
     model.eval()
     rng = np.random.default_rng(np.random.SeedSequence([cfg.seed, seeds[0], int(explore)]))
@@ -113,18 +113,24 @@ def collect_worker(payload, progress=None):
     encoders = [ObservationEncoder(MAX_BANDS) for _ in seeds]
     contexts = [Context(MAX_BANDS) for _ in seeds]
     hidden = model.representation.initial_state(len(seeds))
+    count, length = len(seeds), sims[0].duration
+    arrays = {
+        "features": np.empty((count, length, STEP_FEATURE_DIM), dtype=np.float32),
+        "actions": np.empty((count, length), dtype=np.int64),
+        "rewards": np.empty((count, length), dtype=np.float32),
+        "policies": np.empty((count, length, MAX_BANDS), dtype=np.float32),
+        "values": np.empty((count, length), dtype=np.float32),
+    }
     records = [
-        {
-            "features": [],
-            "actions": [],
-            "rewards": [],
-            "policies": [],
-            "values": [],
-            "seed": seed,
-            "split": split,
-        }
-        for seed in seeds
+        {**{key: value[i] for key, value in arrays.items()}, "seed": seed, "split": split}
+        for i, seed in enumerate(seeds)
     ]
+    features = np.empty((count, STEP_FEATURE_DIM), dtype=np.float32)
+    x = torch.from_numpy(features).unsqueeze(1)
+    held_actions = np.zeros(count, dtype=np.int64)
+    training_iteration = seeds[0] // cfg.episodes
+    anneal = min(1.0, training_iteration / cfg.exploration_decay_iterations)
+    temperature = 1.0 + anneal * (cfg.final_temperature - 1.0)
     with torch.inference_mode():
         for step in range(sims[0].duration):
             state = hidden[0]
@@ -136,18 +142,22 @@ def collect_worker(payload, progress=None):
                 policies, values = search_batch(
                     model, state, [s.duration - step for s in sims], cfg, rng, explore
                 )
-            features = []
             for i, env in enumerate(envs):
                 p = policies[i]
                 # High early-episode exploration, sharper late-episode actions.
-                sampling = p if step < 30 else p**2 / (p**2).sum()
-                action = int(rng.choice(MAX_BANDS, p=sampling)) if explore else int(p.argmax())
+                sampling = p ** ((1.0 if step < 30 else 2.0) / temperature)
+                sampling /= sampling.sum()
+                if explore:
+                    if step % cfg.exploration_hold == 0:
+                        held_actions[i] = rng.choice(MAX_BANDS, p=sampling)
+                    action = int(held_actions[i])
+                else:
+                    action = int(p.argmax())
                 obs = env.step(action)
-                feat = encoders[i].encode_step(obs).astype(np.float32)
+                feat = encoders[i].encode_step(obs, out=features[i])
                 encoders[i].update(obs)
                 contexts[i].observe(obs)
                 reward = REWARD.compute(obs, contexts[i])
-                features.append(feat)
                 row = records[i]
                 for key, value in (
                     ("features", feat),
@@ -156,16 +166,13 @@ def collect_worker(payload, progress=None):
                     ("policies", p),
                     ("values", values[i]),
                 ):
-                    row[key].append(value)
-            x = torch.from_numpy(np.stack(features)).unsqueeze(1)
+                    row[key][step] = value
             _, hidden = model.representation(x, hidden)
             if progress is not None:
                 progress((step + 1) * len(seeds), sims[0].duration * len(seeds))
     for record, env in zip(records, envs, strict=True):
         for key in ("features", "actions", "rewards", "policies", "values"):
-            record[key] = torch.tensor(
-                np.array(record[key]), dtype=torch.long if key == "actions" else torch.float32
-            )
+            record[key] = torch.from_numpy(record[key])
         record["metrics"] = asdict(calculate_metrics(env.result()))
     return records
 

@@ -83,3 +83,11 @@ now cross process queues as arrays, not shared Torch tensor storages. Replay kee
 local tensors without retaining IPC file handles. A low-limit spawned-worker regression
 verifies bounded descriptor usage and exact serial/parallel data parity. Checkpoint
 format and training behavior are unchanged.
+
+The MPC learning repair adds training-only temporal exploration, normalized search
+scores, auxiliary hit/listening prediction and explicit collapse diagnostics. It also
+preallocates rollout/staging buffers, caches targets and packs GRU weights. Old model
+inference remains supported; training semantics are versioned separately. The bounded
+control comparison improves observation collection and prediction but not both
+validation distributions; see [mpc-repair.md](mpc-repair.md). Dataset integration and
+remaining backend scope are documented in [project-status.md](project-status.md).

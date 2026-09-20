@@ -19,7 +19,7 @@ from .checkpoints import atomic_json, implementation_hashes, load_model, save_mo
 from .config import VERSION
 from .data import Replay, collect
 from .evaluation import probe_reward_error, validate
-from .learning import batch_loss
+from .learning import BatchWorkspace, batch_loss
 from .model import NeuralMPCModel
 from .progress import LiveProgress
 
@@ -49,7 +49,15 @@ def _run_locked(cfg, directory, resume, initial):
     torch.set_num_threads(cfg.threads)
     torch.manual_seed(cfg.seed)
     rng = np.random.default_rng(cfg.seed)
-    model = (load_model(initial) if initial else NeuralMPCModel()).to(cfg.device)
+    model = NeuralMPCModel()
+    if initial:
+        source = load_model(initial)
+        incompatible = model.load_state_dict(source.state_dict(), strict=False)
+        if incompatible.unexpected_keys or any(
+            not k.startswith("_observation.") for k in incompatible.missing_keys
+        ):
+            raise ValueError("initial model architecture is incompatible")
+    model = model.to(cfg.device)
     target = copy.deepcopy(model).eval()
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=1e-4)
     replay = Replay(cfg.replay_capacity)
@@ -59,7 +67,10 @@ def _run_locked(cfg, directory, resume, initial):
         progress.message("Loading model, optimizer and replay checkpoint...")
         saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
         if saved["version"] != VERSION or saved["generator"] != GENERATOR_VERSION:
-            raise ValueError("incompatible training checkpoint")
+            raise ValueError(
+                "incompatible training checkpoint: use a new run directory; "
+                "--initial best.pt can warm-start shared model weights"
+            )
         old, new = dict(saved["config"]), asdict(cfg)
         for key in ("iterations", "device", "threads", "workers"):
             old.pop(key)
@@ -79,6 +90,9 @@ def _run_locked(cfg, directory, resume, initial):
         if cfg.device == "cuda" and saved["cuda_rng"]:
             torch.cuda.set_rng_state_all(saved["cuda_rng"])
         progress.message(f"Resumed after iteration {iteration}/{cfg.iterations}.")
+    model.representation.gru.flatten_parameters()
+    target.representation.gru.flatten_parameters()
+    workspace = BatchWorkspace()
     atomic_json(directory / "config.json", asdict(cfg))
     atomic_json(
         directory / "environment.json",
@@ -148,7 +162,7 @@ def _run_locked(cfg, directory, resume, initial):
             progress.update(f"{label}: learner updates", 0, cfg.updates)
             for update in range(cfg.updates):
                 batch = replay.sample(cfg.batch_size, rng)
-                loss, terms = batch_loss(model, target, batch, cfg, rng, cfg.device)
+                loss, terms = batch_loss(model, target, batch, cfg, rng, cfg.device, workspace)
                 if not torch.isfinite(loss):
                     raise FloatingPointError("nonfinite training loss")
                 optimizer.zero_grad(set_to_none=True)
@@ -172,6 +186,12 @@ def _run_locked(cfg, directory, resume, initial):
                 "collection_seconds": collection_seconds,
                 "loss": {key: float(np.mean([x[key] for x in losses])) for key in losses[0]},
                 "collection_reward": float(np.mean([float(e["rewards"].mean()) for e in episodes])),
+                "listening_fraction": float(
+                    np.mean([float(e["features"][:, 9].mean()) for e in episodes])
+                ),
+                "hit_fraction": float(
+                    np.mean([float(e["features"][:, 8].mean()) for e in episodes])
+                ),
             }
             if (index + 1) % cfg.validation_every == 0 or index + 1 == cfg.iterations:
                 model.eval()

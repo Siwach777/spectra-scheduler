@@ -130,9 +130,16 @@ def training_main():
     parser.add_argument("--evaluate", action="store_true", help="Evaluate best.pt; no training")
     parser.add_argument("--evaluation-split", choices=["validation", "test"], default="test")
     for name, value in asdict(Config()).items():
-        parser.add_argument(
-            "--" + name.replace("_", "-"), default=argparse.SUPPRESS, type=type(value)
-        )
+        if isinstance(value, bool):
+            parser.add_argument(
+                "--" + name.replace("_", "-"),
+                default=argparse.SUPPRESS,
+                action=argparse.BooleanOptionalAction,
+            )
+        else:
+            parser.add_argument(
+                "--" + name.replace("_", "-"), default=argparse.SUPPRESS, type=type(value)
+            )
     args = vars(parser.parse_args())
     directory, resume, initial = args.pop("run_dir"), args.pop("resume"), args.pop("initial")
     evaluate, split = args.pop("evaluate"), args.pop("evaluation_split")

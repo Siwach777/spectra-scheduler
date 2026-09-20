@@ -81,7 +81,7 @@ class ObservationEncoder:
 
     # ------------------------------------------------------------------
 
-    def encode_step(self, obs: Observation) -> np.ndarray:
+    def encode_step(self, obs: Observation, out=None) -> np.ndarray:
         """Encode a single observation into a fixed-size GRU input vector.
 
         Layout (29-dim for MAX_BANDS=8)::
@@ -98,7 +98,9 @@ class ObservationEncoder:
         The context fields (13-28) reflect encoder state *before* this
         observation is incorporated, which is correct for causal modelling.
         """
-        features = np.zeros(STEP_FEATURE_DIM, dtype=np.float64)
+        features = np.zeros(STEP_FEATURE_DIM, dtype=np.float64) if out is None else out
+        if out is not None:
+            features.fill(0)
 
         # Band one-hot
         features[obs.band] = 1.0

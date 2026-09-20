@@ -31,7 +31,7 @@ class RepresentationNetwork(nn.Module):
 
     def initial_state(self, batch_size: int = 1) -> torch.Tensor:
         """Zero-initialised GRU hidden state: shape (1, B, H)."""
-        return torch.zeros(1, batch_size, self.hidden_size)
+        return self.gru.weight_ih_l0.new_zeros(1, batch_size, self.hidden_size)
 
     def forward(self, x: torch.Tensor, hidden: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
         """Process a sequence of encoded observations.
@@ -128,12 +128,22 @@ class NeuralMPCModel(nn.Module):
         step_dim: int = STEP_FEATURE_DIM,
         hidden_size: int = GRU_HIDDEN,
         max_bands: int = MAX_BANDS,
+        observation_head: bool = True,
     ) -> None:
         super().__init__()
         self.max_bands = max_bands
         self.representation = RepresentationNetwork(step_dim, hidden_size)
         self._dynamics = DynamicsNetwork(hidden_size, max_bands)
         self._prediction = PredictionNetwork(hidden_size, max_bands)
+        self._observation = (
+            nn.Sequential(nn.Linear(hidden_size, 64), nn.ReLU(), nn.Linear(64, 2))
+            if observation_head
+            else None
+        )
+
+    def predict_observation(self, state):
+        """Predict hit/listening logits from a transitioned latent state."""
+        return self._observation(state) if self._observation is not None else None
 
     # --- convenience wrappers that handle one-hot conversion ---------------
 

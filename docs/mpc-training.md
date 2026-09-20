@@ -1,5 +1,9 @@
 # Search-driven model training
 
+The corrective version-3 training changes and their mixed measured results are in
+[mpc-repair.md](mpc-repair.md). Use fresh run directories for the revised algorithm;
+version-2 inference artifacts remain readable, but old training state is not resumed.
+
 The collect–train–validate loop is in `spectra_scheduler.mpc_training`. It starts
 from a neural model, not a handcrafted scheduling policy. Demonstration initialization
 is optional; otherwise all trajectories come from search with learned weights.
@@ -43,6 +47,9 @@ Provenance now hashes every implementation module rather than only the entry poi
    Losses cover search-policy cross entropy, n-step value regression, immediate
    reward prediction and latent consistency against an EMA target encoder.
    Terminal targets do not bootstrap; losses are masked beyond episode end.
+   Version 3 adds hit/listening prediction supervision, cached return targets and
+   reusable host/device staging buffers. Training exploration holds sampled actions
+   for short blocks; evaluation does not impose that behavior.
 5. Fixed validation worlds measure reward, interception, discovery and coverage
    for search and policy-only. Separate fixed held-out trajectories track reward
    MSE without changing the diagnostic data after training.
@@ -138,8 +145,9 @@ comparisons but differs in finite-horizon search handling; do not conflate resul
 
 Tests cover reward-sensitive search, terminal targets, replay isolation, gradient
 flow, exact CPU resume and test evaluation. Multi-process CPU runs also completed.
-CUDA could not be verified here: PyTorch and the external driver check reported no
-accessible GPU. No driver or system configuration was changed.
+The original smoke run could not access CUDA. During the version-3 repair, the focused
+CUDA regression passed outside the sandbox, including pinned buffers and GRU packing.
+No driver or system configuration was changed; the matched learning comparison was CPU-only.
 
 The bounded learning check in `artifacts/mpc-loop-verified` used five iterations,
 80 training worlds, 160 updates and four validation worlds per distribution. The

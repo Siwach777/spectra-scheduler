@@ -12,8 +12,8 @@ STEP_FEATURE_DIM = MAX_BANDS + 5 + 2 * MAX_BANDS
 DEFAULT_MCTS_SIMS = 50
 DEFAULT_GAMMA = 0.97
 DEFAULT_COVERAGE_LIMIT = 20
-MODEL_VERSION = 2
-VERSION = 2
+MODEL_VERSION = 3
+VERSION = 3
 REWARD = RewardConfig(coverage=0.2)
 
 
@@ -64,6 +64,11 @@ class Config:
     validation_every: int = 5
     threads: int = 2
     device: str = "cpu"
+    exploration_hold: int = 4
+    exploration_decay_iterations: int = 50
+    final_temperature: float = 0.25
+    normalize_search: bool = True
+    observation_loss_weight: float = 1.0
 
     def __post_init__(self):
         for name in (
@@ -80,6 +85,8 @@ class Config:
             "validation_episodes",
             "validation_every",
             "threads",
+            "exploration_hold",
+            "exploration_decay_iterations",
         ):
             if type(getattr(self, name)) is not int or getattr(self, name) < 1:
                 raise ValueError(f"{name} must be a positive integer")
@@ -87,3 +94,17 @@ class Config:
             raise ValueError("invalid discount, EMA or learning rate")
         if self.seed < 0 or self.device not in ("cpu", "cuda"):
             raise ValueError("invalid seed or device")
+        if not 0 < self.final_temperature <= 1 or not 0 <= self.observation_loss_weight <= 10:
+            raise ValueError("invalid exploration temperature or observation loss weight")
+
+
+def saved_config(settings):
+    """Old inference artifacts retain their original search/exploration settings."""
+    defaults = dict(
+        exploration_hold=1,
+        exploration_decay_iterations=50,
+        final_temperature=1.0,
+        normalize_search=False,
+        observation_loss_weight=0.0,
+    )
+    return Config(**{**defaults, **settings})
