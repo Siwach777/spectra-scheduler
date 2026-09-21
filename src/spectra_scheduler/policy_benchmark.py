@@ -13,34 +13,12 @@ from pathlib import Path
 
 import numpy as np
 
+from .experiments.storage import fingerprint, write_json
 from .pulse_replay import ReplayConfig
 from .replay_env import InterfaceConfig
 from .replay_evaluation import ReferencePolicy, evaluate_policy
 from .scenarios import REQUIREMENT_SCENARIOS, build_scenario
 from .synthetic_evaluation import evaluate_scheduler
-
-
-def fingerprint(path):
-    with Path(path).open("rb") as stream:
-        return hashlib.file_digest(stream, "sha256").hexdigest()
-
-
-def write_json(path, value):
-    """Atomic publication; never leave a partial benchmark or manifest."""
-    import tempfile
-
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(mode="w", dir=path.parent, delete=False) as stream:
-            temporary = Path(stream.name)
-            json.dump(value, stream, indent=2, allow_nan=False)
-            stream.write("\n")
-        os.replace(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
 
 
 def make_plan(root, split="val", max_files=10, seeds=(0, 1, 2), selection_seed=0):

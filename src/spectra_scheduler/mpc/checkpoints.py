@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
 import torch
 
+from ..experiments.storage import save_torch, write_json
 from .config import GRU_HIDDEN, MAX_BANDS, MODEL_VERSION, STEP_FEATURE_DIM
 from .model import NeuralMPCModel
 
@@ -43,9 +43,7 @@ def save_model(
     if metadata:
         checkpoint["metadata"] = metadata
 
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    torch.save(checkpoint, temporary)
-    temporary.replace(path)
+    save_torch(path, checkpoint)
 
     # Write sidecar JSON
     sidecar = path.with_suffix(".json")
@@ -56,9 +54,7 @@ def save_model(
     }
     if metadata:
         info["metadata"] = metadata
-    temporary = sidecar.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(info, indent=2, allow_nan=False) + "\n")
-    temporary.replace(sidecar)
+    write_json(sidecar, info)
 
     return path
 
@@ -86,15 +82,11 @@ def load_model(path: str | Path, device: torch.device | None = None) -> NeuralMP
 
 
 def atomic_json(path, value):
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
-    temporary.replace(path)
+    write_json(path, value)
 
 
 def save_training(path, payload):
-    temporary = path.with_suffix(".tmp")
-    torch.save(payload, temporary)
-    temporary.replace(path)
+    save_torch(path, payload)
 
 
 def implementation_hashes():

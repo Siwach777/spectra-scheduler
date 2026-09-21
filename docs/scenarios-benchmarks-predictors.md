@@ -121,8 +121,10 @@ is an implementation to evaluate, not a selected best method.
 `prediction_loss` and `optimization_step` are explicit training hooks, with target
 validation, finite-gradient checks and clipping. No training loop is started on
 import. Physical-time discounts are retained for future RL algorithms; supervised
-loss does not use them. Optimizer resume, curriculum/model selection and full
-training orchestration remain the subsequent training stage.
+loss does not use them. The [shared experiment workflow](experiment-workflow.md)
+now supplies optimizer resume, validation-based checkpoint selection, progress and
+training orchestration. Curriculum design and model-comparison experiments remain
+subsequent learning work.
 
 `PredictorPolicy` performs one all-action inference, reconstructs its clock from
 public action/receiver semantics, and scores predicted ratio plus coverage age minus

@@ -1,9 +1,6 @@
 """Optional Torch reference predictor and adapters; no automatic training runs."""
 
-import os
-import tempfile
 from dataclasses import asdict, dataclass
-from pathlib import Path
 
 import numpy as np
 import torch
@@ -11,6 +8,7 @@ from torch import nn
 from torch.nn import functional as F
 
 from .evaluation_contract import Decision, Forecast
+from .experiments.storage import load_torch, save_torch
 from .replay_env import validate_specification
 from .replay_training import HistoryWindow
 
@@ -108,8 +106,6 @@ def save_predictor(path, model, specification, training_hashes=()):
         or model.config.actions != specification["action_count"]
     ):
         raise ValueError("model dimensions differ from replay specification")
-    path = Path(path)
-    path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": 1,
         "config": asdict(model.config),
@@ -117,19 +113,11 @@ def save_predictor(path, model, specification, training_hashes=()):
         "training_hashes": list(training_hashes),
         "weights": {key: value.detach().cpu() for key, value in model.state_dict().items()},
     }
-    temporary = None
-    try:
-        with tempfile.NamedTemporaryFile(dir=path.parent, delete=False) as stream:
-            temporary = Path(stream.name)
-            torch.save(payload, stream)
-        os.replace(temporary, path)
-    finally:
-        if temporary is not None:
-            temporary.unlink(missing_ok=True)
+    save_torch(path, payload)
 
 
 def load_predictor(path, device="cpu"):
-    payload = torch.load(path, map_location="cpu", weights_only=True)
+    payload = load_torch(path)
     if payload.get("schema_version") != 1:
         raise ValueError("unsupported predictor artifact")
     model = ForecastNetwork(ModelConfig(**payload["config"]))

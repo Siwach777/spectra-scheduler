@@ -155,3 +155,7 @@ and bounded predictor/training adapters are described in
 [scenarios, benchmarks and predictors](docs/scenarios-benchmarks-predictors.md).
 The shared [evaluation contract](docs/evaluation-contract.md) defines metric units,
 prediction targets, missing-data behavior and censoring.
+
+The [shared experiment workflow](docs/experiment-workflow.md) adds resumable runs,
+validation-based checkpoint selection and common artifact management, with a
+reference predictor adapter and an explicit pilot configuration.
