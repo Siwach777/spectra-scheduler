@@ -149,6 +149,65 @@ class ScanningEmitter:
 
 
 @dataclass(frozen=True)
+class SpatialScanningEmitter:
+    """Fixed-frequency pulses visible while a periodic beam crosses the receiver.
+
+    This is a rectangular visibility gate, not an antenna/propagation model.
+    phase is the scan phase; pulse phase is independent. Truth represents signals
+    present at the receiver location, not emissions pointed elsewhere.
+    """
+
+    emitter_id: str
+    band: int
+    scan_period: int
+    visible_steps: int
+    pulse_period: int = 1
+    phase: int = 0
+    pulse_phase: int = 0
+    power_dbm: float = -60.0
+    pulse_width_us: float = 1.0
+
+    def transmissions(self, duration: int, num_bands: int) -> list[Transmission]:
+        for name in (
+            "band",
+            "scan_period",
+            "visible_steps",
+            "pulse_period",
+            "phase",
+            "pulse_phase",
+            "duration",
+            "num_bands",
+        ):
+            value = locals().get(name, getattr(self, name, None))
+            if type(value) is not int:
+                raise ValueError(f"{name} must be an integer")
+        _validate_common(
+            self.emitter_id,
+            self.pulse_period,
+            self.pulse_phase,
+            duration,
+            self.power_dbm,
+            self.pulse_width_us,
+        )
+        if not 0 < self.visible_steps <= self.scan_period or self.phase < 0:
+            raise ValueError("require 0 < visible_steps <= scan_period and nonnegative phase")
+        if not 0 <= self.band < num_bands:
+            raise ValueError("spatial scanner band outside spectrum")
+        # Enumerate only visible gates; do not allocate invisible transmissions.
+        events = []
+        for start in range(
+            self.phase % self.scan_period - self.scan_period, duration, self.scan_period
+        ):
+            low, high = max(0, start, self.pulse_phase), min(duration, start + self.visible_steps)
+            first = low + (self.pulse_phase - low) % self.pulse_period
+            events.extend(
+                Transmission(t, self.band, self.emitter_id, self.power_dbm, self.pulse_width_us)
+                for t in range(first, high, self.pulse_period)
+            )
+        return events
+
+
+@dataclass(frozen=True)
 class BurstEmitter:
     """Transmit several closely spaced pulses, followed by a quiet interval."""
 
@@ -289,12 +348,8 @@ class ModeSwitchingEmitter:
 
         first_events = self.first_mode.transmissions(duration, num_bands)
         second_events = self.second_mode.transmissions(duration, num_bands)
-        before_switch = [
-            event for event in first_events if event.time_step < self.switch_time
-        ]
-        after_switch = [
-            event for event in second_events if event.time_step >= self.switch_time
-        ]
+        before_switch = [event for event in first_events if event.time_step < self.switch_time]
+        after_switch = [event for event in second_events if event.time_step >= self.switch_time]
         return before_switch + after_switch
 
 
@@ -308,9 +363,5 @@ def get_emitter_changes(emitter: Emitter, duration: int) -> list[EmitterChange]:
     if isinstance(emitter, WindowedEmitter):
         changes = get_emitter_changes(emitter.emitter, duration)
         end_time = duration if emitter.end_time is None else emitter.end_time
-        return [
-            change
-            for change in changes
-            if emitter.start_time <= change.time_step < end_time
-        ]
+        return [change for change in changes if emitter.start_time <= change.time_step < end_time]
     return []

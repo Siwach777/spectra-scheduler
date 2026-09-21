@@ -149,3 +149,9 @@ the existing synthetic simulator or ML training interface.
 The [reusable learning and inference interface](docs/replay-interface.md) adds
 band/dwell actions, causal PDW features, physical-time rewards/discounts and a
 strategy-independent evaluation runner. It can be exercised without training.
+
+Dedicated spatial/periodic/frequency-agile scenarios, frozen multi-policy benchmarks,
+and bounded predictor/training adapters are described in
+[scenarios, benchmarks and predictors](docs/scenarios-benchmarks-predictors.md).
+The shared [evaluation contract](docs/evaluation-contract.md) defines metric units,
+prediction targets, missing-data behavior and censoring.

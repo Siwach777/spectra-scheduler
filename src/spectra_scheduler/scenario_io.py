@@ -11,6 +11,7 @@ from spectra_scheduler.emitters import (
     ModeSwitchingEmitter,
     PeriodicEmitter,
     ScanningEmitter,
+    SpatialScanningEmitter,
     WindowedEmitter,
 )
 from spectra_scheduler.receiver import Receiver
@@ -54,8 +55,7 @@ def build_scenario_from_definition(
         raise ValueError("emitters must be an array")
     generator = random.Random(seed)
     emitters = tuple(
-        _build_emitter(item, generator, seed, index)
-        for index, item in enumerate(emitter_data)
+        _build_emitter(item, generator, seed, index) for index, item in enumerate(emitter_data)
     )
     return Simulation(
         num_bands=num_bands,
@@ -130,6 +130,7 @@ def _build_emitter(
         "periodic": (PeriodicEmitter, "period"),
         "frequency-hopping": (FrequencyHoppingEmitter, "period"),
         "scanning": (ScanningEmitter, "period"),
+        "spatial-scanning": (SpatialScanningEmitter, "scan_period"),
         "burst": (BurstEmitter, "burst_period"),
         "jittered-periodic": (JitteredPeriodicEmitter, "period"),
     }

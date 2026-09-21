@@ -18,7 +18,8 @@ from spectra_scheduler.metrics import calculate_metrics
 from spectra_scheduler.scenarios import SCENARIO_NAMES, build_scenario
 from spectra_scheduler.schedulers import AdaptiveDwellScheduler, DwellSweepScheduler
 
-TRAIN_SCENARIOS = SCENARIO_NAMES[:-1]
+# Keep the original training distribution explicit as evaluation scenarios grow.
+TRAIN_SCENARIOS = ("mixed", "acquisition", "tracking", "change")
 
 
 class FeedbackReservoir:

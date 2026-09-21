@@ -7,12 +7,46 @@ from spectra_scheduler.emitters import (
     ModeSwitchingEmitter,
     PeriodicEmitter,
     ScanningEmitter,
+    SpatialScanningEmitter,
     WindowedEmitter,
 )
 from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.simulation import Simulation
 
-SCENARIO_NAMES = ("mixed", "acquisition", "tracking", "change", "crowded")
+REQUIREMENT_SCENARIOS = ("frequency-agile", "spatial-scan", "periodic-scan")
+SCENARIO_NAMES = ("mixed", "acquisition", "tracking", "change", "crowded", *REQUIREMENT_SCENARIOS)
+
+
+def build_requirement_scenario(name: str, seed: int = 0) -> Simulation:
+    """Focused scope scenarios with randomized phases and hidden timing parameters."""
+    rng = random.Random(seed)
+    if name == "frequency-agile":
+        bands = list(range(8))
+        rng.shuffle(bands)
+        emitters = (
+            FrequencyHoppingEmitter(
+                "agile", tuple(bands), 3, phase=rng.randrange(3), power_dbm=-75
+            ),
+        )
+    elif name == "spatial-scan":
+        # Unequal beam revisit periods, fixed carrier frequencies.
+        emitters = tuple(
+            SpatialScanningEmitter(
+                f"beam-{i}", band, period, 4, phase=rng.randrange(period), power_dbm=-75
+            )
+            for i, (band, period) in enumerate(((1, 23), (5, 37)))
+        )
+    elif name == "periodic-scan":
+        # Revisit period commensurate with an eight-band sweep; randomized phase
+        # exposes scan-lock misses without choosing a phase favorable to a policy.
+        emitters = (
+            SpatialScanningEmitter(
+                "periodic-beam", 3, 16, 2, phase=rng.randrange(16), power_dbm=-75
+            ),
+        )
+    else:
+        raise ValueError(f"unknown requirement scenario: {name}")
+    return Simulation(8, 512, emitters, _focused_receiver(seed))
 
 
 def build_comparison_scenario(seed: int = 0) -> Simulation:
@@ -293,6 +327,8 @@ def build_crowded_scenario(seed: int = 0) -> Simulation:
 
 
 def build_scenario(name: str, seed: int = 0) -> Simulation:
+    if name in REQUIREMENT_SCENARIOS:
+        return build_requirement_scenario(name, seed)
     builders = {
         "mixed": build_comparison_scenario,
         "acquisition": build_acquisition_scenario,
