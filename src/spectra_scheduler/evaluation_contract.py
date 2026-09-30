@@ -61,6 +61,9 @@ class TruthOutcome:
     # None means false-alarm modelling is unavailable, not perfect rejection.
     negative_opportunity: bool | None = None
     false_alarm: bool | None = None
+    # Macro windows may contain several independent negative listening ticks.
+    negative_opportunities: int | None = None
+    false_alarms: int | None = None
 
     def __post_init__(self):
         if not isfinite(self.elapsed_seconds) or self.elapsed_seconds <= 0:
@@ -82,6 +85,17 @@ class TruthOutcome:
             for v in (self.negative_opportunity, self.false_alarm)
         ):
             raise ValueError("false-alarm fields must be bool or None")
+        if (self.negative_opportunities is None) != (self.false_alarms is None):
+            raise ValueError("false-alarm counts must be supplied together")
+        if self.negative_opportunities is not None:
+            if self.negative_opportunity is not None:
+                raise ValueError("use either tick flags or macro false-alarm counts")
+            if (
+                type(self.negative_opportunities) is not int
+                or type(self.false_alarms) is not int
+                or not 0 <= self.false_alarms <= self.negative_opportunities
+            ):
+                raise ValueError("invalid false-alarm counts")
 
 
 class EvaluationAccumulator:
@@ -113,6 +127,10 @@ class EvaluationAccumulator:
             self.fa_windows += 1
             self.negatives += outcome.negative_opportunity
             self.false_positives += outcome.negative_opportunity and outcome.false_alarm
+        elif outcome.negative_opportunities is not None:
+            self.fa_windows += 1
+            self.negatives += outcome.negative_opportunities
+            self.false_positives += outcome.false_alarms
         if forecast is None:
             return
         self.forecasts += 1

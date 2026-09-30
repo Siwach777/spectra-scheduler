@@ -156,6 +156,15 @@ and bounded predictor/training adapters are described in
 The shared [evaluation contract](docs/evaluation-contract.md) defines metric units,
 prediction targets, missing-data behavior and censoring.
 
+The [trained timing scheduler results](docs/timing-model-findings.md) compare
+causal timing forecasts and trajectory-trained policies with native MPC and
+round-robin on paired development worlds. The
+[trajectory policy research](docs/trajectory-policy-research.md) explains the
+implemented objectives and their limitations.
+[Joint timing and student-state training](docs/mimo-joint-research.md) and
+[multi-teacher policy distillation](docs/mopd-scheduling.md) document further
+experiments; their implementation does not imply a demonstrated performance gain.
+
 The [shared experiment workflow](docs/experiment-workflow.md) adds resumable runs,
 validation-based checkpoint selection and common artifact management, with a
 reference predictor adapter and an explicit pilot configuration.

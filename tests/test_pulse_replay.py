@@ -216,6 +216,45 @@ class ReplayTests(unittest.TestCase):
                 self.assertEqual(env.report()["truth_pulses"], len(rows))
                 self.assertEqual(env.report()["intercepted_pulses"], total)
 
+    def test_known_trace_matches_tick_receiver_when_timing_is_aligned(self):
+        from spectra_scheduler.emitters import PeriodicEmitter
+        from spectra_scheduler.receiver import Receiver
+        from spectra_scheduler.simulation import Simulation, SimulationEpisode
+
+        world = Simulation(
+            2,
+            8,
+            (PeriodicEmitter("a", 0, 1), PeriodicEmitter("b", 1, 1)),
+            Receiver(retune_steps=1),
+        )
+        rows = [
+            [event.time_step * 1_000 + 100, 5 + event.band * 10, 1, 0, -20]
+            for event in world.generate_truth()
+        ]
+        self.write(rows)
+        tick = SimulationEpisode(world)
+        config = ReplayConfig(
+            stop_us=8_000, max_frequency_mhz=20, bandwidth_mhz=10, retune_us=1_000
+        )
+        with PulseReplay(self.path, config, source_mode="stare") as replay:
+            for band, dwell in ((0, 2), (1, 2), (0, 2)):
+                seen = elapsed = 0
+                while seen < dwell and tick.time_step < world.duration:
+                    observation = tick.step(band)
+                    elapsed += 1
+                    seen += int(observation.listening)
+                pulse = replay.step(DwellAction(5 + band * 10, dwell * 1_000))
+                self.assertEqual(pulse.end_us - pulse.start_us, elapsed * 1_000)
+                self.assertEqual(
+                    len(pulse.pulses),
+                    sum(record.observation.detections for record in tick.records[-elapsed:]),
+                )
+            self.assertTrue(replay.done)
+            self.assertEqual(
+                replay.report()["intercepted_pulses"],
+                sum(record.observation.detections for record in tick.records),
+            )
+
     def test_close_releases_stream_and_rejects_steps(self):
         self.write([[i, 5, 1, 0, -20] for i in range(30)])
         env = PulseReplay(self.path, self.config(batch_rows=2), source_mode="stare")

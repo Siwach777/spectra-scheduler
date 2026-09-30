@@ -111,6 +111,39 @@ def test_model_dimensions_and_nonfinite_artifact_rejected(tmp_path):
         load_predictor(path)
 
 
+@pytest.mark.parametrize("encoder", ["gru", "mlp", "tcn"])
+def test_shared_band_predictions_follow_observations_not_frequency(encoder):
+    model = ForecastNetwork(
+        ModelConfig(
+            features=29, actions=6, history_steps=3, hidden=8, time_bins=4, bands=3, encoder=encoder
+        )
+    ).eval()
+    history = torch.rand(2, 3, 29)
+    history[..., -1] = 0.5  # Previously tuned to band 1.
+    permutation = torch.tensor([2, 0, 1])
+    permuted = history.clone()
+    permuted[..., :-2] = history[..., :-2].reshape(2, 3, 3, 9)[..., permutation, :].flatten(-2)
+    permuted[..., -1] = 1  # Original band 1 is now band 2.
+    original, moved = model(history), model(permuted)
+    for a, b in zip(original, moved, strict=True):
+        expected = a.reshape(2, 3, 2, -1)[:, permutation].reshape_as(b)
+        torch.testing.assert_close(expected, b)
+
+
+def test_coverage_visits_unseen_then_oldest_overdue_band(tmp_path):
+    config, spec = configuration(tmp_path)
+    path = tmp_path / "coverage.pt"
+    save_predictor(path, ForecastNetwork(config), spec)
+    policy = PredictorPolicy(path, revisit_us=5)
+    policy.reset(spec, 0)
+    observation = np.zeros(20, np.float32)
+    observation[0] = 1  # Only band zero was observed.
+    assert policy.act(observation).action // 2 == 1
+    observation[9] = 1
+    observation[1] = 0.4  # Eight microseconds old, beyond the revisit threshold.
+    assert policy.act(observation).action // 2 == 0
+
+
 def test_collection_loss_checkpoint_and_benchmark_integration(tmp_path):
     h5py = pytest.importorskip("h5py")
     from contextlib import closing
@@ -132,7 +165,7 @@ def test_collection_loss_checkpoint_and_benchmark_integration(tmp_path):
     model = ForecastNetwork(config)
     receiver = ReplayConfig(**spec["receiver"])
     interface = InterfaceConfig(**spec["interface"])
-    plan = make_plan(tmp_path, "train", max_files=1, seeds=(0,))
+    plan = make_plan(tmp_path, "train", max_files=1, seeds=(0, 1))
     with closing(
         training_batches(
             tmp_path, plan, UniformActionPolicy, receiver, interface, BatchConfig(2, 3, 4)
@@ -149,6 +182,21 @@ def test_collection_loss_checkpoint_and_benchmark_integration(tmp_path):
     )
     assert report["summary"]["predictor"]["prediction.coverage"]["mean"] == 1
     assert report["results"][0]["policies"]["predictor"]["complete"]
+    batched = benchmark_policies(
+        tmp_path,
+        plan,
+        policies,
+        baseline="sweep",
+        receiver=receiver,
+        interface=interface,
+        inference_batch_size=2,
+    )
+    for serial, parallel in zip(report["results"], batched["results"], strict=True):
+        for name in ("sweep", "predictor"):
+            assert (
+                serial["policies"][name]["evaluation"]["interception_ratio"]
+                == parallel["policies"][name]["evaluation"]["interception_ratio"]
+            )
     # Registered benchmark cannot silently load replacement checkpoint bytes.
     save_predictor(checkpoint, ForecastNetwork(config), spec, hashes)
     with pytest.raises(ValueError, match="content changed"):

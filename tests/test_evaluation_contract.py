@@ -140,3 +140,113 @@ def test_synthetic_adapter_uses_pre_action_prediction_and_observable_reward():
     assert report["prediction"]["percentage_correct"] == 50
     assert report["average_reward_per_action"] == 1  # Includes false alarms.
     assert report["sensitivity"]["unit"] == "simulated_dbm"
+
+
+def test_macro_window_includes_retune_and_clips_at_horizon():
+    from spectra_scheduler.models import Transmission
+    from spectra_scheduler.receiver import Receiver
+    from spectra_scheduler.simulation import Simulation, SyntheticAction
+    from spectra_scheduler.synthetic_evaluation import evaluate_scheduler
+
+    class Policy:
+        def set_retune_table(self, table):
+            assert table[0][1] == 2
+
+        def set_episode_horizon(self, steps):
+            assert steps == 5
+
+        def reset(self, num_bands):
+            self.seen = []
+
+        def choose_action(self, time_step):
+            assert time_step == len(self.seen)
+            return SyntheticAction(0, 1) if time_step == 0 else SyntheticAction(1, 9)
+
+        def forecast(self, time_step, action):
+            assert len(self.seen) == time_step
+            assert isinstance(action, SyntheticAction)
+            return Forecast(1, 0 if time_step == 0 else 0.003, 1)
+
+        def observe(self, observation):
+            self.seen.append(observation)
+
+    simulation = Simulation(2, 5, (), Receiver(retune_steps=2, false_alarm_probability=0))
+    truth = (Transmission(1, 1, "a"), Transmission(4, 1, "a"))
+    report = evaluate_scheduler(
+        simulation,
+        Policy(),
+        step_seconds=0.001,
+        reward=lambda obs: float(obs.hit),
+        reward_description="observed hit",
+        truth=truth,
+    )
+    assert report["contract_version"] == 2
+    assert report["windows"] == 2
+    assert report["elapsed_seconds"] == pytest.approx(0.005)
+    assert report["counts"] == dict(truth=2, eligible=1, detectable=1, captured=1)
+    assert report["prediction"]["average_intercept_time_error_seconds"] == pytest.approx(0)
+    assert report["false_alarm_support"]["negative_listening_ticks"] == 2
+    assert report["discovery"]["emitter_discovery_ratio"] == 1
+    assert [obs.band for obs in simulation.run(Policy(), truth=truth).observations] == [
+        0, 1, 1, 1, 1
+    ]
+
+
+def test_macro_false_alarm_denominator_counts_listening_ticks():
+    from spectra_scheduler.receiver import Receiver
+    from spectra_scheduler.simulation import Simulation, SyntheticAction
+    from spectra_scheduler.synthetic_evaluation import evaluate_scheduler
+
+    class Policy:
+        def reset(self, num_bands):
+            pass
+
+        def choose_action(self, time_step):
+            return SyntheticAction(0, 4)
+
+        def observe(self, observation):
+            pass
+
+    report = evaluate_scheduler(
+        Simulation(1, 4, (), Receiver(false_alarm_probability=1)),
+        Policy(),
+        step_seconds=1,
+        reward=lambda obs: float(obs.hit),
+        reward_description="observed hit",
+    )
+    assert report["false_alarm_support"] == dict(
+        modelled_action_windows=1, negative_listening_ticks=4, false_alarm_ticks=4
+    )
+    assert report["probability_of_false_alarm"] == 1
+
+
+def test_completed_episode_report_matches_live_tick_evaluation():
+    from spectra_scheduler.emitters import PeriodicEmitter
+    from spectra_scheduler.receiver import Receiver
+    from spectra_scheduler.schedulers import RoundRobinScheduler
+    from spectra_scheduler.simulation import Simulation
+    from spectra_scheduler.synthetic_evaluation import (
+        evaluate_completed_episode,
+        evaluate_scheduler,
+    )
+
+    simulation = Simulation(
+        2, 8, (PeriodicEmitter("a", 1, 2),), Receiver(retune_steps=1, false_alarm_probability=1)
+    )
+    result = simulation.run(RoundRobinScheduler())
+    reward_sum = sum(float(obs.hit) for obs in result.observations)
+    completed = evaluate_completed_episode(
+        simulation,
+        result,
+        step_seconds=0.001,
+        reward_sum=reward_sum,
+        reward_description="observed hit",
+    )
+    live = evaluate_scheduler(
+        simulation,
+        RoundRobinScheduler(),
+        step_seconds=0.001,
+        reward=lambda obs: float(obs.hit),
+        reward_description="observed hit",
+    )
+    assert completed == {key: value for key, value in live.items() if key != "discovery"}

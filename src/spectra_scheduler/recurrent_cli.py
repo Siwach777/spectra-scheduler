@@ -13,6 +13,8 @@ from time import perf_counter
 
 import numpy as np
 
+from spectra_scheduler.action_contract import ACTION_CONTRACT_VERSION, DWELL_STEPS, TICK_US
+from spectra_scheduler.experiments.storage import fingerprint
 from spectra_scheduler.learning_cli import write_json
 from spectra_scheduler.rl import RewardConfig, RLModel
 
@@ -26,41 +28,53 @@ POLICY_KWARGS = {
 
 
 def checkpoint_digest(path):
-    return sha256(Path(path).read_bytes()).hexdigest()
+    return fingerprint(path)
 
 
 def load_checked(path, device="cpu"):
     from sb3_contrib import RecurrentPPO
 
-    from spectra_scheduler.recurrent_env import OBSERVATION_VERSION
-
     metadata = json.loads(path.with_suffix(".json").read_text())
     if (
-        metadata["observation_version"] != OBSERVATION_VERSION
+        metadata["observation_version"] not in (1, 2)
         or metadata["sha256"] != checkpoint_digest(path)
-        or metadata["algorithm"] != "recurrent-ppo"
+        or metadata["algorithm"] not in ("recurrent-ppo", "recurrent-ppo-smdp")
     ):
         raise ValueError("checkpoint hash or observation schema mismatch")
     # SB3 checkpoints contain pickle-based metadata: load only trusted local artifacts.
-    return RecurrentPPO.load(path, device=device), metadata
+    if metadata["algorithm"] == "recurrent-ppo-smdp":
+        from spectra_scheduler.recurrent_smdp import DurationRecurrentPPO
+
+        model = DurationRecurrentPPO.load(path, device=device)
+    else:
+        model = RecurrentPPO.load(path, device=device)
+    config = metadata["config"]
+    contract_version = config.get("action_contract_version")
+    if contract_version not in (None, ACTION_CONTRACT_VERSION):
+        raise ValueError("unsupported recurrent action timing contract")
+    model.dwell_steps = tuple(config.get("dwell_steps", (1,)))
+    model.physical_contract = contract_version == ACTION_CONTRACT_VERSION
+    model.observation_version = metadata["observation_version"]
+    model.coverage_steps = config.get("coverage_steps", 512)
+    if model.observation_version == 2 and not model.physical_contract:
+        raise ValueError("multiscale checkpoint requires physical action timing")
+    return model, metadata
 
 
 def train_run(args):
     import torch
-    from sb3_contrib import RecurrentPPO
     from stable_baselines3.common.callbacks import BaseCallback
     from stable_baselines3.common.logger import configure
     from stable_baselines3.common.monitor import Monitor
     from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 
-    from spectra_scheduler.recurrent_env import OBSERVATION_VERSION, RecurrentScheduler, SpectrumEnv
-    from spectra_scheduler.rl import Context
-    from spectra_scheduler.rl_scenarios import procedural_scenario
+    from spectra_scheduler.recurrent_context import make_context
+    from spectra_scheduler.recurrent_env import RecurrentScheduler, SpectrumEnv
+    from spectra_scheduler.recurrent_smdp import DurationRecurrentPPO
+    from spectra_scheduler.rl_scenarios import physical_scenario
 
-    if args.device == "cuda" and not torch.cuda.is_available():
-        raise ValueError(
-            "CUDA unavailable here; run outside the sandbox or explicitly use --device cpu"
-        )
+    if args.device != "cuda" or not torch.cuda.is_available():
+        raise ValueError("CUDA training required; no CPU fallback")
     torch.set_num_threads(args.torch_threads)
     torch.set_num_interop_threads(1)
     args.run_dir.mkdir(parents=True, exist_ok=True)
@@ -75,27 +89,49 @@ def train_run(args):
         "seed": args.seed,
         "workers": args.workers,
         "rollout_steps": 128,
-        "batch_size": 512,
+        "batch_size": 1024,
         "epochs": 4,
         "learning_rate": 0.0003,
-        "gamma": 0.99,
-        "gae_lambda": 0.95,
+        "gamma": args.gamma,
+        "gae_lambda": args.gae_lambda,
+        "observation_version": args.observation_version,
+        "coverage_steps": args.coverage_steps,
         "clip_range": 0.2,
         "entropy_coefficient": args.entropy_coefficient,
         "target_kl": 0.03,
         "policy_kwargs": POLICY_KWARGS,
         "reward": asdict(reward),
+        "dwell_steps": list(DWELL_STEPS),
+        "action_contract_version": ACTION_CONTRACT_VERSION,
+        "synthetic_tick_us": TICK_US,
+        "discount": "gamma and lambda per physical step; within-action discounted reward",
+        "training_distribution": "physical-v1;spatial+agile+periodic;25pct-receiver-shift",
+        "selection": "mean-capture-discovery-harmonic;16-normal-and-16-shifted-worlds",
+        "implementation": {
+            name: sha256(Path(__file__).with_name(name).read_bytes()).hexdigest()
+            for name in (
+                "recurrent_cli.py",
+                "recurrent_env.py",
+                "recurrent_smdp.py",
+                "recurrent_context.py",
+                "action_contract.py",
+                "rl_scenarios.py",
+                "simulation.py",
+                "receiver.py",
+                "rl.py",
+            )
+        },
     }
     latest = args.run_dir / "latest.zip"
-    start_episode, best_score = 0, -float("inf")
+    start_episode, best_score = [0] * args.workers, -float("inf")
     if args.resume:
         model, prior = load_checked(latest, args.device)
         if prior["config"] != config:
             raise ValueError("resume requires the same seed, workers, architecture and reward")
-        start_episode = model.num_timesteps // (120 * args.workers) + 2
+        start_episode = prior["next_episode_indices"]
         best_path = args.run_dir / "best.json"
         if best_path.exists():
-            best_score = json.loads(best_path.read_text())["validation_reward_per_step"]
+            best_score = json.loads(best_path.read_text())["validation_selection_score"]
     else:
         if latest.exists() or (args.run_dir / "config.json").exists():
             raise ValueError(
@@ -106,11 +142,21 @@ def train_run(args):
     def environment(rank):
         return lambda: Monitor(
             SpectrumEnv(
-                worker=rank, workers=args.workers, start_episode=start_episode, reward=reward
+                worker=rank,
+                workers=args.workers,
+                start_episode=start_episode[rank],
+                reward=reward,
+                mixed_receivers=True,
+                dwell_steps=DWELL_STEPS,
+                physical_contract=True,
+                gamma=args.gamma,
+                observation_version=args.observation_version,
+                coverage_steps=args.coverage_steps,
             )
         )
 
     # Start workers before initializing the CUDA model. CPU workers never touch CUDA.
+    os.environ.update(OPENBLAS_NUM_THREADS="1", OMP_NUM_THREADS="1", MKL_NUM_THREADS="1")
     env = (
         DummyVecEnv([environment(0)])
         if args.workers == 1
@@ -118,15 +164,15 @@ def train_run(args):
     )
     try:
         if model is None:
-            model = RecurrentPPO(
+            model = DurationRecurrentPPO(
                 "MlpLstmPolicy",
                 env,
                 learning_rate=0.0003,
                 n_steps=128,
-                batch_size=512,
+                batch_size=1024,
                 n_epochs=4,
-                gamma=0.99,
-                gae_lambda=0.95,
+                gamma=args.gamma,
+                gae_lambda=args.gae_lambda,
                 clip_range=0.2,
                 ent_coef=args.entropy_coefficient,
                 target_kl=0.03,
@@ -137,6 +183,10 @@ def train_run(args):
             )
         else:
             model.set_env(env)
+        model.dwell_steps = DWELL_STEPS
+        model.physical_contract = True
+        model.observation_version = args.observation_version
+        model.coverage_steps = args.coverage_steps
         model.set_logger(configure(str(args.run_dir), ["csv"]))
         parameter_count = sum(p.numel() for p in model.policy.parameters())
         versions = {"torch": torch.__version__, "numpy": np.__version__}
@@ -180,31 +230,54 @@ def train_run(args):
                 target = args.run_dir / f"{name}.zip"
                 os.replace(temp, target)
                 metadata = {
-                    "algorithm": "recurrent-ppo",
-                    "observation_version": OBSERVATION_VERSION,
+                    "algorithm": "recurrent-ppo-smdp",
+                    "observation_version": args.observation_version,
                     "sha256": checkpoint_digest(target),
                     "config": config,
                     "environment_steps": self.model.num_timesteps,
+                    "physical_steps": self.model.physical_steps,
+                    "next_episode_indices": env.get_attr("episode_index"),
                     "versions": versions,
-                    "validation_reward_per_step": validation_score,
-                    "checkpoint_selection": "best observed reward on eight fixed validation worlds"
+                    "validation_selection_score": validation_score,
+                    "validation_metrics": getattr(self, "validation_metrics", None),
+                    "checkpoint_selection": config["selection"]
                     if name == "best"
                     else "latest completed PPO update",
                 }
                 write_json(target.with_suffix(".json"), metadata)
 
             def validate(self):
-                returns = []
-                for seed in range(10000, 10008):
-                    simulation = procedural_scenario(seed, "validation", num_bands=8)
-                    result = simulation.run(RecurrentScheduler(self.model))
-                    context = Context(8)
-                    total = 0.0
-                    for observation in result.observations:
-                        context.observe(observation)
-                        total += reward.compute(observation, context)
-                    returns.append(total / simulation.duration)
-                return float(np.mean(returns))
+                from spectra_scheduler.metrics import calculate_metrics
+
+                scores, self.validation_metrics = [], {}
+                for shifted in (False, True):
+                    rows = []
+                    for seed in range(10000, 10016):
+                        simulation = physical_scenario(seed, "validation", shifted)
+                        result = simulation.run(RecurrentScheduler(self.model))
+                        metrics = calculate_metrics(result)
+                        context, total = make_context(
+                            8, args.observation_version, args.coverage_steps
+                        ), 0.0
+                        for observation in result.observations:
+                            context.observe(observation)
+                            total += reward.compute(observation, context)
+                        capture, discovery = (
+                            metrics.interception_ratio,
+                            metrics.emitter_discovery_ratio,
+                        )
+                        scores.append(2 * capture * discovery / max(capture + discovery, 1e-12))
+                        rows.append(
+                            {
+                                "capture": capture,
+                                "discovery": discovery,
+                                "reward_per_step": total / simulation.duration,
+                            }
+                        )
+                    self.validation_metrics["shifted" if shifted else "normal"] = {
+                        key: float(np.mean([row[key] for row in rows])) for key in rows[0]
+                    }
+                return float(np.mean(scores))
 
             def _on_rollout_start(self):
                 nonlocal best_score
@@ -212,6 +285,7 @@ def train_run(args):
                 progress = {
                     "status": "training",
                     "environment_steps": self.model.num_timesteps,
+                    "physical_steps": self.model.physical_steps,
                     "target_steps": args.steps,
                     "elapsed_seconds": elapsed,
                     "steps_per_second": (self.model.num_timesteps - initial_steps)
@@ -234,11 +308,16 @@ def train_run(args):
                     print(
                         f"steps {self.model.num_timesteps:,}/{args.steps:,}; "
                         f"{progress['steps_per_second']:.0f} steps/s; "
-                        f"validation reward/step {score:.4f}",
+                        f"validation capture/discovery score {score:.4f}",
                         flush=True,
                     )
 
         callback = Checkpoints()
+        if not args.resume:
+            callback.init_callback(model)
+            best_score = callback.validate()
+            callback.save("untrained", best_score)
+            callback.save("best", best_score)
         if args.steps <= model.num_timesteps:
             raise ValueError("target steps must exceed checkpoint steps")
         model.learn(
@@ -256,10 +335,12 @@ def train_run(args):
             {
                 "status": "complete",
                 "environment_steps": model.num_timesteps,
+                "physical_steps": model.physical_steps,
                 "target_steps": args.steps,
                 "elapsed_seconds": perf_counter() - started,
                 "hardware": hardware,
-                "validation_reward_per_step": score,
+                "validation_selection_score": score,
+                "validation_metrics": callback.validation_metrics,
             },
         )
         print(f"Training complete: {latest}", flush=True)
@@ -273,21 +354,27 @@ def run_benchmark(args):
     from sb3_contrib import RecurrentPPO
 
     from spectra_scheduler.recurrent_env import RecurrentScheduler, SpectrumEnv
-    from spectra_scheduler.rl_benchmark import benchmark
+    from spectra_scheduler.rl_benchmark import SUITES, benchmark
 
     if args.output.resolve() in (args.model.resolve(), args.model.with_suffix(".json").resolve()):
         raise ValueError("report must not overwrite checkpoint or its metadata")
     torch.set_num_threads(1)
-    model, metadata = load_checked(args.model, "cpu")
+    if not torch.cuda.is_available():
+        raise ValueError("CUDA inference required")
+    model, metadata = load_checked(args.model, "cuda")
+    physical_worlds = model.physical_contract
     reward = RewardConfig(**metadata["config"]["reward"])
-    initial = RecurrentPPO(
-        "MlpLstmPolicy",
-        SpectrumEnv(),
-        policy_kwargs=POLICY_KWARGS,
-        seed=metadata["config"]["seed"],
-        device="cpu",
-        verbose=0,
-    )
+    if metadata["algorithm"] == "recurrent-ppo-smdp":
+        initial, _ = load_checked(args.model.with_name("untrained.zip"), "cuda")
+    else:
+        initial = RecurrentPPO(
+            "MlpLstmPolicy",
+            SpectrumEnv(),
+            policy_kwargs=POLICY_KWARGS,
+            seed=metadata["config"]["seed"],
+            device="cuda",
+            verbose=0,
+        )
     report = benchmark(
         [RLModel.load(path) for path in args.dqn_models],
         runs=args.runs,
@@ -295,6 +382,8 @@ def run_benchmark(args):
         split=args.split,
         reward=reward,
         num_bands=8,
+        physical_worlds=physical_worlds,
+        suites=("randomized", "receiver-shift", "periodic-scan") if physical_worlds else SUITES,
         extra_policies={
             "recurrent-ppo": lambda: RecurrentScheduler(model),
             "untrained-recurrent": lambda: RecurrentScheduler(initial),
@@ -314,13 +403,25 @@ def main(argv=None):
     for command in ("train", "start"):
         p = sub.add_parser(command)
         p.add_argument("--run-dir", type=Path, required=True)
-        p.add_argument("--steps", type=int, default=2_000_000)
+        p.add_argument(
+            "--steps",
+            type=int,
+            default=2_000_000,
+            help="total policy decisions; physical simulation steps are reported separately",
+        )
         p.add_argument("--workers", type=int, default=12)
         p.add_argument("--torch-threads", type=int, default=2)
         p.add_argument("--seed", type=int, default=0)
-        p.add_argument("--device", choices=("cuda", "cpu"), default="cuda")
+        p.add_argument("--device", choices=("cuda",), default="cuda")
         p.add_argument("--coverage-penalty", type=float, default=0.5)
         p.add_argument("--entropy-coefficient", type=float, default=0.05)
+        p.add_argument("--gamma", type=float, default=0.99, help="discount per 1 ms tick")
+        p.add_argument("--gae-lambda", type=float, default=0.95, help="trace factor per 1 ms tick")
+        p.add_argument("--observation-version", type=int, choices=(1, 2), default=1)
+        p.add_argument(
+            "--coverage-steps", type=float, default=512,
+            help="version 2 coverage timescale in ms",
+        )
         p.add_argument("--checkpoint-steps", type=int, default=50000)
         p.add_argument("--resume", action="store_true")
     p = sub.add_parser("benchmark")
@@ -344,6 +445,11 @@ def main(argv=None):
             if args.workers > 24 or args.seed < 0:
                 raise ValueError("use at most 24 workers and a nonnegative seed")
             RewardConfig(coverage=args.coverage_penalty)
+            if (
+                not 0 < args.gamma <= 1 or not 0 <= args.gae_lambda <= 1
+                or not np.isfinite(args.coverage_steps) or args.coverage_steps <= 0
+            ):
+                raise ValueError("invalid physical discount, trace or coverage timescale")
             if args.command == "train":
                 train_run(args)
             else:
@@ -358,6 +464,10 @@ def main(argv=None):
                     "device",
                     "coverage_penalty",
                     "entropy_coefficient",
+                    "gamma",
+                    "gae_lambda",
+                    "observation_version",
+                    "coverage_steps",
                     "checkpoint_steps",
                 ):
                     command.extend(["--" + key.replace("_", "-"), str(getattr(args, key))])

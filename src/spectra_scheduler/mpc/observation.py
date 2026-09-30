@@ -133,13 +133,13 @@ class ObservationEncoder:
 class RewardFunction:
     """Multi-objective reward shaping for Neural-MPC training.
 
-    Rewards interceptions, discovery of new signal sources, and
+    Rewards signal detections, discovery of new signal sources, and
     sustained tracking; penalises lost observation time (retuning)
     and neglected frequency bands.
     """
 
     hit_reward: float = 1.0
-    """Base reward for a successful interception."""
+    """Base reward for a successful signal capture / hit."""
 
     miss_penalty: float = -0.05
     """Small penalty for listening on a band with no activity."""
@@ -148,10 +148,10 @@ class RewardFunction:
     """Cost of a retuning step (lost observation opportunity)."""
 
     discovery_bonus: float = 0.3
-    """Extra reward for the first interception on a band."""
+    """Extra reward for the first signal detection on a band."""
 
     tracking_bonus: float = 0.2
-    """Reward for consecutive interceptions on the same band."""
+    """Reward for consecutive detections on the same band."""
 
     coverage_scale: float = -0.03
     """Per-band penalty weight when a band exceeds the coverage threshold."""

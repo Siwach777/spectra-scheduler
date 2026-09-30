@@ -1,74 +1,90 @@
-# MPC learning repair: changes and controlled evidence
+# MPC diagnosis and assessment
 
-## Changes
+The earlier eight-action MPC chooses a band every receiver tick. Its search and
+direct policy both selected one band throughout the 30-world legacy test run:
+mean bands visited was 1.0 and the dominant-band action fraction was 1.0 on
+randomized and receiver-shift suites. The selected checkpoint intercepted
+12.45% and 9.83% of transmissions on those suites, respectively. These
+figures describe a historical checkpoint, not the current training target.
 
-- Four-step temporal persistence is applied only to exploratory training actions.
-  Temperature anneals across collection iterations. Evaluation still chooses each
-  step from the network/search without forced dwell, sweeps or coverage rules.
-- Batched search normalizes observed Q scores per tree before combining them with
-  policy-prior exploration. The old unnormalized search remains selectable.
-- A new auxiliary head predicts hit and listening outcomes from imagined latent
-  states, trained against receiver observations. It does not consume emitter truth.
-- Validation reports dominant-band fraction and bands visited, warning when more
-  than 95% of decisions choose one band. These are diagnostics, not reward overrides.
-- Rollout arrays and recurrent input buffers are preallocated. Learner host/device
-  buffers are reused, n-step targets cached and CUDA copies use pinned host buffers.
-  Masked losses avoid per-unroll Python decisions that synchronize the GPU.
-  Both online and copied target GRUs explicitly flatten parameters after setup/load.
+The repair experiment with normalized search, a listening/hit observation
+head, and four-tick exploratory persistence improved collection listening
+from 8.80% to 77.40% after 20 CPU iterations. Its final randomized validation
+capture rose from 6.28% to 9.96% against a matched control, while receiver-shift
+capture fell from 7.86% to 6.15%. Validation still selected the untrained
+iteration-zero checkpoint. Thus the partial repair did not establish better
+end-to-end scheduling. The old artifacts remain under
+`artifacts/mpc-repair-control` and `artifacts/mpc-repair-trial`.
 
-## Controlled CPU experiment
+The revised MPC model uses 24 band-and-dwell actions (eight bands, 1/4/8
+physical ticks). Its search discounts by elapsed ticks, masks unavailable
+bands, and evaluates simulations in bounded CUDA batches. Collection mixes
+receiver conditions; replay-root reanalysis refreshes policy and value targets
+from saved causal histories. Old eight-action checkpoints remain inference-only
+compatibility artifacts. The scheduler updates its observation state on every
+physical tick while retaining the chosen band for the learned dwell.
 
-Both runs used seed zero, 20 iterations, 32 new episodes per iteration, 50 updates
-per iteration, batch size 32, four actors, 32 MCTS simulations and 16 validation
-worlds per distribution. The control disabled normalized search and observation
-loss, held actions for one step and did not anneal temperature. Both retained the
-same network initialization for the shared layers and the same optimization work.
-
-Local artifacts: `artifacts/mpc-repair-control` and `artifacts/mpc-repair-trial`.
-
-| Metric at final iteration | Control | Revised |
-|---|---:|---:|
-| Collection listening fraction | 8.80% | 77.40% |
-| Collection hit fraction | 1.51% | 10.76% |
-| Fixed-probe reward MSE | 0.1694 | 0.1305 |
-| Randomized validation interception | 6.28% | 9.96% |
-| Receiver-shift validation interception | 7.86% | 6.15% |
-
-These are final-iteration comparisons, not best-checkpoint comparisons. Revised
-checkpoint selection retained iteration zero: its initial normal/shift interception
-was 15.06%/13.85%, and no later validated checkpoint exceeded its combined observed
-reward. The control selected iteration ten. Thus these changes improve data quality
-and prediction error but do not establish successful end-to-end scheduling learning.
-There is only one training seed and no held-out test result for this repair. No
-large follow-on training run is justified by these results alone.
-
-An isolated CPU learner check (two threads, 16 trajectories, observation head off,
-20 measured forward/backward passes after warmup) measured median 27.53 ms before
-and 25.08 ms with reusable staging and cached targets, with identical reported loss.
-This is about 9% lower time in that microbenchmark, not an end-to-end/GPU speed claim.
-The focused CUDA regression also passed: pinned-buffer reuse, forward/backward on
-the online/copied target GRUs, and no recurrent contiguous-weight warning after
-explicit packing. Full learning comparisons above remain CPU experiments.
-
-## Compatibility and commands
-
-Model and training schema are now version 3. Version-2 inference checkpoints remain
-loadable, and their evaluation retains legacy search settings. Old training runs
-must not be resumed under the new algorithm. Keep their artifacts; use a new run
-directory. `--initial path/to/best.pt` can initialize shared weights from an older
-model while creating the new auxiliary head and a fresh optimizer/replay.
+Assess a completed run against untrained search/direct-policy controls, all
+standard schedulers, four- and eight-tick sweeps, and the longer adaptive dwell
+control on paired development worlds:
 
 ```bash
-# Reproduce the bounded revised experiment; use a new directory if this exists.
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv-rl/bin/python -m spectra_scheduler.mpc_training \
-  --run-dir artifacts/mpc-repair-trial --iterations 20 --episodes 32 --workers 4 \
-  --batch-size 32 --updates 50 --simulations 32 --validation-episodes 16 \
-  --validation-every 5 --device cpu
-
-# For a matching control add:
-# --exploration-hold 1 --final-temperature 1 --no-normalize-search --observation-loss-weight 0
+.venv-rl/bin/python -m spectra_scheduler.experiments.mpc_assess \
+  --run-dir artifacts/mpc-dwell-reanalyse --runs 30 --seed 30000
 ```
 
-The repair does not yet add learned dwell-duration actions, dataset-driven replay,
-receiver-shift training curricula or a calibrated uncertainty model. Those remain
-separate experiments rather than claims supported by this change.
+The assessment loads `best.pt` and the saved `untrained.pt` initialization on
+CUDA, uses the training run's MCTS simulation count, and writes
+`mpc-assessment.json` beside the checkpoints. Each policy receives the same
+world and receiver realization. The report includes per-world capture and
+discovery, paired capture differences and bootstrap intervals, checkpoint
+hashes, and implementation hashes. Fixed legacy layouts receive new
+phase/noise seeds; only the randomized and receiver-shift suites contain new
+procedural layouts. This is one training seed and a development comparison,
+so it cannot establish training-seed robustness or a test-set result.
+
+Both repaired variants completed 48 iterations with the same 96-episode,
+80-update and 48-simulation budget. The paired assessment found randomized
+capture of 0.1248 for the no-reanalysis control, 0.1835 for replay-root
+reanalysis, and 0.134 for adaptive-long; receiver-shift capture was 0.0814,
+0.1515 and 0.091 respectively. The reanalyzed search still visited only
+roughly two to three bands, captured none on spatial and periodic scans, and
+reached 0.022 on change worlds versus 0.464 for adaptive-long. Its gains on
+two development suites therefore do not justify deployment as a general
+scheduler. See [EfficientZero](https://arxiv.org/abs/2111.00210) for the
+reanalysis motivation; these measurements are specific to this implementation.
+
+## Fresh physical-MPC search comparison
+
+The physical synthetic receiver uses eight bands with 1/10/50-tick dwells. A
+new Gumbel search option follows the central ideas of
+[policy improvement by planning with Gumbel](https://openreview.net/forum?id=bERaNdoegnO):
+Gumbel top-k root candidates, sequential halving, completed-Q policy targets
+and completed-Q non-root selection. The theoretical improvement result assumes
+correctly evaluated action values. Our learned dynamics does not satisfy that
+assumption by construction, so capture must be measured.
+
+Fresh PUCT and Gumbel runs used the same random seed, 64 iterations, 32 worlds
+per iteration, 40 updates, 16 simulations, eight reanalysis episodes per
+iteration and no checkpoint initialization. Best checkpoints were selected on
+eight validation worlds. A separate 30-world paired development assessment per
+suite produced:
+
+| Suite | PUCT capture / discovery | Gumbel capture / discovery | Gumbel untrained-search capture |
+| --- | --- | --- | --- |
+| Randomized | 0.1575 / 0.4030 | 0.1041 / 0.8462 | 0.1099 |
+| Receiver shift | 0.1396 / 0.3916 | 0.0852 / 0.9587 | 0.0786 |
+
+PUCT search capture was approximately equal to its own untrained search and
+direct trained policy. Gumbel search greatly improved discovery but gave up
+capture; it did not reliably improve on its own untrained search. Neither
+method is established as a strong learned scheduler. Saved paired reports and
+bootstrap intervals are in `artifacts/mpc-physical-fresh-control` and
+`artifacts/mpc-physical-gumbel-fresh`. The test split remains unused.
+
+The physical model also has optional elapsed-time input for macro actions and
+a causal shortest-dwell coverage probe shared by collection and inference. An
+initial fresh 64-iteration run with both options selected its untrained
+checkpoint; it has no separate paired assessment. These are experimental
+switches, not validated gains. Reanalysis was already active in all three
+physical runs, despite being disabled in the generic configuration default.

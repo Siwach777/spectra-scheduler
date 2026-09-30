@@ -1,10 +1,8 @@
 # Shared ML experiment infrastructure
 
-The `experiments` package manages the lifecycle of an experiment without selecting
-its learning algorithm. The reference supervised replay predictor has a complete
-adapter. Existing MPC uses the shared atomic artifact writers while retaining its
-own training/checkpoint format. Other PPO/MPC lifecycle adapters are future work;
-their losses and collection mechanics are not forced through the predictor trainer.
+The `experiments` package manages predictor runs without selecting their learning
+algorithm. MPC and recurrent PPO use separate training loops and checkpoint formats;
+their evaluations share the same paired-world principle.
 
 ## Boundaries
 
@@ -23,8 +21,8 @@ The generic runner/storage code does not import Torch unless Torch serialization
 is explicitly requested. A JSON-only test learner verifies that independence.
 
 The reference adapter trains from hits/misses and evaluator-only forecast targets
-using existing causal batches. File order and exploration seeds change reproducibly
-per epoch. Train and validation plans must have the correct split labels and
+using existing causal batches. A frozen training cache is shuffled reproducibly
+each epoch. Train and validation plans must have the correct split labels and
 disjoint file contents. Test plans are forbidden for training/checkpoint selection.
 Reference sweep/random policies and the candidate are evaluated on identical
 validation traces/seeds. No test data is consumed by this stage's implementation
@@ -48,16 +46,17 @@ Then use the optional Torch environment:
 ```bash
 .venv-rl/bin/python -m spectra_scheduler.experiments \
   --config examples/predictor-experiment.json \
-  --run-dir artifacts/predictor-pilot --epochs 3 --device cpu --threads 1 \
+  --run-dir artifacts/predictor-pilot --epochs 3 --device cuda --threads 1 \
   --validation-workers 2
 ```
 
 The example caps each epoch at 64 batches. This is a configurable pilot budget,
 not a tuned configuration or a promise of convergence. Set
 `max_batches_per_epoch` to `null` for a complete pass through the selected training
-recordings. There is no automatic large training launch. CUDA is available through
-`--device cuda` and fails explicitly if unavailable. Validation inference runs on
-CPU so multiple workers do not load copies onto the GPU.
+recordings. Training requires CUDA and fails explicitly if unavailable. Neural
+validation batches independent episodes on the GPU with shared weights and
+separate observation histories. CPU execution through the Python API is retained
+for small deterministic unit checks.
 
 All paths inside the JSON config are relative to the config file. Receiver and
 interface configuration can be supplied there; defaults match the existing replay
@@ -91,7 +90,7 @@ with retained checkpoints, while collection memory remains bounded.
 ```bash
 .venv-rl/bin/python -m spectra_scheduler.experiments \
   --config examples/predictor-experiment.json \
-  --run-dir artifacts/predictor-pilot --epochs 6 --resume --device cpu --threads 1 \
+  --run-dir artifacts/predictor-pilot --epochs 6 --resume --device cuda --threads 1 \
   --validation-workers 2
 ```
 
@@ -122,19 +121,90 @@ verify_artifacts(run, best)
 policy = predictor_spec(checkpoint_path(run, best, "policy.bin"))
 ```
 
-## Efficiency and verification
+## Full predictor comparison
 
-Collection uses bounded reusable history/batch buffers. The model predicts all
-actions in one forward pass; loss totals accumulate on device and transfer at
-epoch boundaries. Progress writes are throttled. Validation uses the existing
-bounded process pool with native thread limits. Artifact writes use temporary
-files, flush/fsync, then replacement. No full dataset or trajectory archive is
-loaded into RAM. Collection and optimization remain synchronous; adding overlap
-requires profiling and explicit ownership of borrowed batch buffers.
+The study builds one content-hashed training cache from 128 train recordings and
+two exploratory receiver seeds. It trains MLP, GRU and causal TCN encoders under
+three independent model seeds, with eight full passes over 131,328 unique causal
+examples per model. The 16 selection recordings choose each run's checkpoint by
+the harmonic mean of capture and discovery. Another 64 validation recordings are
+reserved for paired reporting; test recordings are not used in this study.
 
-Tests cover generic best/latest selection, changed configuration and corrupted
-artifacts, concurrent writers, failed/interrupted epochs, atomic-write failure,
-train/validation isolation, checkpoint restoration, exact CPU resume parity and
-the CLI's complete generated-fixture training/resume workflow. These are execution
-and correctness checks; actual learning experiments and model comparisons remain
-the next stage.
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.study \
+  --directory artifacts/predictor-study
+.venv-rl/bin/python -m spectra_scheduler.experiments.assess \
+  --study artifacts/predictor-study
+```
+
+`study --evaluate-only` recomputes reporting from verified frozen checkpoints.
+The cache is collected with bounded CPU processes and memory-mapped shards; a
+small enough cache is held on CUDA across epochs, otherwise two pinned host
+buffers pipeline transfers. Neural evaluation batches independent episodes on
+CUDA. The assessment adds three probability-averaged ensembles and a short-probe,
+long-exploitation observed-rate control without using reporting data to tune them.
+
+The completed development comparison in `artifacts/predictor-study` found mean
+capture of 0.422 for MLP, 0.472 for GRU and 0.455 for TCN across training seeds.
+MLP seed captures ranged from 0.328 to 0.524, while GRU ranged from 0.451 to
+0.489. The GRU ensemble reached 0.510 capture and 0.930 discovery; the stronger
+rate-probe control reached 0.597 capture and 0.801 discovery. The GRU ensemble's
+paired capture difference from rate-probe was -0.087 with a 95% recording bootstrap
+interval of [-0.114, -0.055]. One reporting recording had no transmissions, so
+capture summaries use 63 independent recordings. These are development results,
+not a claim that the predictor is the strongest capture scheduler.
+
+## Dense action-value study
+
+The first predictor study's supervised loss improved while checkpoint-selection
+scheduling quality fell. The MLP consumed only the last feature frame, and its
+three runs spent far more actions on short dwells than the stronger rate-probe
+control. The dense study instead indexes each *training* stare recording and
+labels all 24 legal next actions at every causal behavior decision. Its index
+checks the chosen action against the replay engine, including retuning time,
+captured pulses, truth counts and first-hit bins. Uniform and rate-probe
+behaviors provide different observation histories; validation and reporting
+recordings are never indexed for training.
+
+One shared-band model predicts nonnegative, dwell-monotone pulse counts from
+the full 16-frame history. It trains with robust count regression for all 24
+actions and a decision-focused ranking loss for long-dwell band choice, following the
+learning-to-rank view of [decision-focused learning](https://proceedings.mlr.press/v162/mandi22a.html).
+At inference, the learned policy uses the rate-probe control's short coverage
+probes and long exploitation dwells, replacing only its exploitation band
+ranking. This paired policy comparison isolates the learned contribution.
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.dense_study \
+  --run-dir artifacts/dense-value-v2 \
+  --cache-dir artifacts/dense-value/cache --workers 20 --epochs 100
+```
+
+Collection uses bounded processes and a content-hashed, memory-mapped cache.
+Training loads the compact action-label tensors on CUDA and selects each of
+three model seeds on the 16-recording selection set before the separate
+64-recording report. The cache and checkpoint hashes reject a changed source
+or manifest on resume. The generated `comparison.json` is a development
+comparison, not a test-set result.
+
+The initial 100-epoch attempt exposed a loss-scale defect: ranking gradients
+inflated predicted pulse counts by two to three orders of magnitude while
+count error rose. The corrected loss ranks long-dwell bands with log predicted
+capture rates, so multiplying all counts cannot improve their ranking. A
+five-epoch CUDA check showed both losses falling; the corrected run reused the
+verified 174,327-example training cache and completed 100 epochs for each of
+three model seeds in `artifacts/dense-value-v2`. Selected epochs were 54, 34
+and 56. Count error fell from about 0.65 to 0.18, and ranking regret from
+about 0.49 to 0.12; a sampled count calibration check found 76 predicted versus
+70 actual pulses on average, rather than tens of thousands.
+
+On the 64 separate reporting recordings (63 with transmissions), mean
+per-recording capture was 0.616, 0.616 and 0.620 for the three dense models,
+versus 0.597 for rate-probe. Their paired capture differences were 0.0188,
+0.0196 and 0.0234, with recording-bootstrap 95% intervals [0.0030, 0.0414],
+[0.0023, 0.0414] and [0.0038, 0.0505]. These gains are concentrated in sparse
+recordings: the strongest seed's median paired gain was 0.0041, and pooled
+pulse-weighted capture was 0.5762 versus 0.5756 for rate-probe. Pooled emitter
+discovery was 0.815 versus 0.833 for rate-probe. Neural inference averaged
+about 1.0–1.2 ms per action versus 0.069 ms for the control. The model is a
+valid but narrow development improvement, not a general-purpose winner.

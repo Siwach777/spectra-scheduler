@@ -56,10 +56,10 @@ class DynamicsNetwork(nn.Module):
     "imagined simulator" used during MCTS rollouts.
     """
 
-    def __init__(self, hidden_size: int = GRU_HIDDEN, max_bands: int = MAX_BANDS) -> None:
+    def __init__(self, hidden_size: int = GRU_HIDDEN, num_actions: int = MAX_BANDS) -> None:
         super().__init__()
         self.hidden_size = hidden_size
-        self.action_proj = nn.Linear(max_bands, 16)
+        self.action_proj = nn.Linear(num_actions, 16)
         self.trunk = nn.Sequential(
             nn.Linear(hidden_size + 16, 256),
             nn.ReLU(),
@@ -98,14 +98,14 @@ class PredictionNetwork(nn.Module):
     discounted return from the current state.
     """
 
-    def __init__(self, hidden_size: int = GRU_HIDDEN, max_bands: int = MAX_BANDS) -> None:
+    def __init__(self, hidden_size: int = GRU_HIDDEN, num_actions: int = MAX_BANDS) -> None:
         super().__init__()
         self.policy_head = nn.Sequential(
             nn.Linear(hidden_size, 128),
             nn.ReLU(),
             nn.Linear(128, 64),
             nn.ReLU(),
-            nn.Linear(64, max_bands),
+            nn.Linear(64, num_actions),
         )
         self.value_head = nn.Sequential(
             nn.Linear(hidden_size, 128),
@@ -129,12 +129,20 @@ class NeuralMPCModel(nn.Module):
         hidden_size: int = GRU_HIDDEN,
         max_bands: int = MAX_BANDS,
         observation_head: bool = True,
+        dwell_steps: tuple[int, ...] = (1,),
+        physical_contract: bool = False,
     ) -> None:
         super().__init__()
+        if not dwell_steps or any(step < 1 for step in dwell_steps):
+            raise ValueError("dwell_steps must contain positive durations")
         self.max_bands = max_bands
+        self.step_dim = step_dim
+        self.dwell_steps = tuple(dwell_steps)
+        self.physical_contract = physical_contract
+        self.num_actions = max_bands * len(self.dwell_steps)
         self.representation = RepresentationNetwork(step_dim, hidden_size)
-        self._dynamics = DynamicsNetwork(hidden_size, max_bands)
-        self._prediction = PredictionNetwork(hidden_size, max_bands)
+        self._dynamics = DynamicsNetwork(hidden_size, self.num_actions)
+        self._prediction = PredictionNetwork(hidden_size, self.num_actions)
         self._observation = (
             nn.Sequential(nn.Linear(hidden_size, 64), nn.ReLU(), nn.Linear(64, 2))
             if observation_head
@@ -151,7 +159,7 @@ class NeuralMPCModel(nn.Module):
         self, state: torch.Tensor, action_idx: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """state: (B, H), action_idx: (B,) long → next_state (B, H), reward (B,)."""
-        onehot = F.one_hot(action_idx, self.max_bands).float().to(state.device)
+        onehot = F.one_hot(action_idx, self.num_actions).to(dtype=state.dtype, device=state.device)
         return self._dynamics(state, onehot)
 
     def predict(self, state: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:

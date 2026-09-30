@@ -7,6 +7,7 @@ import pytest
 
 torch = pytest.importorskip("torch")
 
+from spectra_scheduler.mpc.search import MCTS, MCTSNode  # noqa: E402
 from spectra_scheduler.mpc_training import (  # noqa: E402
     Config,
     Replay,
@@ -41,6 +42,52 @@ def test_batched_search_reward_and_terminal_bootstrap():
     assert np.all((values >= 0) & (values <= 1))
 
 
+class MacroToyModel:
+    def predict(self, states):
+        if states.ndim == 1:
+            states = states[None]
+        logits = torch.zeros(len(states), 24)
+        logits[:, 5] = 100.0  # Prefer an eight-tick action when it is legal.
+        return logits, torch.full((len(states),), 100.0)
+
+    def dynamics(self, states, actions):
+        return states, torch.ones(len(actions))
+
+
+def test_macro_search_masks_bands_and_durations_at_physical_horizon():
+    cfg = Config(simulations=24, depth=2, device="cpu")
+    visits, values = search_batch(
+        MacroToyModel(), torch.zeros(3, 128), [1, 4, 8],
+        cfg, np.random.default_rng(0), num_bands=2,
+    )
+    assert visits.shape == (3, 24)
+    assert np.all(visits[:, 6:] == 0)  # Bands two through seven are unavailable.
+    assert np.all(visits[0, 1::3] == 0)
+    assert np.all(visits[0, 2::3] == 0)
+    assert np.all(visits[1, 2::3] == 0)
+    assert visits[2, 5] > 0
+    np.testing.assert_allclose(visits.sum(-1), 1)
+    assert np.all(values <= (1 - cfg.gamma**8) / (1 - cfg.gamma))
+
+
+def test_macro_backup_discounts_by_elapsed_ticks():
+    search = MCTS(MacroToyModel(), 1, gamma=0.5)
+    root = MCTSNode()
+    child = MCTSNode(duration=4, elapsed=4)
+    child.reward = 1.875  # Four unit rewards discounted by 0.5.
+    search._backprop([root, child], 8.0)
+    assert child.value == 8.0
+    assert root.value == 1.875 + 0.5**4 * 8.0
+
+    short = MCTSNode(0.5, duration=1)
+    long = MCTSNode(0.5, duration=8)
+    for candidate in (short, long):
+        candidate.visit_count = 1
+        candidate.value_sum = 8.0
+    root.children = {1: long, 0: short}
+    assert search._select_child(root)[0] == 0
+
+
 def test_n_step_targets_do_not_bootstrap_terminal():
     result = value_targets(torch.tensor([1.0, 2.0, 3.0]), torch.tensor([10.0, 20.0, 30.0]), 0.5, 2)
     torch.testing.assert_close(result, torch.tensor([9.5, 3.5, 3.0]))
@@ -70,6 +117,7 @@ def test_collection_targets_and_all_networks_receive_gradients():
         assert any(p.grad is not None and p.grad.abs().sum() > 0 for p in network.parameters())
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="MPC training requires CUDA")
 def test_resume_matches_uninterrupted_training(tmp_path):
     cfg = Config(
         iterations=1,

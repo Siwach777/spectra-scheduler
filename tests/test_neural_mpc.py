@@ -33,6 +33,7 @@ def test_search_uses_edge_reward_and_masks_bands():
     assert visits[1] > visits[0]
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="MPC training requires CUDA")
 def test_train_roundtrip_and_reset(tmp_path):
     torch.set_num_threads(1)
     cfg = TrainConfig(demo_episodes_per_policy=1, demo_policies=("adaptive-dwell",), epochs=1)
@@ -45,7 +46,7 @@ def test_train_roundtrip_and_reset(tmp_path):
     path = save_model(model, tmp_path / "model.pt")
     restored = load_model(path)
     for a, b in zip(model.parameters(), restored.parameters(), strict=True):
-        assert torch.equal(a, b)
+        assert torch.equal(a.cpu(), b.cpu())
     policy = NeuralMPCScheduler(model=restored, num_simulations=0)
     policy.reset(6)
     first = policy.choose_band(0)

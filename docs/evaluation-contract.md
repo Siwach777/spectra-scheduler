@@ -3,6 +3,8 @@
 `evaluation_contract.py` defines version 1 of the model-independent contract.
 `replay_evaluation.evaluate_policy` emits it under `evaluation` in each policy report.
 `synthetic_evaluation.evaluate_scheduler` emits the same contract for discrete worlds.
+Synthetic policies using `SyntheticAction` emit version 2 for the complete selected
+listening dwell, including retuning and horizon clipping.
 This implements measurement infrastructure; it supplies neither a trained predictor
 nor evidence of learned scheduling performance. Requirements come exclusively from
 [project_scope.md](project_scope.md).
@@ -25,7 +27,9 @@ must use the same receiver, available actions, episode horizon and evaluation da
 `TruthOutcome` stays in the evaluator. It is not included in observations,
 transitions or rewards. Replay policies receive only causal feature arrays and
 the public environment specification. Synthetic policies receive their existing
-observations; an optional `forecast(time_step, band)` method runs before feedback.
+observations; an optional `forecast(time_step, band)` method runs before feedback
+for tick policies. Macro policies implement `choose_action(time_step)` and may
+implement `forecast(time_step, action)`; both run before any action feedback.
 These are API boundaries, not a security sandbox against malicious Python code.
 
 ## Seven required figures of merit
@@ -142,11 +146,22 @@ same reward definition to all competitors; recreate stateful reward objects per 
 This adapter accepts optional shared truth for paired runs. Existing legacy report
 formats retain their historical definitions and are not silently reinterpreted.
 
-Discrete events occur at step boundaries, so a captured event's within-action delay
-is zero. This measures one-step forecasts at the simulator's declared resolution;
-physical-time replay provides finer timing evidence. Future multi-step forecasts
-must use an explicit horizon instead of treating these zeros as accurate long-range
-timing predictions.
+Version 1 tick actions place discrete events at step boundaries, so a captured
+event's within-action delay is zero. For a multi-tick target, return
+`SyntheticAction(band, dwell_steps)` from `choose_action(time_step)`. The requested
+duration counts listening ticks; retuning consumes additional elapsed ticks. The
+evaluator clips the window at episode end and records the first true capture as
+`(capture_step - action_start_step) * step_seconds`. It pools all-spectrum truth,
+eligible events, detections, reward and false alarms over that identical window.
+No capture remains right-censored at its actual clipped end. Version 2 false-alarm
+support counts negative listening ticks, including those inside a single action.
+The `discovery` block separately reports first acquisition and reacquisition;
+those fields are episode outcomes, not action-window forecast labels.
+
+`Simulation.run` and `evaluate_scheduler` use the same `SyntheticAction` execution
+path and configure public receiver retune durations and episode horizon before
+resetting the scheduler. Sparse `(time_step, band)` events represent `S(k,t)=1`;
+an absent key represents `S(k,t)=0`. No dense occupancy array is required.
 
 ## Acceptance and subsequent model work
 

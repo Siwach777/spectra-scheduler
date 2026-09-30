@@ -58,7 +58,7 @@ are unchanged; they are not automatically trained or evaluated on this new inter
   Additional interceptions are counted as overflow, not silently lost. This is an
   observation buffer cap, not a calibrated hardware processing-rate model.
 - Truth counts include arrivals within the elapsed episode and configured total
-  frequency range, even during retuning. Interception and delivered fractions have
+  frequency range, even during retuning. Captured and delivered pulse fractions have
   this same denominator. Discovery uses delivered pulses only; discovery delay is
   conditional on discovered emitters. Unlabelled files have no emitter metrics.
 - HDF5 processing is chunked and masks are vectorized. A preallocated observation
@@ -80,9 +80,8 @@ A local full 10-second training trace processed 812,717 pulses in approximately
 discovered, with no observation overflow. This is a single-file CPU smoke measurement,
 not a general throughput guarantee or learned-model result.
 
-Not modelled here: waveform propagation, pulse collisions, false detections,
-measurement noise beyond recorded features, calibrated RF sensitivity and hardware
-capture. Reacquisition after a known emitter mode change remains a synthetic-world
-metric because these replay inputs do not provide that event annotation. Perception
-and learned-scheduler integration, held-out acceptance benchmarks and deployment
-remain project work; they do not require adding a GUI first.
+## Simulation boundaries
+This replay engine models discrete pulse descriptor words (PDWs), center frequency
+passbands, and physical-time dwell and retune durations. Full waveform-level
+propagation, antenna radiation patterns, and raw I/Q streaming remain separate from
+this PDW-level scheduling evaluation.

@@ -8,7 +8,12 @@ import pytest
 h5py = pytest.importorskip("h5py")
 
 from spectra_scheduler.pulse_replay import ReplayConfig
-from spectra_scheduler.replay_env import InterfaceConfig, ReplayEnv, validate_specification
+from spectra_scheduler.replay_env import (
+    InterfaceConfig,
+    ReplayEnv,
+    tune_centers,
+    validate_specification,
+)
 from spectra_scheduler.replay_evaluation import ReferencePolicy, benchmark, evaluate_policy, main
 
 
@@ -54,6 +59,30 @@ def test_reset_reward_time_discount_and_terminal(recording):
         assert initial.shape == (env.observation_size,)
         np.testing.assert_array_equal(initial, env.reset())
         np.testing.assert_array_equal(first.observation, env.step(1).observation)
+
+
+def test_overlapping_centers_match_dense_labels_and_slew(recording):
+    from spectra_scheduler.experiments.dense_replay import DenseReplayIndex
+
+    receiver = ReplayConfig(
+        stop_us=30,
+        max_frequency_mhz=20,
+        bandwidth_mhz=10,
+        retune_us=0,
+        slew_mhz_per_us=3,
+    )
+    interface = InterfaceConfig(bands=3, dwell_us=(10,), reference_us=10)
+    np.testing.assert_array_equal(tune_centers(receiver, interface), [5, 10, 15])
+    index = DenseReplayIndex(recording, receiver, interface)
+    labels = index.outcomes(0, None)
+    with ReplayEnv(recording, receiver, interface) as env:
+        env.reset()
+        env.step(1)
+        assert env.metrics()["intercepted_pulses"] == labels["captured"][1] == 5
+        after = env.step(2)
+        expected = index.outcomes(10, 1)
+        assert after.elapsed_us == expected["elapsed_us"][2] == pytest.approx(11 + 2 / 3)
+        assert env.evaluation_outcome().captured_count == expected["captured"][2]
 
 
 def test_labels_do_not_change_features_or_rewards(recording):

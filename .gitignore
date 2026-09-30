@@ -33,6 +33,20 @@ build/
 /data/
 /artifacts/
 /reports/generated/
+/graphify-out/
 *.h5
 *.hdf5
 *.parquet
+
+# Local presentations and graphical clients
+ppt/
+gui/
+GUI/
+/web/
+
+# Local development guidance and handoff notes
+/AGENTS.md
+/.codex/
+/.agents/
+/CHAT-HANDOFF.md
+/project_scope.md

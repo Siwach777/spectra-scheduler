@@ -9,8 +9,26 @@ in [evaluation-contract.md](evaluation-contract.md).
 | CLI scenario | Mechanism | Requirement tested |
 | --- | --- | --- |
 | `frequency-agile` | An emitter hops through a seeded permutation of eight bands. | Frequency-time scheduling with changing carrier frequency. |
-| `spatial-scan` | Two fixed-frequency emitters become visible during periodic beam crossings with unequal revisit periods. | Observation opportunities varying as a spatial beam scans. |
-| `periodic-scan` | A short visibility window repeats every sixteen steps; phase is randomized. | Periodic interception and possible phase locking with a fixed sweep. |
+| `spatial-scan` | Two seeded fixed-frequency emitters become visible during periodic beam crossings with unequal, varied revisit and pulse periods. | Observation opportunities varying as a spatial beam scans. |
+| `periodic-scan` | A short visibility window repeats on a seeded carrier with a varied near-commensurate scan period and independent pulse clock. | Periodic interception and possible phase locking with a fixed sweep. |
+
+Focused requirement scenarios are version 2. Their carriers and clocks vary
+across seeds; benchmark world-seed namespaces include that version to keep
+historical results distinct. Fixed-band version 1 validation can reward a
+memorized carrier and should not be used to claim adaptation.
+
+Physical-world benchmarks also accept `periodic-scan`. That suite uses one
+spatially scanning emitter with independently varied beam period, phase,
+visibility duration, pulse period and pulse phase, plus varied receiver noise and
+retuning. Its generator version is recorded separately in the benchmark report.
+The `frequency-scan` family label denotes a carrier sweeping across bands;
+`spatial-scan` denotes visibility gates on a fixed carrier in mixed worlds. The
+focused suite labels its periodic visibility emitter `periodic-scan`. Benchmark
+version 2 records this corrected family labeling.
+Each physical benchmark episode also carries an `evaluation` block per policy
+with the seven shared figure definitions, a simulated-dBm sensitivity threshold,
+and explicit null prediction scores for policies without forecasts. The benchmark
+continues to retain its historical scan metrics in `metrics`.
 
 `SpatialScanningEmitter` uses a rectangular visibility gate: `(t - phase) mod
 scan_period < visible_steps`, intersected with an independent pulse clock. It

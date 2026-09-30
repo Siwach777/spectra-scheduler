@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import fcntl
+import json
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict
@@ -13,15 +14,16 @@ from time import perf_counter
 import numpy as np
 import torch
 
-from spectra_scheduler.rl_scenarios import GENERATOR_VERSION
+from spectra_scheduler.rl_scenarios import GENERATOR_VERSION, PHYSICAL_GENERATOR_VERSION
 
 from .checkpoints import atomic_json, implementation_hashes, load_model, save_model, save_training
-from .config import VERSION
+from .config import STEP_FEATURE_DIM, VERSION
 from .data import Replay, collect
-from .evaluation import probe_reward_error, validate
+from .evaluation import episode_mean, probe_reward_error, selection_score, validate
 from .learning import BatchWorkspace, batch_loss
 from .model import NeuralMPCModel
 from .progress import LiveProgress
+from .reanalyse import refresh_replay_targets
 
 
 def run(cfg, directory, resume=False, initial=None):
@@ -40,16 +42,21 @@ def _run_locked(cfg, directory, resume, initial):
         f"iterations={cfg.iterations} | run={directory}"
     )
     checkpoint = directory / "training.pt"
+    source_hashes = implementation_hashes()
     if resume and initial:
         raise ValueError("resume and initialization are mutually exclusive")
     if not resume and (checkpoint.exists() or (directory / "config.json").exists()):
         raise FileExistsError("existing run: use --resume or a new directory")
-    if cfg.device == "cuda" and not torch.cuda.is_available():
-        raise RuntimeError("CUDA requested but unavailable; use --device cpu or expose the GPU")
+    if cfg.device != "cuda" or not torch.cuda.is_available():
+        raise RuntimeError("MPC training requires CUDA; expose the host GPU")
     torch.set_num_threads(cfg.threads)
     torch.manual_seed(cfg.seed)
     rng = np.random.default_rng(cfg.seed)
-    model = NeuralMPCModel()
+    model = NeuralMPCModel(
+        step_dim=STEP_FEATURE_DIM + int(cfg.physical_elapsed_feature),
+        dwell_steps=cfg.dwell_steps,
+        physical_contract=cfg.physical_contract,
+    )
     if initial:
         source = load_model(initial)
         incompatible = model.load_state_dict(source.state_dict(), strict=False)
@@ -59,13 +66,21 @@ def _run_locked(cfg, directory, resume, initial):
             raise ValueError("initial model architecture is incompatible")
     model = model.to(cfg.device)
     target = copy.deepcopy(model).eval()
-    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.lr, weight_decay=1e-4, fused=True)
     replay = Replay(cfg.replay_capacity)
     iteration, best, history = 0, -float("inf"), []
     probes = None
     if resume:
         progress.message("Loading model, optimizer and replay checkpoint...")
         saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+        recorded = saved.get("source_sha256")
+        if recorded is None:
+            environment = directory / "environment.json"
+            if not environment.is_file():
+                raise ValueError("resume requires original source provenance")
+            recorded = json.loads(environment.read_text()).get("source_sha256")
+        if recorded != source_hashes:
+            raise ValueError("MPC implementation changed since checkpoint; start a new run")
         if saved["version"] != VERSION or saved["generator"] != GENERATOR_VERSION:
             raise ValueError(
                 "incompatible training checkpoint: use a new run directory; "
@@ -100,13 +115,16 @@ def _run_locked(cfg, directory, resume, initial):
             "torch": str(torch.__version__),
             "numpy": np.__version__,
             "device": cfg.device,
-            "generator_version": GENERATOR_VERSION,
-            "source_sha256": implementation_hashes(),
+            "generator_version": (
+                PHYSICAL_GENERATOR_VERSION if cfg.physical_contract else GENERATOR_VERSION
+            ),
+            "generator": "physical" if cfg.physical_contract else "legacy-procedural",
+            "source_sha256": source_hashes,
         },
     )
     pool = (
         ProcessPoolExecutor(cfg.workers, mp_context=mp.get_context("spawn"))
-        if cfg.workers > 1
+        if cfg.workers > 1 and len(cfg.dwell_steps) == 1
         else None
     )
     try:
@@ -123,9 +141,7 @@ def _run_locked(cfg, directory, resume, initial):
             initial_validation = validate(
                 model, cfg, pool, progress=progress, prefix="Initial validation"
             )
-            best = np.mean(
-                [v["reward"] for k, v in initial_validation.items() if k.endswith("/search")]
-            )
+            best = selection_score(initial_validation)
             history.append(
                 {
                     "iteration": 0,
@@ -138,7 +154,12 @@ def _run_locked(cfg, directory, resume, initial):
                 directory / "best.pt",
                 {"iteration": 0, "validation": initial_validation, "config": asdict(cfg)},
             )
-            progress.message(f"Initial checkpoint saved | validation reward={best:.4f}")
+            save_model(
+                model,
+                directory / "untrained.pt",
+                {"iteration": 0, "validation": initial_validation, "config": asdict(cfg)},
+            )
+            progress.message(f"Initial checkpoint saved | capture/discovery score={best:.4f}")
         for index in range(iteration, cfg.iterations):
             label = f"Iteration {index + 1}/{cfg.iterations}"
             progress.message(f"\n{label} | episodes seen={index * cfg.episodes}")
@@ -152,9 +173,11 @@ def _run_locked(cfg, directory, resume, initial):
                 "train",
                 pool,
                 explore=True,
+                shifted=cfg.mixed_receivers and index % 4 == 3,
                 progress=progress.callback(f"{label}: collection steps"),
             )
             replay.extend(episodes)
+            refreshed = refresh_replay_targets(target, replay, cfg, rng, cfg.reanalyse_episodes)
             collection_seconds = perf_counter() - start
             model.train()
             torch.set_num_threads(cfg.threads)
@@ -163,11 +186,11 @@ def _run_locked(cfg, directory, resume, initial):
             for update in range(cfg.updates):
                 batch = replay.sample(cfg.batch_size, rng)
                 loss, terms = batch_loss(model, target, batch, cfg, rng, cfg.device, workspace)
-                if not torch.isfinite(loss):
-                    raise FloatingPointError("nonfinite training loss")
+                torch._assert_async(torch.isfinite(loss), "nonfinite training loss")
                 optimizer.zero_grad(set_to_none=True)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 5, error_if_nonfinite=True)
+                norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 5, foreach=True)
+                torch._assert_async(torch.isfinite(norm), "nonfinite gradient norm")
                 optimizer.step()
                 with torch.no_grad():
                     for slow, fast in zip(target.parameters(), model.parameters(), strict=True):
@@ -185,22 +208,24 @@ def _run_locked(cfg, directory, resume, initial):
                 "replay_episodes": len(replay.episodes),
                 "collection_seconds": collection_seconds,
                 "loss": {key: float(np.mean([x[key] for x in losses])) for key in losses[0]},
-                "collection_reward": float(np.mean([float(e["rewards"].mean()) for e in episodes])),
+                "collection_reward": float(np.mean([episode_mean(e, "rewards") for e in episodes])),
                 "listening_fraction": float(
-                    np.mean([float(e["features"][:, 9].mean()) for e in episodes])
+                    np.mean([episode_mean(e, "features", 9) for e in episodes])
                 ),
-                "hit_fraction": float(
-                    np.mean([float(e["features"][:, 8].mean()) for e in episodes])
+                "hit_fraction": float(np.mean([episode_mean(e, "features", 8) for e in episodes])),
+                "physical_steps": sum(
+                    int(e["elapsed"].sum()) if "elapsed" in e else len(e["actions"])
+                    for e in episodes
                 ),
+                "decisions": sum(len(e["actions"]) for e in episodes),
+                "reanalysis": refreshed,
             }
             if (index + 1) % cfg.validation_every == 0 or index + 1 == cfg.iterations:
                 model.eval()
                 row["validation"] = validate(
                     model, cfg, pool, progress=progress, prefix=f"{label}: validation"
                 )
-                score = np.mean(
-                    [v["reward"] for k, v in row["validation"].items() if k.endswith("/search")]
-                )
+                score = selection_score(row["validation"])
                 if score > best:
                     best = float(score)
                     save_model(
@@ -212,7 +237,9 @@ def _run_locked(cfg, directory, resume, initial):
                             "config": asdict(cfg),
                         },
                     )
-                    progress.message(f"New best checkpoint saved | validation reward={best:.4f}")
+                    progress.message(
+                        f"New best checkpoint saved | capture/discovery score={best:.4f}"
+                    )
             row["iteration_seconds"] = perf_counter() - start
             row["probe_reward_mse"] = probe_reward_error(model, probes, cfg.device)
             history.append(row)
@@ -224,7 +251,9 @@ def _run_locked(cfg, directory, resume, initial):
                 checkpoint,
                 {
                     "version": VERSION,
-                    "generator": GENERATOR_VERSION,
+                    "generator": (
+                        PHYSICAL_GENERATOR_VERSION if cfg.physical_contract else GENERATOR_VERSION
+                    ),
                     "config": asdict(cfg),
                     "model": model.state_dict(),
                     "target": target.state_dict(),
@@ -237,11 +266,12 @@ def _run_locked(cfg, directory, resume, initial):
                     "rng": rng.bit_generator.state,
                     "torch_rng": torch.get_rng_state(),
                     "cuda_rng": torch.cuda.get_rng_state_all() if cfg.device == "cuda" else [],
+                    "source_sha256": source_hashes,
                 },
             )
             atomic_json(
                 directory / "progress.json",
-                {"history": history, "best_validation_reward": float(best)},
+                {"history": history, "best_validation_score": float(best)},
             )
             progress.message(
                 f"{label} complete | replay={len(replay.episodes)} episodes | "

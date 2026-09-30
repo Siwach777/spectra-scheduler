@@ -16,7 +16,12 @@ def main(arguments=None):
         "--epochs", type=int, default=1, help="total epoch budget, including resumed epochs"
     )
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--device", default="cpu")
+    parser.add_argument(
+        "--device",
+        default="cuda",
+        choices=("cuda",),
+        help="training requires CUDA; no CPU fallback",
+    )
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--validation-workers", type=int, default=1)
     args = parser.parse_args(arguments)
@@ -36,6 +41,7 @@ def main(arguments=None):
         "selection",
         "maximize",
         "min_delta",
+        "cache",
     }
     if set(raw) - allowed:
         raise ValueError(f"unknown experiment fields: {sorted(set(raw) - allowed)}")
@@ -52,6 +58,7 @@ def main(arguments=None):
         device=args.device,
         threads=args.threads,
         validation_workers=args.validation_workers,
+        cache=base / raw["cache"] if raw.get("cache") else None,
     )
     config = RunConfig(
         epochs=args.epochs,

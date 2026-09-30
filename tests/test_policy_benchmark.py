@@ -15,7 +15,11 @@ from spectra_scheduler.policy_benchmark import (
 from spectra_scheduler.pulse_replay import ReplayConfig
 from spectra_scheduler.replay_env import InterfaceConfig
 from spectra_scheduler.replay_evaluation import ReferencePolicy
-from spectra_scheduler.schedulers import RoundRobinScheduler, ShuffledSweepScheduler
+from spectra_scheduler.schedulers import (
+    DwellSweepScheduler,
+    RoundRobinScheduler,
+    ShuffledSweepScheduler,
+)
 
 
 @pytest.fixture
@@ -87,6 +91,26 @@ def test_synthetic_parallel_and_split_isolation():
         {r["world_seed"] for r in training["results"]}
     )
     assert len(a["by_scenario"]) == 3
+
+
+def test_synthetic_sensitivity_threshold_is_reported_and_changes_detectability():
+    specs = [PolicySpec("dwell", partial(DwellSweepScheduler, dwell_steps=8), "dwell-8")]
+    low = benchmark_synthetic(
+        specs, baseline="dwell", seeds=(0,), sensitivity_dbm=-100
+    )
+    high = benchmark_synthetic(
+        specs, baseline="dwell", seeds=(0,), sensitivity_dbm=-50
+    )
+    assert low["sensitivity_dbm"] == -100
+    low_count = sum(
+        row["policies"]["dwell"]["evaluation"]["counts"]["detectable"]
+        for row in low["results"]
+    )
+    high_count = sum(
+        row["policies"]["dwell"]["evaluation"]["counts"]["detectable"]
+        for row in high["results"]
+    )
+    assert low_count > high_count
 
 
 def test_bootstrap_groups_repeated_seeds_not_independent_samples():

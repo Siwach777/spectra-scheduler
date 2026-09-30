@@ -43,6 +43,7 @@ def learner(plans):
         ),
         ReplayConfig(stop_us=12, max_frequency_mhz=20, bandwidth_mhz=10, retune_us=1),
         InterfaceConfig(bands=2, dwell_us=(2, 4)),
+        device="cpu",  # Small deterministic lifecycle unit check, not an experiment.
     )
 
 
@@ -83,6 +84,8 @@ def test_no_test_selection_or_overlap(plans):
 
 
 def test_cli_end_to_end_on_fixture(plans, tmp_path):
+    if not torch.cuda.is_available():
+        pytest.skip("training CLI requires CUDA")
     from spectra_scheduler.experiments.__main__ import main
 
     root, p = plans

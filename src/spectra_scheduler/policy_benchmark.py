@@ -9,6 +9,7 @@ from collections import deque
 from concurrent.futures import ProcessPoolExecutor
 from dataclasses import asdict, dataclass, replace
 from functools import partial
+from math import isfinite
 from pathlib import Path
 
 import numpy as np
@@ -17,7 +18,7 @@ from .experiments.storage import fingerprint, write_json
 from .pulse_replay import ReplayConfig
 from .replay_env import InterfaceConfig
 from .replay_evaluation import ReferencePolicy, evaluate_policy
-from .scenarios import REQUIREMENT_SCENARIOS, build_scenario
+from .scenarios import REQUIREMENT_SCENARIO_VERSION, REQUIREMENT_SCENARIOS, build_scenario
 from .synthetic_evaluation import evaluate_scheduler
 
 
@@ -120,30 +121,37 @@ def _observable_reward(observation):
 
 
 def _synthetic_job(job):
-    scenario, seed, split, policies, step_seconds = job
+    scenario, seed, split, policies, step_seconds, sensitivity_dbm = job
     # Separate deterministic world namespaces prevent train/val/test seed aliasing.
-    key = f"synthetic-v1:{split}:{scenario}:{seed}".encode()
+    key = f"synthetic-v{REQUIREMENT_SCENARIO_VERSION}:{split}:{scenario}:{seed}".encode()
     world_seed = int.from_bytes(hashlib.sha256(key).digest()[:4], "little")
     simulation = build_scenario(scenario, world_seed)
+    if sensitivity_dbm is not None:
+        simulation = replace(
+            simulation, receiver=replace(simulation.receiver, sensitivity_dbm=sensitivity_dbm)
+        )
     truth = simulation.generate_truth()
+
+    def run_policy(policy):
+        evaluation = evaluate_scheduler(
+            simulation,
+            policy.factory(),
+            step_seconds=step_seconds,
+            reward=_observable_reward,
+            reward_description="observed_hit - 0.05 * retuning",
+            truth=truth,
+        )
+        return {
+            "evaluation": evaluation,
+            "discovery_fraction": evaluation["discovery"]["emitter_discovery_ratio"],
+        }
+
     return {
         "group": f"{scenario}:{seed}",
         "scenario": scenario,
         "seed": seed,
         "world_seed": world_seed,
-        "policies": {
-            p.name: {
-                "evaluation": evaluate_scheduler(
-                    simulation,
-                    p.factory(),
-                    step_seconds=step_seconds,
-                    reward=_observable_reward,
-                    reward_description="observed_hit - 0.05 * retuning",
-                    truth=truth,
-                )
-            }
-            for p in policies
-        },
+        "policies": {p.name: run_policy(p) for p in policies},
     }
 
 
@@ -181,6 +189,8 @@ def _run_jobs(function, jobs, workers):
 
 
 METRICS = (
+    "discovery_fraction",
+    "mean_discovery_delay_us",
     "probability_of_detection",
     "probability_of_false_alarm",
     "sensitivity_loss_fraction",
@@ -208,6 +218,12 @@ def summarize(results, policies, baseline, bootstrap_seed=0):
             for result in results:
 
                 def get(name, result=result, metric=metric):
+                    if metric in (
+                        "discovery_fraction",
+                        "mean_discovery_delay_us",
+                        "mean_policy_latency_seconds",
+                    ):
+                        return result["policies"][name].get(metric)
                     value = result["policies"][name]["evaluation"]
                     for part in metric.split("."):
                         value = value[part]
@@ -243,7 +259,17 @@ def summarize(results, policies, baseline, bootstrap_seed=0):
     return output
 
 
-def benchmark_policies(root, plan, policies, *, baseline, workers=1, receiver=None, interface=None):
+def benchmark_policies(
+    root,
+    plan,
+    policies,
+    *,
+    baseline,
+    workers=1,
+    receiver=None,
+    interface=None,
+    inference_batch_size=1,
+):
     _validate_policies(policies, baseline)
     paths = validate_plan(root, plan)
     hashes = {r["sha256"] for r in plan["recordings"]}
@@ -255,7 +281,24 @@ def benchmark_policies(root, plan, policies, *, baseline, workers=1, receiver=No
         for i, path in enumerate(paths)
         for seed in plan["seeds"]
     )
-    results = _run_jobs(_replay_job, jobs, workers)
+    if type(inference_batch_size) is not int or inference_batch_size < 1:
+        raise ValueError("inference batch size must be positive")
+    if inference_batch_size == 1:
+        results = _run_jobs(_replay_job, jobs, workers)
+    else:
+        from .replay_evaluation import evaluate_policy_batch
+
+        pending = [(i, path, seed) for i, path in enumerate(paths) for seed in plan["seeds"]]
+        results = []
+        for start in range(0, len(pending), inference_batch_size):
+            chunk = pending[start : start + inference_batch_size]
+            rows = [{"group": str(i), "seed": seed, "policies": {}} for i, _, seed in chunk]
+            batch_jobs = [(path, replace(receiver, seed=seed)) for _, path, seed in chunk]
+            for policy in policies:
+                reports = evaluate_policy_batch(batch_jobs, policy.factory, interface)
+                for row, report in zip(rows, reports, strict=True):
+                    row["policies"][policy.name] = report
+            results.extend(rows)
     # Detect mutations during the complete comparison, not only a single episode.
     validate_plan(root, plan)
     return {
@@ -283,6 +326,7 @@ def benchmark_synthetic(
     scenarios=REQUIREMENT_SCENARIOS,
     step_seconds=0.001,
     workers=1,
+    sensitivity_dbm=None,
 ):
     _validate_policies(policies, baseline)
     if (
@@ -294,17 +338,25 @@ def benchmark_synthetic(
         raise ValueError("invalid split or seeds")
     if not scenarios or len(set(scenarios)) != len(scenarios):
         raise ValueError("scenarios must be nonempty and unique")
+    if sensitivity_dbm is not None and (
+        isinstance(sensitivity_dbm, bool) or not isfinite(sensitivity_dbm)
+    ):
+        raise ValueError("sensitivity threshold must be finite")
     jobs = (
-        (scenario, seed, split, policies, step_seconds) for scenario in scenarios for seed in seeds
+        (scenario, seed, split, policies, step_seconds, sensitivity_dbm)
+        for scenario in scenarios
+        for seed in seeds
     )
     results = _run_jobs(_synthetic_job, jobs, workers)
     return {
         "schema_version": 1,
         "backend": "synthetic",
+        "requirement_scenario_version": REQUIREMENT_SCENARIO_VERSION,
         "split": split,
         "seeds": list(seeds),
         "scenarios": list(scenarios),
         "step_seconds": step_seconds,
+        "sensitivity_dbm": sensitivity_dbm,
         "baseline": baseline,
         "policies": [{"name": p.name, "provenance": p.provenance} for p in policies],
         "summary": summarize(results, policies, baseline),
@@ -326,9 +378,15 @@ def main(arguments=None):
     parser.add_argument("--workers", type=int, default=1)
     parser.add_argument("--plan", type=Path)
     parser.add_argument("--model", type=Path, action="append", default=[])
+    parser.add_argument("--synthetic-model", type=Path, action="append", default=[])
+    parser.add_argument("--sensitivity-dbm", type=float)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args(arguments)
     if args.backend == "stare":
+        if args.synthetic_model:
+            raise ValueError("synthetic GRU checkpoints require the synthetic backend")
+        if args.sensitivity_dbm is not None:
+            raise ValueError("synthetic sensitivity threshold requires the synthetic backend")
         if args.plan and args.plan.exists():
             plan = json.loads(args.plan.read_text())
             if plan["split"] != args.split or plan["seeds"] != args.seeds:
@@ -360,12 +418,22 @@ def main(arguments=None):
             PolicySpec("shuffled", ShuffledSweepScheduler, "shuffled-sweep:seed=0"),
             PolicySpec("period-aware", PeriodAwareScheduler, "period-aware:defaults"),
         ]
+        if args.synthetic_model:
+            from .synthetic_forecast import synthetic_gru_spec
+
+            if args.workers != 1:
+                raise ValueError("CUDA synthetic predictor evaluation requires one worker")
+            policies.extend(
+                synthetic_gru_spec(path, name=f"synthetic-gru-{i}")
+                for i, path in enumerate(args.synthetic_model)
+            )
         report = benchmark_synthetic(
             policies,
             baseline="sweep",
             split=args.split,
             seeds=tuple(args.seeds),
             workers=args.workers,
+            sensitivity_dbm=args.sensitivity_dbm,
         )
     write_json(args.output, report)
     return 0

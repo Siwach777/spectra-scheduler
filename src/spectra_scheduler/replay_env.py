@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 
+from .action_contract import DWELL_US
 from .pulse_replay import DwellAction, PulseReplay, ReplayConfig
 from .replay_features import FEATURE_NAMES, FEATURE_VERSION, ReplayFeatures
 
@@ -17,7 +18,7 @@ from .replay_features import FEATURE_NAMES, FEATURE_VERSION, ReplayFeatures
 @dataclass(frozen=True)
 class InterfaceConfig:
     bands: int = 8
-    dwell_us: tuple[float, ...] = (1000.0, 10000.0, 50000.0)
+    dwell_us: tuple[float, ...] = DWELL_US
     reference_us: float = 10000.0
     gamma: float = 0.99
     pulse_scale: float = 1000.0
@@ -49,6 +50,25 @@ class Transition:
     elapsed_us: float
 
 
+def tune_centers(receiver: ReplayConfig, interface: InterfaceConfig) -> np.ndarray:
+    """Uniform candidate passbands spanning the receiver range, with optional overlap."""
+    span = receiver.max_frequency_mhz - receiver.min_frequency_mhz
+    width = receiver.bandwidth_mhz
+    if interface.bands == 1:
+        if not np.isclose(width, span, rtol=0, atol=1e-8):
+            raise ValueError("one tune center requires full-span receiver bandwidth")
+        return np.array([(receiver.min_frequency_mhz + receiver.max_frequency_mhz) / 2])
+    gap = (span - width) / (interface.bands - 1)
+    if gap > width + 1e-8:
+        raise ValueError("tune centers must cover the receiver frequency span")
+    return np.linspace(
+        receiver.min_frequency_mhz + width / 2,
+        receiver.max_frequency_mhz - width / 2,
+        interface.bands,
+        dtype=np.float64,
+    )
+
+
 def validate_specification(saved: dict, current: dict):
     """Strict checkpoint contract; JSON round-trips normalize tuples to lists.
 
@@ -70,9 +90,7 @@ class ReplayEnv:
     def __init__(self, path: Path, receiver=None, interface=None):
         receiver = receiver if receiver is not None else ReplayConfig()
         interface = interface if interface is not None else InterfaceConfig()
-        span = receiver.max_frequency_mhz - receiver.min_frequency_mhz
-        if not np.isclose(interface.bands * receiver.bandwidth_mhz, span, rtol=0, atol=1e-8):
-            raise ValueError("bands * receiver bandwidth must equal the frequency span")
+        self.centers = tune_centers(receiver, interface)
         self.path, self.receiver, self.interface = Path(path), receiver, interface
         self.action_count = interface.bands * len(interface.dwell_us)
         self.observation_size = interface.bands * len(FEATURE_NAMES) + 2
@@ -108,7 +126,7 @@ class ReplayEnv:
             raise ValueError("action out of range")
         cfg = self.interface
         band, dwell_index = divmod(int(action), len(cfg.dwell_us))
-        center = self.receiver.min_frequency_mhz + (band + 0.5) * self.receiver.bandwidth_mhz
+        center = self.centers[band]
         obs = self._replay.step(DwellAction(center, cfg.dwell_us[dwell_index]))
         self._features.update(band, obs)
         elapsed = obs.end_us - obs.start_us

@@ -23,7 +23,7 @@ def demonstration_main(argv: list[str] | None = None) -> None:
     """Command-line interface for training and benchmarking Neural-MPC."""
     parser = argparse.ArgumentParser(
         prog="spectra_scheduler.neural_mpc",
-        description="Neural-MPC: MuZero-style cognitive radar scheduler",
+        description="Neural-MPC: MuZero-style cognitive receiver scheduler",
     )
     sub = parser.add_subparsers(dest="command")
 
@@ -36,7 +36,7 @@ def demonstration_main(argv: list[str] | None = None) -> None:
     p_train.add_argument("--lr", type=float, default=3e-4)
     p_train.add_argument("--seed", type=int, default=0)
     p_train.add_argument("--threads", type=int, default=2)
-    p_train.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
+    p_train.add_argument("--device", default="cuda", choices=["cuda"])
     p_train.add_argument("--output", required=True, help="Output path for .pt checkpoint")
 
     # --- benchmark ---
@@ -49,7 +49,7 @@ def demonstration_main(argv: list[str] | None = None) -> None:
         "--suites", nargs="+", default=["randomized", "receiver-shift", "tracking"]
     )
     p_bench.add_argument("--output", default="reports/generated/neural-mpc.json")
-    p_bench.add_argument("--device", default="cpu", choices=["cpu", "cuda"])
+    p_bench.add_argument("--device", default="cuda", choices=["cuda"])
 
     args = parser.parse_args(argv)
     torch.set_num_threads(getattr(args, "threads", 1))
@@ -128,9 +128,13 @@ def training_main():
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--initial", help="Optional demonstration-pretrained .pt model")
     parser.add_argument("--evaluate", action="store_true", help="Evaluate best.pt; no training")
-    parser.add_argument("--evaluation-split", choices=["validation", "test"], default="test")
+    parser.add_argument("--evaluation-split", choices=["validation", "test"], default="validation")
     for name, value in asdict(Config()).items():
-        if isinstance(value, bool):
+        if isinstance(value, tuple):
+            parser.add_argument(
+                "--" + name.replace("_", "-"), nargs="+", type=int, default=argparse.SUPPRESS
+            )
+        elif isinstance(value, bool):
             parser.add_argument(
                 "--" + name.replace("_", "-"),
                 default=argparse.SUPPRESS,
@@ -141,6 +145,8 @@ def training_main():
                 "--" + name.replace("_", "-"), default=argparse.SUPPRESS, type=type(value)
             )
     args = vars(parser.parse_args())
+    if "dwell_steps" in args:
+        args["dwell_steps"] = tuple(args["dwell_steps"])
     directory, resume, initial = args.pop("run_dir"), args.pop("resume"), args.pop("initial")
     evaluate, split = args.pop("evaluate"), args.pop("evaluation_split")
     if evaluate:

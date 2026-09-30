@@ -1,0 +1,24 @@
+# Keep the local code graph focused on source and away from generated data.
+graphify-out/
+node_modules/
+.venv/
+.venv-rl/
+venv/
+dist/
+build/
+target/
+artifacts/
+data/
+reports/generated/
+*.egg-info/
+
+# Never index local credentials or key material.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+**/secrets/
+**/.secrets/
+**/credentials.*

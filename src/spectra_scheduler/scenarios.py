@@ -14,6 +14,7 @@ from spectra_scheduler.receiver import Receiver
 from spectra_scheduler.simulation import Simulation
 
 REQUIREMENT_SCENARIOS = ("frequency-agile", "spatial-scan", "periodic-scan")
+REQUIREMENT_SCENARIO_VERSION = 2
 SCENARIO_NAMES = ("mixed", "acquisition", "tracking", "change", "crowded", *REQUIREMENT_SCENARIOS)
 
 
@@ -29,19 +30,33 @@ def build_requirement_scenario(name: str, seed: int = 0) -> Simulation:
             ),
         )
     elif name == "spatial-scan":
-        # Unequal beam revisit periods, fixed carrier frequencies.
+        # Independent hidden clocks on two seeded, distinct fixed carriers.
+        scan_bands = rng.sample(range(8), 2)
+        periods = (rng.randrange(19, 32), rng.randrange(33, 48))
         emitters = tuple(
             SpatialScanningEmitter(
-                f"beam-{i}", band, period, 4, phase=rng.randrange(period), power_dbm=-75
+                f"beam-{i}",
+                band,
+                period,
+                rng.randrange(3, 7),
+                pulse_period=rng.randrange(1, 4),
+                phase=rng.randrange(period),
+                power_dbm=-75,
             )
-            for i, (band, period) in enumerate(((1, 23), (5, 37)))
+            for i, (band, period) in enumerate(zip(scan_bands, periods, strict=True))
         )
     elif name == "periodic-scan":
-        # Revisit period commensurate with an eight-band sweep; randomized phase
-        # exposes scan-lock misses without choosing a phase favorable to a policy.
+        # Several near-commensurate revisit periods expose scan-lock failures.
+        period = rng.choice((12, 16, 20, 24))
         emitters = (
             SpatialScanningEmitter(
-                "periodic-beam", 3, 16, 2, phase=rng.randrange(16), power_dbm=-75
+                "periodic-beam",
+                rng.randrange(8),
+                period,
+                rng.randrange(2, 5),
+                pulse_period=rng.randrange(1, 4),
+                phase=rng.randrange(period),
+                power_dbm=-75,
             ),
         )
     else:

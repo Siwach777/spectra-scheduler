@@ -1,0 +1,17 @@
+{
+  "root": "../data/tsrd",
+  "train_plan": "../reports/generated/predictor-train-plan.json",
+  "validation_plan": "../reports/generated/predictor-val-plan.json",
+  "predictor": {
+    "seed": 0,
+    "learning_rate": 0.001,
+    "batch_size": 64,
+    "history_steps": 8,
+    "hidden": 64,
+    "time_bins": 16,
+    "max_batches_per_epoch": null
+  },
+  "selection": ["summary", "predictor", "interception_ratio", "mean"],
+  "maximize": true,
+  "min_delta": 0.0
+}

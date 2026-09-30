@@ -38,7 +38,7 @@ These summaries are not a learned deinterleaver or emitter-identification system
 Reward is delivered pulse count / `pulse_scale`, minus `retune_cost` times retuning
 duration / `reference_us`. It contains no hidden labels or missed-pulse truth. It
 does not currently reward emitter fairness and may favor dense bands; reward changes
-must be evaluated explicitly rather than assumed to improve the mission objective.
+must be evaluated explicitly rather than assumed to improve the scheduling objective.
 Discount is `gamma ** (elapsed_us / reference_us)`, zero at true episode termination.
 A variable-duration learner must consume this discount (or deliberately use another
 continuous-time objective), not silently substitute one fixed gamma per action.
@@ -52,6 +52,11 @@ alternate specification. Old MPC checkpoints are **not** compatible with the new
 74-feature/24-action interface simply because both use a recurrent network.
 
 ## Policy inference
+
+Policies may also return `Decision(action, Forecast(...))` to submit predictions
+before receiver feedback. Every episode report now includes the versioned
+[metrics and prediction contract](evaluation-contract.md), including explicit
+missing-prediction coverage for policies returning only an integer action.
 
 Implement two methods:
 
@@ -96,11 +101,9 @@ feature extraction took approximately 0.066–0.160 seconds. This verifies the p
 not model quality; three files are insufficient for a final performance claim.
 The generated report is `reports/generated/replay-interface-validation.json`.
 
-## Before declaring a trained system ready
+## Next integration steps
 
-The integration infrastructure is implemented; it does not imply operational readiness.
-Remaining strategy work includes consuming this interface in the selected learner,
-checkpoint compatibility checks in that adapter, training and held-out evaluation.
-Learned association/track identity, mission acceptance thresholds, calibrated RF
-behavior and production deployment are not supplied by the summary encoder. These
-need explicit requirements or evidence; GUI work cannot substitute for them.
+The integration infrastructure is implemented and validated. Downstream steps include:
+- Consuming this interface in the selected learning agent.
+- Verifying checkpoint compatibility across feature and action mappings.
+- Training and held-out evaluation on diverse pulse traces.

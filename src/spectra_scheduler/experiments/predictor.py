@@ -5,6 +5,7 @@ import math
 from contextlib import closing
 from dataclasses import asdict, dataclass
 from functools import partial
+from time import perf_counter
 
 import numpy as np
 import torch
@@ -33,6 +34,7 @@ class PredictorConfig:
     hidden: int = 64
     time_bins: int = 16
     max_batches_per_epoch: int | None = None
+    encoder: str = "gru"
 
     def __post_init__(self):
         if type(self.seed) is not int or not 0 <= self.seed < 2**32:
@@ -42,6 +44,8 @@ class PredictorConfig:
         BatchConfig(self.batch_size, self.history_steps, self.time_bins)
         if type(self.hidden) is not int or self.hidden < 1:
             raise ValueError("hidden size must be a positive integer")
+        if self.encoder not in ("gru", "mlp", "tcn"):
+            raise ValueError("unknown predictor encoder")
         if self.max_batches_per_epoch is not None and (
             type(self.max_batches_per_epoch) is not int or self.max_batches_per_epoch < 1
         ):
@@ -58,9 +62,10 @@ class PredictorLearner:
         receiver=None,
         interface=None,
         *,
-        device="cpu",
+        device="cuda",
         threads=1,
         validation_workers=1,
+        cache=None,
     ):
         if type(threads) is not int or threads < 1:
             raise ValueError("threads must be positive")
@@ -93,11 +98,33 @@ class PredictorLearner:
                 history_steps=self.config.history_steps,
                 hidden=self.config.hidden,
                 time_bins=self.config.time_bins,
+                bands=self.interface.bands,
+                encoder=self.config.encoder,
             )
         ).to(self.device)
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.config.learning_rate)
+        self.optimizer = torch.optim.Adam(
+            self.model.parameters(), lr=self.config.learning_rate, fused=self.device.type == "cuda"
+        )
         self.threads, self.validation_workers = threads, validation_workers
         self.samples = self.updates = 0
+        self.cache = None
+        if cache is not None:
+            from .cache import CachedBatches, cache_configuration
+
+            self.cache = CachedBatches(cache)
+            expected = cache_configuration(
+                self.train_plan,
+                self.receiver,
+                self.interface,
+                self.config.history_steps,
+                self.config.time_bins,
+            )
+            import json
+
+            if self.cache.manifest["configuration"] != json.loads(json.dumps(expected)):
+                raise ValueError("training cache differs from learner configuration")
+            if self.device.type != "cuda":
+                raise ValueError("cached training requires CUDA")
 
     def configuration(self):
         from pathlib import Path
@@ -105,6 +132,8 @@ class PredictorLearner:
         package = Path(__file__).resolve().parent.parent
         names = (
             "experiments/predictor.py",
+            "experiments/study.py",
+            "experiments/cache.py",
             "forecast_model.py",
             "replay_training.py",
             "replay_env.py",
@@ -127,9 +156,11 @@ class PredictorLearner:
             "numpy_version": np.__version__,
             "device": str(self.device),
             "threads": self.threads,
+            "cache": self.cache.manifest if self.cache else None,
         }
 
     def train_epoch(self, epoch, progress):
+        started = perf_counter()
         plan = copy.deepcopy(self.train_plan)
         rng = np.random.default_rng(np.random.SeedSequence([self.config.seed, epoch]))
         rng.shuffle(plan["recordings"])
@@ -141,13 +172,23 @@ class PredictorLearner:
         )
         totals = torch.zeros(2, device=self.device)
         samples = batches = 0
-        with closing(
-            training_batches(
+        iterator = (
+            self.cache.batches(
+                self.config.batch_size,
+                np.random.SeedSequence([self.config.seed, epoch]),
+                self.device,
+                self.config.max_batches_per_epoch,
+            )
+            if self.cache
+            else training_batches(
                 self.root, plan, UniformActionPolicy, self.receiver, self.interface, batch_cfg
             )
-        ) as iterator:
+        )
+        with closing(iterator):
             for batch in iterator:
-                losses = optimization_step(self.model, self.optimizer, batch)
+                losses = optimization_step(
+                    self.model, self.optimizer, batch, validated=self.cache is not None
+                )
                 count = len(batch["action"])
                 # Accumulate on device; synchronize once at the epoch boundary.
                 totals[0] += losses["timing"] * count
@@ -173,6 +214,11 @@ class PredictorLearner:
             "total_updates": self.updates,
             "mean_timing_loss": timing,
             "batch_weighted_ratio_loss": ratio,
+            "elapsed_seconds": perf_counter() - started,
+            "samples_per_second": samples / (perf_counter() - started),
+            "peak_cuda_allocated_bytes": (
+                torch.cuda.max_memory_allocated(self.device) if self.device.type == "cuda" else 0
+            ),
         }
 
     def save_state(self, path):
@@ -222,9 +268,23 @@ class PredictorLearner:
                 PolicySpec(
                     "random", partial(ReferencePolicy, "random", dwell), f"dwell-index={dwell}"
                 ),
-                predictor_spec(policy_path, threads=self.threads),
+                predictor_spec(policy_path, threads=self.threads, device=str(self.device)),
+                predictor_spec(
+                    policy_path,
+                    name="constant-coverage",
+                    threads=self.threads,
+                    device=str(self.device),
+                    constant_predictions=True,
+                ),
+                predictor_spec(
+                    policy_path,
+                    name="observed-rate",
+                    threads=self.threads,
+                    device=str(self.device),
+                    observed_rate=True,
+                ),
             ]
-            return benchmark_policies(
+            report = benchmark_policies(
                 self.root,
                 self.validation_plan,
                 policies,
@@ -232,6 +292,15 @@ class PredictorLearner:
                 workers=self.validation_workers,
                 receiver=self.receiver,
                 interface=self.interface,
+                inference_batch_size=16 if self.device.type == "cuda" else 1,
             )
+            capture = report["summary"]["predictor"]["interception_ratio"]["mean"]
+            discovery = report["summary"]["predictor"]["discovery_fraction"]["mean"]
+            report["selection"] = {
+                "capture_discovery_harmonic": None
+                if capture is None or discovery is None
+                else 2 * capture * discovery / max(capture + discovery, 1e-12),
+            }
+            return report
         finally:
             torch.set_rng_state(rng)

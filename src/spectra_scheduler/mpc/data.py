@@ -208,6 +208,12 @@ def collect(
     policy_only=False,
     progress=None,
 ):
+    if len(model.dwell_steps) > 1:
+        from .macro_collection import collect_macros
+
+        return collect_macros(
+            model, cfg, seeds, split, explore, shifted, policy_only, progress
+        )
     weights = {k: v.detach().cpu() for k, v in model.state_dict().items()}
     if pool is not None:
         weights = {key: value.numpy().copy() for key, value in weights.items()}

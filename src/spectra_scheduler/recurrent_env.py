@@ -3,8 +3,9 @@
 import gymnasium as gym
 import numpy as np
 
-from spectra_scheduler.rl import Context, RewardConfig
-from spectra_scheduler.rl_scenarios import procedural_scenario
+from spectra_scheduler.recurrent_context import make_context
+from spectra_scheduler.rl import RewardConfig
+from spectra_scheduler.rl_scenarios import physical_scenario, procedural_scenario
 from spectra_scheduler.simulation import SimulationEpisode
 
 MAX_BANDS = 8
@@ -27,7 +28,19 @@ class SpectrumEnv(gym.Env):
     metadata = {"render_modes": []}
 
     def __init__(
-        self, split="train", worker=0, workers=1, start_episode=0, reward=None, shifted=False
+        self,
+        split="train",
+        worker=0,
+        workers=1,
+        start_episode=0,
+        reward=None,
+        shifted=False,
+        mixed_receivers=False,
+        dwell_steps=(1,),
+        gamma=0.99,
+        physical_contract=False,
+        observation_version=OBSERVATION_VERSION,
+        coverage_steps=512,
     ):
         if split not in ("train", "validation", "test"):
             raise ValueError("invalid split")
@@ -36,9 +49,25 @@ class SpectrumEnv(gym.Env):
         self.start_episode = start_episode
         self.reward = reward or RewardConfig(coverage=0.2)
         self.shifted = shifted
-        self.action_space = gym.spaces.Discrete(MAX_BANDS)
+        self.mixed_receivers = mixed_receivers
+        if (
+            not dwell_steps
+            or any(type(d) is not int or d < 1 for d in dwell_steps)
+            or len(set(dwell_steps)) != len(dwell_steps)
+            or not 0 < gamma <= 1
+        ):
+            raise ValueError("invalid dwell steps or physical-time discount")
+        self.dwell_steps, self.gamma = tuple(dwell_steps), gamma
+        self.physical_contract = physical_contract
+        if observation_version == 2 and not physical_contract:
+            raise ValueError("multiscale context requires the physical action contract")
+        self.observation_version = observation_version
+        self.coverage_steps = coverage_steps
+        self.action_space = gym.spaces.Discrete(MAX_BANDS * len(self.dwell_steps))
         self.observation_space = gym.spaces.Box(
-            0, 1, shape=encode_context(Context(8), 0).shape, dtype=np.float32
+            0, 1,
+            shape=encode_context(make_context(8, observation_version, coverage_steps), 0).shape,
+            dtype=np.float32,
         )
         self.episode = None
 
@@ -48,9 +77,14 @@ class SpectrumEnv(gym.Env):
             self.episode_index = self.start_episode + seed
         world_seed = self.episode_index * self.workers + self.worker
         self.episode_index += 1
-        simulation = procedural_scenario(world_seed, self.split, self.shifted, num_bands=8)
+        shifted = self.shifted or (self.mixed_receivers and world_seed % 4 == 0)
+        simulation = (
+            physical_scenario(world_seed, self.split, shifted)
+            if self.physical_contract
+            else procedural_scenario(world_seed, self.split, shifted, num_bands=8)
+        )
         self.episode = SimulationEpisode(simulation)
-        self.context = Context(8)
+        self.context = make_context(8, self.observation_version, self.coverage_steps)
         return encode_context(self.context, 0), {}
 
     def step(self, action):
@@ -58,12 +92,22 @@ class SpectrumEnv(gym.Env):
             raise RuntimeError("reset before stepping")
         if not self.action_space.contains(action):
             raise ValueError("invalid band action")
-        observation = self.episode.step(int(action))
-        self.context.observe(observation)
-        reward = self.reward.compute(observation, self.context)
-        ended = self.episode.time_step == self.episode.simulation.duration
+        band, dwell = divmod(int(action), len(self.dwell_steps))
+        reward, elapsed, listening = 0.0, 0, 0
+        while (listening if self.physical_contract else elapsed) < self.dwell_steps[dwell]:
+            observation = self.episode.step(band)
+            self.context.observe(observation)
+            reward += self.gamma**elapsed * self.reward.compute(observation, self.context)
+            elapsed += 1
+            listening += int(observation.listening)
+            ended = self.episode.time_step == self.episode.simulation.duration
+            if ended:
+                break
         # Finite episode is a task boundary: never bootstrap into a new random world.
-        return encode_context(self.context, self.episode.time_step), reward, ended, False, {}
+        info = (
+            {"elapsed_steps": elapsed} if self.dwell_steps != (1,) or self.physical_contract else {}
+        )
+        return encode_context(self.context, self.episode.time_step), reward, ended, False, info
 
 
 class RecurrentScheduler:
@@ -77,7 +121,10 @@ class RecurrentScheduler:
             raise ValueError("recurrent policy supports one to eight bands")
         import torch
 
-        self.context = Context(num_bands)
+        self.context = make_context(
+            num_bands, getattr(self.model, "observation_version", OBSERVATION_VERSION),
+            getattr(self.model, "coverage_steps", 512),
+        )
         shape = self.model.policy.lstm_hidden_state_shape
         self.state = (
             torch.zeros(shape, device=self.model.device),
@@ -85,12 +132,20 @@ class RecurrentScheduler:
         )
         self.episode_start = True
         self.pending = None
+        self.remaining = 0
+        self.dwell_steps = getattr(self.model, "dwell_steps", (1,))
+        self.physical_contract = getattr(self.model, "physical_contract", False)
 
     def choose_band(self, time_step):
         import torch
 
         if self.pending is not None:
             raise ValueError("previous action has no observation")
+        if self.remaining:
+            if not self.physical_contract:
+                self.remaining -= 1
+            self.pending = time_step, self.held_band
+            return self.held_band
         observation = encode_context(self.context, time_step)
         with torch.inference_mode():
             tensor, _ = self.model.policy.obs_to_tensor(observation)
@@ -101,14 +156,22 @@ class RecurrentScheduler:
             )
             # Only nonexistent physical bands are masked on smaller legacy worlds.
             # Every real band is always available, even during retuning.
-            logits = distribution.distribution.logits[0, : self.context.history.num_bands]
-            action = int(logits.argmax().item())
+            logits = distribution.distribution.logits[
+                0, : self.context.history.num_bands * len(self.dwell_steps)
+            ]
+            band, dwell = divmod(int(logits.argmax().item()), len(self.dwell_steps))
+            self.remaining = (
+                self.dwell_steps[dwell] if self.physical_contract else self.dwell_steps[dwell] - 1
+            )
+            self.held_band = band
         self.episode_start = False
-        self.pending = time_step, action
-        return action
+        self.pending = time_step, band
+        return band
 
     def observe(self, observation):
         if self.pending != (observation.time_step, observation.band):
             raise ValueError("observation does not match action")
         self.context.observe(observation)
+        if self.physical_contract and observation.listening:
+            self.remaining -= 1
         self.pending = None

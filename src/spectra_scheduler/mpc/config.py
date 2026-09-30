@@ -4,16 +4,18 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from spectra_scheduler.action_contract import DWELL_STEPS as PHYSICAL_DWELL_STEPS
 from spectra_scheduler.rl import RewardConfig
 
 MAX_BANDS = 8
+DWELL_STEPS = (1, 4, 8)
 GRU_HIDDEN = 128
 STEP_FEATURE_DIM = MAX_BANDS + 5 + 2 * MAX_BANDS
 DEFAULT_MCTS_SIMS = 50
 DEFAULT_GAMMA = 0.97
 DEFAULT_COVERAGE_LIMIT = 20
-MODEL_VERSION = 3
-VERSION = 3
+MODEL_VERSION = 4
+VERSION = 4
 REWARD = RewardConfig(coverage=0.2)
 
 
@@ -40,7 +42,7 @@ class TrainConfig:
     value_loss_weight: float = 1.0
     dynamics_loss_weight: float = 0.5
     reward_loss_weight: float = 0.5
-    device: str = "cpu"
+    device: str = "cuda"
     seed: int = 0
 
 
@@ -63,12 +65,21 @@ class Config:
     validation_episodes: int = 8
     validation_every: int = 5
     threads: int = 2
-    device: str = "cpu"
+    device: str = "cuda"
+    dwell_steps: tuple[int, ...] = DWELL_STEPS
+    mixed_receivers: bool = True
     exploration_hold: int = 4
     exploration_decay_iterations: int = 50
     final_temperature: float = 0.25
     normalize_search: bool = True
     observation_loss_weight: float = 1.0
+    reanalyse_episodes: int = 0
+    physical_contract: bool = False
+    physical_elapsed_feature: bool = False
+    coverage_probe_limit: int = 0
+    search_method: str = "puct"
+    gumbel_candidates: int = 8
+    gumbel_q_scale: float = 2.0
 
     def __post_init__(self):
         for name in (
@@ -87,13 +98,35 @@ class Config:
             "threads",
             "exploration_hold",
             "exploration_decay_iterations",
+            "reanalyse_episodes",
+            "coverage_probe_limit",
+            "gumbel_candidates",
         ):
-            if type(getattr(self, name)) is not int or getattr(self, name) < 1:
+            lower = 0 if name in ("reanalyse_episodes", "coverage_probe_limit") else 1
+            if type(getattr(self, name)) is not int or getattr(self, name) < lower:
                 raise ValueError(f"{name} must be a positive integer")
         if not 0 < self.gamma < 1 or not 0 <= self.ema < 1 or not 0 < self.lr < 1:
             raise ValueError("invalid discount, EMA or learning rate")
         if self.seed < 0 or self.device not in ("cpu", "cuda"):
             raise ValueError("invalid seed or device")
+        if tuple(self.dwell_steps) not in ((1,), DWELL_STEPS, PHYSICAL_DWELL_STEPS):
+            raise ValueError("unsupported dwell-step grid")
+        if self.physical_contract and tuple(self.dwell_steps) != PHYSICAL_DWELL_STEPS:
+            raise ValueError("physical MPC requires the 1/10/50 ms dwell grid")
+        if type(self.physical_contract) is not bool:
+            raise ValueError("physical_contract must be boolean")
+        if type(self.physical_elapsed_feature) is not bool or (
+            self.physical_elapsed_feature and not self.physical_contract
+        ):
+            raise ValueError("physical elapsed feature requires physical MPC")
+        if self.coverage_probe_limit and not self.physical_contract:
+            raise ValueError("coverage probes require physical MPC")
+        if self.search_method not in ("puct", "gumbel"):
+            raise ValueError("search method must be puct or gumbel")
+        if not 0 < self.gumbel_q_scale <= 20:
+            raise ValueError("invalid Gumbel Q-value scale")
+        if type(self.mixed_receivers) is not bool:
+            raise ValueError("mixed_receivers must be boolean")
         if not 0 < self.final_temperature <= 1 or not 0 <= self.observation_loss_weight <= 10:
             raise ValueError("invalid exploration temperature or observation loss weight")
 
@@ -106,5 +139,14 @@ def saved_config(settings):
         final_temperature=1.0,
         normalize_search=False,
         observation_loss_weight=0.0,
+        dwell_steps=(1,),
+        mixed_receivers=False,
+        reanalyse_episodes=0,
+        physical_contract=False,
+        physical_elapsed_feature=False,
+        coverage_probe_limit=0,
+        search_method="puct",
+        gumbel_candidates=8,
+        gumbel_q_scale=2.0,
     )
     return Config(**{**defaults, **settings})

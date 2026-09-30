@@ -6,6 +6,8 @@ import multiprocessing
 import os
 import tempfile
 from concurrent.futures import ProcessPoolExecutor
+from contextlib import ExitStack
+from copy import copy
 from dataclasses import asdict
 from pathlib import Path
 from time import perf_counter
@@ -93,6 +95,84 @@ def evaluate_policy(path, policy: Policy, receiver=None, interface=None):
         max_policy_latency_seconds=maximum_latency,
     )
     return report
+
+
+def evaluate_policy_batch(jobs, factory, interface):
+    """Bounded concurrent episodes; one shared model and batched inference if supported.
+
+    Each decision's latency includes the complete batch inference wait, not divided
+    throughput masquerading as single-action latency. Receiver semantics are unchanged.
+    """
+    template = factory()
+    begin = perf_counter()
+    with ExitStack() as stack:
+        states = []
+        for path, receiver in jobs:
+            env = stack.enter_context(ReplayEnv(path, receiver, interface))
+            observation = env.reset()
+            policy = copy(template) if hasattr(template, "act_batch") else factory()
+            spec = env.specification()
+            policy.reset(spec, receiver.seed)
+            states.append(
+                dict(
+                    env=env,
+                    policy=policy,
+                    observation=observation,
+                    receiver=receiver,
+                    spec=spec,
+                    accumulator=EvaluationAccumulator(),
+                    reward=0.0,
+                    seconds=0.0,
+                    maximum=0.0,
+                    steps=0,
+                    done=False,
+                )
+            )
+        while active := [s for s in states if not s["done"]]:
+            start = perf_counter()
+            if hasattr(template, "act_batch"):
+                decisions = template.act_batch(
+                    [s["policy"] for s in active], [s["observation"] for s in active]
+                )
+            else:
+                decisions = [s["policy"].act(s["observation"]) for s in active]
+            latency = perf_counter() - start
+            for state, decision in zip(active, decisions, strict=True):
+                action = decision.action if isinstance(decision, Decision) else decision
+                forecast = decision.forecast if isinstance(decision, Decision) else None
+                transition = state["env"].step(action)
+                state["accumulator"].add(
+                    state["env"].evaluation_outcome(), transition.reward, forecast
+                )
+                state["reward"] += transition.reward
+                state["observation"] = transition.observation
+                state["done"] = transition.terminated
+                state["seconds"] += latency
+                state["maximum"] = max(latency, state["maximum"])
+                state["steps"] += 1
+        reports = []
+        for state in states:
+            figures = state["accumulator"].report()
+            sensitivity = state["receiver"].sensitivity_db
+            figures["sensitivity"] = {
+                "threshold": sensitivity,
+                "unit": "dataset_db",
+                "status": "configured" if sensitivity is not None else "disabled",
+                "calibrated_dbm": False,
+            }
+            figures["false_alarm_status"] = "not_modelled"
+            report = state["env"].metrics()
+            report.update(
+                evaluation=figures,
+                specification=state["spec"],
+                reward_sum=state["reward"],
+                elapsed_seconds=perf_counter() - begin,
+                mean_policy_latency_seconds=state["seconds"] / state["steps"],
+                max_policy_latency_seconds=state["maximum"],
+                inference_batch_size=len(jobs),
+            )
+            reports.append(report)
+        return reports
 
 
 def _evaluate_pair(job):

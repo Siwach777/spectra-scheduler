@@ -22,6 +22,25 @@ from .learning import batch_loss
 from .scheduler import NeuralMPCScheduler
 
 
+def episode_mean(episode, key, column=None):
+    values = episode[key] if column is None else episode[key][:, column]
+    if "elapsed" not in episode:
+        return float(values.mean())
+    if key == "rewards":
+        return float(episode["raw_rewards"].sum() / episode["elapsed"].sum())
+    return float((values * episode["elapsed"]).sum() / episode["elapsed"].sum())
+
+
+def selection_score(results):
+    """Capture/discovery balance across both development distributions."""
+    scores = []
+    for name, row in results.items():
+        if name.endswith("/search"):
+            capture, discovery = row["interception_ratio"], row["emitter_discovery_ratio"]
+            scores.append(2 * capture * discovery / max(capture + discovery, 1e-12))
+    return float(np.mean(scores))
+
+
 def validate(model, cfg, pool, split="validation", progress=None, prefix="Validation"):
     results = {}
     for shifted in (False, True):
@@ -40,21 +59,28 @@ def validate(model, cfg, pool, split="validation", progress=None, prefix="Valida
                 progress=progress.callback(f"{prefix}: {name}") if progress else None,
             )
             results[name] = {
-                "reward": float(np.mean([float(e["rewards"].mean()) for e in episodes])),
+                "reward": float(np.mean([episode_mean(e, "rewards") for e in episodes])),
                 **{
                     key: float(np.mean([e["metrics"][key] for e in episodes]))
                     for key in ("interception_ratio", "emitter_discovery_ratio", "max_band_gap")
                 },
             }
-            actions = torch.cat([e["actions"] for e in episodes])
+            actions = torch.cat(
+                [
+                    torch.repeat_interleave(e["actions"] // len(model.dwell_steps), e["elapsed"])
+                    if "elapsed" in e
+                    else e["actions"]
+                    for e in episodes
+                ]
+            )
             results[name]["dominant_band_fraction"] = float(
                 torch.bincount(actions, minlength=MAX_BANDS).max() / len(actions)
             )
             results[name]["bands_visited_mean"] = float(
-                np.mean([len(e["actions"].unique()) for e in episodes])
+                np.mean([len((e["actions"] // len(model.dwell_steps)).unique()) for e in episodes])
             )
             results[name]["listening_fraction"] = float(
-                np.mean([float(e["features"][:, 9].mean()) for e in episodes])
+                np.mean([episode_mean(e, "features", 9) for e in episodes])
             )
             with torch.no_grad():
                 _, errors = batch_loss(
@@ -74,14 +100,18 @@ def validate(model, cfg, pool, split="validation", progress=None, prefix="Valida
 @torch.no_grad()
 def probe_reward_error(model, episodes, device):
     """Fixed held-out trajectories: comparable one-step reward MSE across iterations."""
-    x = torch.stack([e["features"] for e in episodes]).to(device)
+    from torch.nn.utils.rnn import pad_sequence
+
+    lengths = torch.tensor([len(e["actions"]) for e in episodes], device=device)
+    x = pad_sequence([e["features"] for e in episodes], batch_first=True).to(device)
     hidden = model.representation.initial_state(len(episodes)).to(device)
     latent, _ = model.representation(x, hidden)
     before = torch.cat([hidden.transpose(0, 1), latent[:, :-1]], dim=1)
-    actions = torch.stack([e["actions"] for e in episodes]).to(device)
-    actual = torch.stack([e["rewards"] for e in episodes]).to(device)
+    actions = pad_sequence([e["actions"] for e in episodes], batch_first=True).to(device)
+    actual = pad_sequence([e["rewards"] for e in episodes], batch_first=True).to(device)
     _, predicted = model.dynamics(before.flatten(0, 1), actions.flatten())
-    return float(F.mse_loss(predicted, actual.flatten()))
+    valid = (torch.arange(x.shape[1], device=device)[None] < lengths[:, None]).flatten()
+    return float(F.mse_loss(predicted[valid], actual.flatten()[valid]))
 
 
 def evaluate_run(directory, split="test", episodes=30, workers=1):
@@ -90,9 +120,11 @@ def evaluate_run(directory, split="test", episodes=30, workers=1):
     checkpoint = directory / "best.pt"
     metadata = torch.load(checkpoint, map_location="cpu", weights_only=True)["metadata"]
     settings = dict(metadata["config"])
-    settings.update(device="cpu", workers=workers, validation_episodes=episodes)
+    if not torch.cuda.is_available():
+        raise RuntimeError("MPC neural evaluation requires CUDA")
+    settings.update(device="cuda", workers=workers, validation_episodes=episodes)
     cfg = saved_config(settings)
-    model = load_model(checkpoint)
+    model = load_model(checkpoint, torch.device("cuda"))
     torch.set_num_threads(1)
     pool = ProcessPoolExecutor(workers, mp_context=mp.get_context("spawn")) if workers > 1 else None
     try:
