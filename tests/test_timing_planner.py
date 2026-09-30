@@ -104,3 +104,15 @@ def test_accept_action_accounts_for_retune_and_remaining_window():
     assert forecast.hit_probability == 0.5
     assert forecast.intercept_delay_seconds == 0.002
     assert np.isclose(forecast.interception_ratio, 1 / 6)
+
+
+def test_coverage_probe_uses_native_menu_and_oldest_listened_band():
+    policy = object.__new__(TimingPlannerPolicy)
+    policy.config = BeliefPolicyConfig(dwells=(1, 10, 50), revisit=16, probe=8)
+    policy.coverage = True
+    policy.history = TimingHistory(3, 1)
+    policy.history.last_listen[:] = [9, 5, 8]
+    assert policy.coverage_action(22) == SyntheticAction(1, 10)
+    assert policy.coverage_action(10) is None
+    policy.coverage = False
+    assert policy.coverage_action(100) is None

@@ -63,14 +63,9 @@ def batched_planned_results(model, config, jobs, batch_size, *, coverage=True):
             for i, ((_, _, _, state), predicted) in enumerate(zip(active, prediction, strict=True)):
                 step = state.episode.time_step
                 if coverage:
-                    history = state.scheduler.history
-                    ages = np.where(
-                        history.last_listen >= 0, step - history.last_listen, step + config.revisit
-                    )
-                    overdue = np.flatnonzero(ages >= config.revisit)
-                    if len(overdue):
-                        bands[i] = overdue[np.argmax(ages[overdue])]
-                        dwells[i] = config.probe
+                    forced = state.scheduler.coverage_action(step)
+                    if forced is not None:
+                        bands[i], dwells[i] = forced.band, forced.dwell_steps
                 action = SyntheticAction(int(bands[i]), int(dwells[i]))
                 state.scheduler.accept_action(step, predicted, action)
                 state.advance(action, state.scheduler.forecast(step, action))

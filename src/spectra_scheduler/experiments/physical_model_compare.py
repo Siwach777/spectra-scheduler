@@ -18,6 +18,8 @@ from ..recurrent_env import RecurrentScheduler
 from ..rl_benchmark import benchmark
 from ..schedulers import DwellSweepScheduler
 from ..timing_belief import BeliefPolicyConfig, TimingBeliefPolicy, load_belief
+from ..timing_ensemble import load_predictor
+from ..timing_planner import TimingPlannerPolicy
 from .mpc_assess import _bootstrap_intervals
 from .storage import fingerprint, write_json
 from .timing_mpc_compare import load_mpc
@@ -56,10 +58,14 @@ def main(arguments=None):
     parser.add_argument("--grouped-run", type=Path, required=True)
     parser.add_argument("--mpc", type=Path, action="append", required=True)
     parser.add_argument("--ppo-run", type=Path)
+    parser.add_argument("--refine-run", type=Path)
+    parser.add_argument("--blend-dir", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=20)
     parser.add_argument("--seed", type=int, default=40000)
     args = parser.parse_args(arguments)
+    if args.blend_dir and not args.refine_run:
+        parser.error("blend requires its refinement run for the public policy configuration")
     torch.set_num_threads(1)
     torch.empty(1, device="cuda")
     torch.cuda.reset_peak_memory_stats()
@@ -72,7 +78,7 @@ def main(arguments=None):
     config = BeliefPolicyConfig(**policy_settings)
     model, _ = load_belief(args.grouped_run / "forecaster.pt")
     models.append(model)
-    factories["timing-before-rl"] = lambda: TickMacroAdapter(TimingBeliefPolicy(model, config))
+    factories["timing-before-rl"] = lambda b=model: TickMacroAdapter(TimingBeliefPolicy(b, config))
     digests["forecaster"] = fingerprint(args.grouped_run / "forecaster.pt")
     for seed in semantic["arguments"]["seeds"]:
         path = args.grouped_run / f"seed-{seed}" / "best.pt"
@@ -85,6 +91,34 @@ def main(arguments=None):
             GroupedTimingPolicy(b, a, p)
         )
         digests[f"grouped-{seed}"] = fingerprint(path)
+    if args.refine_run:
+        refinement = json.loads((args.refine_run / "config.json").read_text())
+        settings = dict(refinement["policy"])
+        settings["dwells"] = tuple(settings["dwells"])
+        planned_config = BeliefPolicyConfig(**settings)
+        paths = {"planner-frozen": args.refine_run / "initial.pt"}
+        if fingerprint(paths["planner-frozen"]) != refinement["initial_sha256"]:
+            raise ValueError("initial planning checkpoint changed")
+        for seed in refinement["arguments"]["seeds"]:
+            path = args.refine_run / f"seed-{seed}" / "best.pt"
+            frozen = json.loads((path.parent / "frozen.json").read_text())
+            if fingerprint(path) != frozen["checkpoint_sha256"]:
+                raise ValueError("selected refinement checkpoint changed")
+            paths[f"refined-{seed}"] = path
+        if args.blend_dir:
+            selected = json.loads((args.blend_dir / "selection.json").read_text())
+            path = args.blend_dir / "best.pt"
+            if fingerprint(path) != selected["checkpoint_sha256"]:
+                raise ValueError("selected forecast blend changed")
+            if selected["configuration"]["policy"] != refinement["policy"]:
+                raise ValueError("selected blend policy differs")
+            paths["selected-blend"] = path
+        for name, path in paths.items():
+            belief, _ = load_predictor(path)
+            models.append(belief)
+            factories[name] = lambda b=belief, p=planned_config: TickMacroAdapter(
+                TimingPlannerPolicy(b, p))
+            digests[name] = fingerprint(path)
     for index, path in enumerate(args.mpc):
         mpc, settings = load_mpc(path)
         models.append(mpc)
@@ -139,9 +173,9 @@ def main(arguments=None):
             flush=True,
         ),
     )
-    _bootstrap_intervals(
-        report, ("timing-before-rl", *[f"grouped-{s}" for s in semantic["arguments"]["seeds"]])
-    )
+    _bootstrap_intervals(report, tuple(name for name in factories
+                                     if name.startswith(("timing-", "grouped-", "planner-",
+                                                         "refined-", "selected-blend"))))
     report["runtime"] = {
         "elapsed_seconds": perf_counter() - started,
         "peak_cuda_bytes": torch.cuda.max_memory_allocated(),

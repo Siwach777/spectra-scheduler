@@ -1,5 +1,18 @@
 # Trained timing scheduler versus MPC and round-robin
 
+## Additional planner refinement
+
+The timing forecaster now supports receding-horizon action planning and controlled
+warm-start training on planner-generated histories. One seed completed 24 epochs
+of 256 updates, with CUDA batches of 256 and 20 preparation workers. Its selected
+checkpoint is `artifacts/timing-refine-v1/seed-0/best.pt` (epoch 24).
+
+On 32 selection worlds per scenario, capture was 35.33% agile, 52.78% spatial and
+68.75% periodic; discovery was 100%, 85.94% and 100%, respectively. These are
+development selection results, not fresh holdout comparisons. The second seed
+was stopped after epoch 14. The main simulator CLI does not yet load timing
+checkpoints; training and evaluation remain available through experiment modules.
+
 A trained causal timing model with a trajectory-trained action policy beats the
 repository's saved PUCT MPC, Gumbel MPC and 50-tick round-robin checkpoints on
 fresh simulated requirement worlds. The main comparison uses MPC's exact

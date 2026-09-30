@@ -18,7 +18,7 @@ import torch
 
 from ..joint_belief import JointTimingNetwork, load_joint, save_joint
 from ..scenarios import REQUIREMENT_SCENARIOS, build_scenario
-from ..simulation import SimulationEpisode
+from ..simulation import SimulationEpisode, SyntheticAction
 from ..timing_belief import BeliefPolicyConfig, belief_loss, load_belief
 from .calibrated_timing import CalibratedBeliefPolicy
 from .storage import fingerprint, load_torch, run_lock, save_torch, write_json
@@ -48,10 +48,12 @@ def copy_valid_rows(destination, source, count, block_size=1024):
 
 
 @torch.inference_mode()
-def collect_student(model, policy, directory, worlds, pool, batch_size=20):
+def collect_student(model, policy, directory, worlds, pool, batch_size=20, *,
+                    scheduler_factory=CalibratedBeliefPolicy, seed_offset=0):
     """Bounded world batches, CUDA acting, pre-action inputs and receiver labels."""
     directory.mkdir(parents=True, exist_ok=True)
-    jobs = [(s, seed, model.config.future) for seed in range(worlds) for s in REQUIREMENT_SCENARIOS]
+    jobs = [(s, seed, model.config.future) for seed in range(seed_offset, seed_offset + worlds)
+            for s in REQUIREMENT_SCENARIOS]
     capacity = len(jobs) * 128
     shapes = {
         "history": (capacity, 8, 3, model.config.history),
@@ -74,9 +76,10 @@ def collect_student(model, policy, directory, worlds, pool, batch_size=20):
     for offset in range(0, len(jobs), batch_size):
         chunk = list(pool.map(world_and_targets, jobs[offset : offset + batch_size], chunksize=1))
         active = [
-            (BatchedEpisode(world, CalibratedBeliefPolicy(model, policy)), target, -4)
+            (BatchedEpisode(world, scheduler_factory(model, policy)), target, -4)
             for world, target in chunk
         ]
+        workspace = None
         while active:
             for i, (state, target, last_sample) in enumerate(active):
                 step = state.episode.time_step
@@ -93,9 +96,32 @@ def collect_student(model, policy, directory, worlds, pool, batch_size=20):
                     active[i] = (state, target, step)
             device[: len(active)].copy_(host[: len(active)], non_blocking=True)
             predictions = model(device[: len(active)]).cpu().numpy()
-            for (state, target, _), predicted in zip(active, predictions, strict=True):
+            planned = None
+            if hasattr(active[0][0].scheduler, "coverage_action"):
+                from ..timing_planner import ForecastPlannerWorkspace, first_actions
+                if workspace is None or workspace.batch_size != len(active):
+                    workspace = ForecastPlannerWorkspace(
+                        len(active), predictions.shape[1], predictions.shape[2], policy.dwells
+                    )
+                bands, dwells = first_actions(
+                    predictions,
+                    [s.scheduler.history.current_band for s, _, _ in active],
+                    np.stack([s.scheduler.retune for s, _, _ in active]),
+                    [s.simulation.duration - s.episode.time_step for s, _, _ in active],
+                    dwells=policy.dwells,
+                    workspace=workspace,
+                )
+                planned = [SyntheticAction(int(b), int(d))
+                           for b, d in zip(bands, dwells, strict=True)]
+            for i, ((state, target, _), predicted) in enumerate(
+                zip(active, predictions, strict=True)
+            ):
                 start = state.episode.time_step
-                action = state.scheduler.select(start, predicted)
+                if planned is None:
+                    action = state.scheduler.select(start, predicted)
+                else:
+                    action = state.scheduler.coverage_action(start) or planned[i]
+                    state.scheduler.accept_action(start, predicted, action)
                 state.advance(action, state.scheduler.forecast(start, action))
                 for record in state.episode.records[start : state.episode.time_step]:
                     obs = record.observation
@@ -136,6 +162,8 @@ def collect_student(model, policy, directory, worlds, pool, batch_size=20):
         "samples": cursor,
         "worlds": len(jobs),
         "namespace": "joint-timing-v1:train",
+        "seed_offset": seed_offset,
+        "scheduler": scheduler_factory.__name__,
         "policy": asdict(policy),
         "collection_seconds": time.perf_counter() - started,
         "arrays": {k: fingerprint(directory / f"{k}.npy") for k in shapes},
