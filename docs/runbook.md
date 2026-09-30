@@ -116,8 +116,26 @@ Use either `--scenario` or `--scenario-file`, not both. See
 [scenario-format.md](scenario-format.md) for the JSON structure and
 [report-format.md](report-format.md) for report fields. The older
 `scripts/run_comparison.py` is a wrapper for the same simulator interface, not a
-separate experiment. This command compares existing policies; saved ML models are
-evaluated with the learning command in section 6.
+separate experiment. Existing policies run by default; trained timing checkpoints
+can be included below. The older hit-prediction models use section 6.
+
+To include the trained timing planner, use the CUDA environment and a local
+checkpoint. Capture and discovery are printed together; JSON reports also include
+forecast scores and paired intervals. The existing comparison remains available
+without `--timing-model`.
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --scenario frequency-agile --runs 30 --seed 24000 --workers 20 \
+  --output reports/generated/timing-agile.json
+```
+
+Add repeatable `--mpc-model PATH` options for saved physical MPC checkpoints on
+`frequency-agile`, `spatial-scan` or `periodic-scan`. Timing comparisons also
+include full listening-dwell round-robin controls and a non-neural phase predictor
+with the same planner. `--inference-batch-size` defaults to 20; `.csv` output is
+supported. CUDA is required. Track association uses the original comparison.
 
 ## 4. Inspect completed dataset files
 

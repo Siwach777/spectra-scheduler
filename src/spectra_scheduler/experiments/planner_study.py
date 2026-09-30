@@ -25,8 +25,13 @@ from .timing_report import BatchedEpisode, reporting_world
 
 
 @torch.inference_mode()
-def batched_planned_results(model, config, jobs, batch_size, *, coverage=True):
-    shape = (batch_size, 8, 3, model.config.history)
+def batched_planned_results(model, config, jobs, batch_size, *, coverage=True,
+                            world_factory=reporting_world):
+    if not jobs or batch_size < 1:
+        raise ValueError("nonempty jobs and a positive inference batch are required")
+    first_world, first_seed = world_factory(*jobs[0])
+    bands = first_world.num_bands
+    shape = (batch_size, bands, 3, model.config.history)
     host = torch.empty(shape, pin_memory=True)
     host_array = host.numpy()
     device = torch.empty(shape, device="cuda")
@@ -35,8 +40,11 @@ def batched_planned_results(model, config, jobs, batch_size, *, coverage=True):
     started = time.perf_counter()
     for offset in range(0, len(jobs), batch_size):
         active = []
-        for scenario, seed in jobs[offset : offset + batch_size]:
-            world, world_seed = reporting_world(scenario, seed)
+        for index, (scenario, seed) in enumerate(jobs[offset : offset + batch_size]):
+            world, world_seed = ((first_world, first_seed) if offset + index == 0
+                                 else world_factory(scenario, seed))
+            if world.num_bands != bands:
+                raise ValueError("batched timing worlds must share their band count")
             scheduler = CalibratedTimingPlannerPolicy(model, config, coverage=coverage)
             active.append((scenario, seed, world_seed, BatchedEpisode(world, scheduler)))
         workspace = None

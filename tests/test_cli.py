@@ -33,6 +33,23 @@ class CliTests(unittest.TestCase):
         self.assertTrue(args.association)
         self.assertEqual(args.output, "result.json")
 
+    def test_parses_timing_model_and_repeatable_mpc_controls(self) -> None:
+        args = parse_args(["--timing-model", "best.pt", "--mpc-model", "puct.pt",
+                           "--mpc-model", "gumbel.pt", "--scenario", "frequency-agile",
+                           "--inference-batch-size", "8"])
+        self.assertEqual(args.timing_checkpoint, Path("best.pt"))
+        self.assertEqual(args.mpc_checkpoints, [Path("puct.pt"), Path("gumbel.pt")])
+        self.assertEqual(args.inference_batch_size, 8)
+
+    def test_rejects_incompatible_model_options(self) -> None:
+        from contextlib import redirect_stderr
+        for arguments in (["--mpc-model", "mpc.pt"],
+                          ["--timing-model", "best.pt", "--association"],
+                          ["--inference-batch-size", "0"]):
+            with self.subTest(arguments=arguments), redirect_stderr(StringIO()):
+                with self.assertRaises(SystemExit):
+                    parse_args(arguments)
+
     def test_writes_report_from_command(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             output_path = Path(directory) / "result.json"

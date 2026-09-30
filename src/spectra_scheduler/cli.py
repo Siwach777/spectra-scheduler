@@ -1,5 +1,6 @@
 import argparse
 from collections.abc import Sequence
+from pathlib import Path
 
 from spectra_scheduler.comparison import (
     print_comparison,
@@ -54,11 +55,36 @@ def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
         dest="output_format",
         help="report format; otherwise inferred from the output path",
     )
-    return parser.parse_args(arguments)
+    parser.add_argument(
+        "--timing-model", "--timing-checkpoint", dest="timing_checkpoint", type=Path,
+        help="include a trained timing planner checkpoint (CUDA required)",
+    )
+    parser.add_argument(
+        "--mpc-model", dest="mpc_checkpoints", type=Path, action="append", default=[],
+        help="include a saved physical MPC checkpoint in the timing comparison; repeatable",
+    )
+    parser.add_argument(
+        "--inference-batch-size", type=int, default=20,
+        help="maximum simultaneous timing-model episodes",
+    )
+    args = parser.parse_args(arguments)
+    if min(args.runs, args.workers, args.inference_batch_size) < 1:
+        parser.error("runs, workers and inference batch size must be positive")
+    if args.mpc_checkpoints and not args.timing_checkpoint:
+        parser.error("--mpc-model requires --timing-model")
+    if args.timing_checkpoint and args.association:
+        parser.error("--association is available through the comparison without --timing-model")
+    return args
 
 
 def main(arguments: Sequence[str] | None = None) -> int:
     args = parse_args(arguments)
+    if args.timing_checkpoint:
+        import os
+        for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+            os.environ[name] = "1"
+        from spectra_scheduler.timing_cli import run_timing_comparison
+        return run_timing_comparison(args)
     if args.output:
         report = build_experiment_report(
             runs=args.runs,
