@@ -145,8 +145,12 @@ forecaster. Offline HDBSCAN pulse association also remains a separate data workf
 See [implementation notes](implementation-notes.md), [timing findings](timing-model-findings.md)
 and [dataset workflow](dataset-workflow.md).
 
-The [system SVG](assets/architecture.svg) and [model SVG](assets/timing-model.svg)
-use editable vector shapes and selectable text, with no external image assets.
-Blue connectors show data/forecasts, rose connectors show receiver actions,
-amber dashed connectors show evaluator-only truth, and green dashed connectors
-show frozen weights.
+The [system SVG](assets/architecture.svg) presents offline learning, the four-stage
+receiver loop and paired evaluation in separate lanes. The
+[model SVG](assets/timing-model.svg) expands the forecaster's parallel context and
+phase-evidence branches, then follows their output through planning and receiver
+execution. Both use editable vector shapes and selectable text, with no external
+image assets. Blue connectors show observations/forecasts, rose connectors show
+receiver commands, amber dashed connectors show evaluator-only truth, and green
+dashed connectors show frozen weights. Receiver feedback updates history after
+execution; it does not update the model weights.

@@ -1,169 +1,146 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1424" height="1760" viewBox="0 0 1424 1760" role="img" aria-labelledby="title desc">
-<title id="title">Spectra Scheduler — detailed system architecture</title><desc id="desc">Independent CLI and browser entry points use the Python core. Synthetic worlds and streamed synthetic TSRD stare PDWs feed separate passive receiver backends. Anonymous observations enter 288-ms causal memory, a band-shared temporal/phase-mixture forecaster, and an 80-ms band-and-dwell planner. Actions return to either receiver. Offline CUDA training produces frozen checkpoints. Simulator truth and recording labels flow only to evaluation and training targets. Optional runtime acceleration and alternative policy families are separate from the selected path. No live RF or SDR is connected.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1340" viewBox="0 0 1600 1340" role="img" aria-labelledby="title desc">
+<title id="title">Spectra Scheduler — implemented system architecture</title>
+<desc id="desc">Landscape system diagram with independent CLI and browser entry points, an offline CUDA learning lane, and a four-stage passive receiver loop: receiver, 288-ms causal memory, temporal forecaster and band/dwell planner. Synthetic RF worlds and synthetic TSRD stare replay provide separate receiver backends. The shared causal TCN and learned phase/rate mixture forecast 80 ms over all bands. The retune-aware planner selects from 24 native band/dwell actions and replans after observations. Frozen weights enter the forecaster; truth and recording labels reach only offline targets and paired evaluation. No emitter identities, actual timing parameters or future truth enter the runtime policy. No SDR or real RF validation is shown.</desc>
 <defs>
-<marker id="data-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#2b6285" stroke-width="1.6"/></marker>
-<marker id="action-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#a74c63" stroke-width="1.6"/></marker>
-<marker id="truth-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#a07628" stroke-width="1.6"/></marker>
-<marker id="weights-arrow" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M1 1L8 4.5L1 8" fill="none" stroke="#277b69" stroke-width="1.6"/></marker>
+<marker id="data-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L8 5L1 9" fill="none" stroke="#286987" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="action-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L8 5L1 9" fill="none" stroke="#b24965" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="truth-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L8 5L1 9" fill="none" stroke="#a27320" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
+<marker id="weights-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto" markerUnits="userSpaceOnUse"><path d="M1 1L8 5L1 9" fill="none" stroke="#18796c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></marker>
 <style>
-text {font-family:'Noto Sans','Segoe UI',Arial,sans-serif;fill:#183246;}
-.data {fill:none;stroke:#2b6285;stroke-width:2.2;marker-end:url(#data-arrow);}
-.action {fill:none;stroke:#a74c63;stroke-width:2.4;marker-end:url(#action-arrow);}
-.truth {fill:none;stroke:#a07628;stroke-width:2.2;stroke-dasharray:6 5;marker-end:url(#truth-arrow);}
-.weights {fill:none;stroke:#277b69;stroke-width:2.2;stroke-dasharray:9 4;marker-end:url(#weights-arrow);}
+text {font-family:'Noto Sans','Segoe UI',Arial,sans-serif;}
+path.connector {fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;}
+.data {stroke:#286987;marker-end:url(#data-arrow);}
+.action {stroke:#b24965;marker-end:url(#action-arrow);}
+.truth {stroke:#a27320;stroke-dasharray:5 6;marker-end:url(#truth-arrow);}
+.weights {stroke:#18796c;stroke-dasharray:9 5;marker-end:url(#weights-arrow);}
 </style></defs>
-<rect x="0" y="0" width="1424" height="1760" rx="0" fill="#ffffff"/>
-<text x="40" y="53" font-size="32" font-weight="700" style="fill:#183246">Spectra Scheduler</text>
-<text x="40" y="87" font-size="18" style="fill:#526b7d">Detailed implemented architecture · passive, receive-only · frozen model at runtime</text>
-<rect x="1200" y="35" width="184" height="36" rx="12" fill="#e9f4ef"/>
-<text x="1292" y="59" font-size="15" font-weight="700" style="fill:#277b69" text-anchor="middle">Software prototype</text>
-<rect x="40" y="120" width="1344" height="148" rx="12" fill="#f3f6f9" stroke="#d9e2e9" stroke-width="1.3"/>
-<text x="64" y="153" font-size="15" font-weight="700" style="fill:#526b7d">ENTRY POINTS</text>
-<rect x="64" y="170" width="628" height="74" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="82" y="202" font-size="20" font-weight="700" style="fill:#183246">CLI: simulation and external replay</text>
-<text x="82" y="227" font-size="13" style="fill:#526b7d">cli.py / timing_cli.py · replay_cli.py</text>
-<rect x="716" y="170" width="644" height="74" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="734" y="202" font-size="20" font-weight="700" style="fill:#183246">Browser: synthetic comparisons and playback</text>
-<text x="734" y="227" font-size="13" style="fill:#526b7d">web/server.py → web/api.py → web/timing_backend.py</text>
-<rect x="433" y="273" width="582" height="25" rx="3" fill="#fff"/>
-<text x="724" y="291" font-size="14" style="fill:#526b7d" text-anchor="middle">Entry points invoke the core; GUI is not a core dependency</text>
-<rect x="40" y="320" width="352" height="780" rx="12" fill="#f3f6f9" stroke="#d9e2e9" stroke-width="1.3"/>
-<text x="64" y="348" font-size="15" font-weight="700" style="fill:#526b7d">RECEIVER BACKENDS</text>
-<rect x="64" y="365" width="304" height="128" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="82" y="397" font-size="21" font-weight="700" style="fill:#183246">Synthetic RF worlds</text>
-<text x="82" y="427" font-size="17" style="fill:#526b7d">Agile / spatial / periodic</text>
-<text x="82" y="451" font-size="17" style="fill:#526b7d">Seeded arrivals and RF strength</text>
-<text x="82" y="476" font-size="13" style="fill:#526b7d">scenarios.py · emitters.py</text>
-<rect x="64" y="535" width="304" height="128" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="82" y="567" font-size="20" font-weight="700" style="fill:#183246">Synthetic receiver</text>
-<text x="82" y="597" font-size="17" style="fill:#526b7d">Sensitivity, noise, false alarms</text>
-<text x="82" y="621" font-size="17" style="fill:#526b7d">Missed detections and retuning</text>
-<text x="82" y="646" font-size="13" style="fill:#526b7d">simulation.py · receiver.py</text>
-<rect x="64" y="730" width="304" height="128" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="82" y="762" font-size="19" font-weight="700" style="fill:#183246">Full-spectrum TSRD PDWs</text>
-<text x="82" y="792" font-size="17" style="fill:#526b7d">Completed synthetic stare files</text>
-<text x="82" y="816" font-size="17" style="fill:#526b7d">HDF5 chunks; labels kept apart</text>
-<text x="82" y="841" font-size="13" style="fill:#526b7d">dataset_io.py</text>
-<rect x="64" y="900" width="304" height="140" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="82" y="932" font-size="20" font-weight="700" style="fill:#183246">Physical-time replay</text>
-<text x="82" y="962" font-size="17" style="fill:#526b7d">Bandpass + dwell + retune</text>
-<text x="82" y="981" font-size="17" style="fill:#526b7d">Bounded delivered pulse buffer</text>
-<text x="82" y="1000" font-size="17" style="fill:#526b7d">Whole-pulse window boundaries</text>
-<text x="82" y="1023" font-size="13" style="fill:#526b7d">pulse_replay.py · replay_env.py</text>
-<text x="65" y="710" font-size="15" font-weight="700" style="fill:#2b6285">Anonymous receiver feedback only</text>
-<rect x="432" y="320" width="584" height="780" rx="12" fill="#f2f8f5" stroke="#bdd7cd" stroke-width="1.3"/>
-<text x="456" y="348" font-size="15" font-weight="700" style="fill:#277b69">SELECTED CAUSAL SCHEDULER</text>
-<rect x="456" y="365" width="536" height="156" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="474" y="397" font-size="21" font-weight="700" style="fill:#183246">1 · Causal receiver memory</text>
-<text x="474" y="427" font-size="17" style="fill:#526b7d">288 ms / band: listening mask, counts, available power</text>
-<text x="474" y="451" font-size="17" style="fill:#526b7d">Unobserved bands stay unknown; retuning is masked</text>
-<text x="474" y="475" font-size="17" style="fill:#526b7d">PDW adapter: raw counts, calibrated power unavailable</text>
-<text x="474" y="504" font-size="13" style="fill:#526b7d">TimingHistory · timing_replay.record_pdw_history</text>
-<rect x="456" y="558" width="536" height="174" rx="12" fill="#e7f3ed" stroke="#92baa9" stroke-width="1.3"/>
-<text x="474" y="590" font-size="21" font-weight="700" style="fill:#183246">2 · Temporal opportunity predictor</text>
-<text x="474" y="620" font-size="17" style="fill:#526b7d">Shared TCN + learned periodic / aperiodic mixture</text>
-<text x="474" y="644" font-size="17" style="fill:#526b7d">Candidate periods: 2–144 ms; no supplied emitter period</text>
-<text x="474" y="668" font-size="17" style="fill:#526b7d">Output: expected capture counts, all bands × next 80 ms</text>
-<text x="474" y="692" font-size="17" style="fill:#526b7d">Frozen checkpoint loaded on CUDA</text>
-<text x="474" y="715" font-size="13" style="fill:#526b7d">TimingBeliefNetwork · timing_belief.py</text>
-<rect x="456" y="768" width="536" height="164" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="474" y="800" font-size="21" font-weight="700" style="fill:#183246">3 · Frequency–time planner</text>
-<text x="474" y="830" font-size="17" style="fill:#526b7d">Dynamic program integrates capture over the horizon</text>
-<text x="474" y="851" font-size="17" style="fill:#526b7d">Public current band, retune table and episode time</text>
-<text x="474" y="872" font-size="17" style="fill:#526b7d">Eight bands × 1 / 10 / 50-ms dwell = 24 native actions</text>
-<text x="474" y="893" font-size="17" style="fill:#526b7d">Age-based coverage: revisit 512 ms; probe 10 ms</text>
-<text x="474" y="915" font-size="13" style="fill:#526b7d">CalibratedTimingPlannerPolicy · timing_planner.py</text>
-<rect x="456" y="968" width="536" height="100" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="474" y="1000" font-size="21" font-weight="700" style="fill:#183246">4 · Execute first action; then replan</text>
-<text x="474" y="1030" font-size="17" style="fill:#526b7d">band + listening dwell → receiver → new observation</text>
-<text x="474" y="1051" font-size="13" style="fill:#526b7d">SyntheticAction / indexed replay action</text>
-<rect x="1040" y="320" width="344" height="780" rx="12" fill="#f3f6f9" stroke="#d9e2e9" stroke-width="1.3"/>
-<text x="1064" y="348" font-size="15" font-weight="700" style="fill:#526b7d">OFFLINE MODEL LIFECYCLE</text>
-<rect x="1064" y="365" width="296" height="160" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="1082" y="397" font-size="20" font-weight="700" style="fill:#183246">Causal state collection</text>
-<text x="1082" y="427" font-size="17" style="fill:#526b7d">Pre-action histories from</text>
-<text x="1082" y="446" font-size="17" style="fill:#526b7d">training worlds / recordings</text>
-<text x="1082" y="465" font-size="17" style="fill:#526b7d">Future truth: targets only</text>
-<text x="1082" y="484" font-size="17" style="fill:#526b7d">Bounded samples and caches</text>
-<text x="1082" y="508" font-size="13" style="fill:#526b7d">timing_study · PDW collector</text>
-<rect x="1064" y="576" width="296" height="150" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="1082" y="608" font-size="20" font-weight="700" style="fill:#183246">CUDA optimization</text>
-<text x="1082" y="638" font-size="17" style="fill:#526b7d">Temporal forecast losses</text>
-<text x="1082" y="662" font-size="17" style="fill:#526b7d">Planner-state refinement</text>
-<text x="1082" y="686" font-size="17" style="fill:#526b7d">Batch 256; staged GPU inputs</text>
-<text x="1082" y="709" font-size="13" style="fill:#526b7d">timing_refine / timing_pdw_refine</text>
-<rect x="1064" y="778" width="296" height="126" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="1082" y="810" font-size="19" font-weight="700" style="fill:#183246">Development selection</text>
-<text x="1082" y="840" font-size="17" style="fill:#526b7d">Capture + discovery checks</text>
-<text x="1082" y="864" font-size="17" style="fill:#526b7d">Separate selection inputs</text>
-<text x="1082" y="887" font-size="13" style="fill:#526b7d">planner_study · selection reports</text>
-<rect x="1064" y="946" width="296" height="126" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="1082" y="978" font-size="20" font-weight="700" style="fill:#183246">Frozen checkpoint</text>
-<text x="1082" y="1008" font-size="17" style="fill:#526b7d">Selected: epoch-24 forecaster</text>
-<text x="1082" y="1032" font-size="17" style="fill:#526b7d">New PDW weights unselected</text>
-<text x="1082" y="1055" font-size="13" style="fill:#526b7d">weights + policy settings + hashes</text>
-<rect x="440" y="1123" width="894" height="48" rx="0" fill="#fff"/>
-<text x="455" y="1144" font-size="18" font-weight="700" style="fill:#a74c63">CONTROL LOOP: listen after retuning → ingest feedback → predict → plan again</text>
-<text x="455" y="1168" font-size="16" style="fill:#526b7d">No emitter IDs, actual period / phase, scenario identity or future truth in policy inputs.</text>
-<text x="684" y="1213" font-size="15" style="fill:#2b6285">Pre-action forecasts + executed windows</text>
-<rect x="40" y="1236" width="1344" height="238" rx="12" fill="#faf7ef" stroke="#e1d5b9" stroke-width="1.3"/>
-<text x="64" y="1271" font-size="15" font-weight="700" style="fill:#a07628">PAIRED EVALUATION — NOT POLICY INPUT</text>
-<rect x="64" y="1283" width="414" height="121" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="82" y="1315" font-size="20" font-weight="700" style="fill:#183246">Evaluator-only truth</text>
-<text x="82" y="1345" font-size="17" style="fill:#526b7d">Simulated arrivals / recording labels</text>
-<text x="82" y="1365" font-size="17" style="fill:#526b7d">True captures, missed events, discovery</text>
-<text x="82" y="1387" font-size="13" style="fill:#526b7d">TruthOutcome · receiver evaluation records</text>
-<rect x="506" y="1283" width="414" height="121" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="524" y="1315" font-size="20" font-weight="700" style="fill:#183246">Outcome and forecast scoring</text>
-<text x="524" y="1345" font-size="17" style="fill:#526b7d">Capture / discovery / physical-time cost</text>
-<text x="524" y="1365" font-size="17" style="fill:#526b7d">Prediction error, censoring and coverage</text>
-<text x="524" y="1387" font-size="13" style="fill:#526b7d">evaluation_contract.py · synthetic_evaluation.py</text>
-<rect x="948" y="1283" width="412" height="121" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="966" y="1315" font-size="20" font-weight="700" style="fill:#183246">Matched benchmark reports</text>
-<text x="966" y="1345" font-size="17" style="fill:#526b7d">Same worlds / files, seeds and time</text>
-<text x="966" y="1365" font-size="17" style="fill:#526b7d">Frozen controls; paired bootstrap intervals</text>
-<text x="966" y="1387" font-size="13" style="fill:#526b7d">policy_benchmark.py · reports.py</text>
-<text x="64" y="1443" font-size="16" style="fill:#526b7d">Unavailable metrics are null. Replay has no false-alarm model or calibrated external timing forecasts.</text>
-<rect x="40" y="1510" width="650" height="140" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="58" y="1542" font-size="21" font-weight="700" style="fill:#183246">Optional execution acceleration</text>
-<text x="58" y="1572" font-size="17" style="fill:#526b7d">Native C++ dynamic program + captured CUDA model launches</text>
-<text x="58" y="1591" font-size="17" style="fill:#526b7d">Measured warmed serial p99: 0.464–0.532 ms on development GPU</text>
-<text x="58" y="1610" font-size="17" style="fill:#526b7d">Loading, warmup, receiver I/O and GUI serialization excluded</text>
-<text x="58" y="1633" font-size="13" style="fill:#526b7d">planner_native.py · _planner.cpp · timing_runtime.py</text>
-<rect x="718" y="1510" width="666" height="140" rx="12" fill="#fff" stroke="#cbd8e2" stroke-width="1.3"/>
-<text x="736" y="1542" font-size="21" font-weight="700" style="fill:#183246">Alternative policies and experiments</text>
-<text x="736" y="1572" font-size="17" style="fill:#526b7d">Controls: sweep, UCB, Thompson, Whittle, golden, phase planner</text>
-<text x="736" y="1591" font-size="17" style="fill:#526b7d">Learning branches: hit models, DQN, PPO, trajectory RL, Neural-MPC</text>
-<text x="736" y="1610" font-size="17" style="fill:#526b7d">These share evaluation; they are not stages of the selected model</text>
-<text x="736" y="1633" font-size="13" style="fill:#526b7d">schedulers.py · adaptive_scan.py · mpc/ · experiments/</text>
-<text x="85" y="1696" font-size="15" style="fill:#526b7d">Observations / forecasts</text>
-<text x="385" y="1696" font-size="15" style="fill:#526b7d">Receiver actions</text>
-<text x="650" y="1696" font-size="15" style="fill:#526b7d">Truth / labels only</text>
-<text x="934" y="1696" font-size="15" style="fill:#526b7d">Frozen weights</text>
-<text x="40" y="1735" font-size="16" style="fill:#526b7d">External replay uses synthetic TSRD PDWs. Browser playback is synthetic. No connected SDR or real RF validation.</text>
-<path d="M352 244V285H433" class="data" style="marker-end:none"/>
-<path d="M724 300V363" class="data"/>
-<path d="M1038 244V285H1015" class="data" style="marker-end:none"/>
-<path d="M216 493V533" class="data"/>
-<path d="M216 858V898" class="data"/>
-<path d="M368 598H408V419H454" class="data"/>
-<path d="M368 970H418V475H454" class="data"/>
-<path d="M724 521V556" class="data"/>
-<path d="M724 732V766" class="data"/>
-<path d="M724 932V966" class="data"/>
-<path d="M1212 525V574" class="data"/>
-<path d="M1212 726V776" class="data"/>
-<path d="M1212 904V944" class="data"/>
-<path d="M1064 1009H1028V645H994" class="weights"/>
-<path d="M724 1068V1150H400V685H216V665" class="action"/>
-<path d="M400 1150H216V1042" class="action"/>
-<path d="M64 414H24V1308H62" class="truth"/>
-<path d="M64 778H16V1348H62" class="truth"/>
-<path d="M992 1018H1024V1110H1400V1194H714V1281" class="data"/>
-<path d="M478 1342H504" class="truth"/>
-<path d="M920 1342H946" class="data"/>
-<path d="M40 1690H74" class="data"/>
-<path d="M340 1690H374" class="action"/>
-<path d="M605 1690H639" class="truth"/>
-<path d="M889 1690H923" class="weights"/>
+<rect x="0" y="0" width="1600" height="1340" rx="0" fill="#ffffff"/>
+<rect x="1296" y="30" width="248" height="40" rx="20" fill="#eaf5ef"/>
+<rect x="64" y="126" width="736" height="96" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="824" y="126" width="720" height="96" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="40" y="252" width="1520" height="208" rx="18" fill="#f5f8fa" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="64" y="308" width="328" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="448" y="308" width="328" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="832" y="308" width="328" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="1216" y="308" width="328" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="40" y="520" width="1520" height="448" rx="18" fill="#f3f9f6" stroke="#bfd9ce" stroke-width="1.4"/>
+<rect x="64" y="578" width="328" height="284" rx="14" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="84" y="597" width="36" height="30" rx="8" fill="#eaf1f5"/>
+<rect x="84" y="644" width="288" height="78" rx="8" fill="#f4f8fb"/>
+<rect x="84" y="740" width="288" height="78" rx="8" fill="#f4f8fb"/>
+<rect x="448" y="578" width="328" height="284" rx="14" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="468" y="597" width="36" height="30" rx="8" fill="#eaf1f5"/>
+<rect x="468" y="784" width="288" height="40" rx="8" fill="#edf4f8"/>
+<rect x="832" y="578" width="328" height="284" rx="14" fill="#eaf6f1" stroke="#8bbbab" stroke-width="1.4"/>
+<rect x="852" y="597" width="36" height="30" rx="8" fill="#d9ede5"/>
+<rect x="852" y="752" width="288" height="72" rx="9" fill="#d9eee4"/>
+<rect x="1216" y="578" width="328" height="284" rx="14" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="1236" y="597" width="36" height="30" rx="8" fill="#eaf1f5"/>
+<rect x="40" y="1004" width="1520" height="204" rx="18" fill="#fcf9f1" stroke="#e7d9b8" stroke-width="1.4"/>
+<rect x="64" y="1062" width="440" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="580" y="1062" width="440" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<rect x="1096" y="1062" width="448" height="128" rx="12" fill="#ffffff" stroke="#d3e0e7" stroke-width="1.4"/>
+<path d="M392 372H446" class="connector data"/>
+<path d="M776 372H830" class="connector data"/>
+<path d="M1160 372H1214" class="connector data"/>
+<path d="M1380 436V487H996V576" class="connector weights"/>
+<path d="M392 704H446" class="connector data"/>
+<path d="M776 704H830" class="connector data"/>
+<path d="M1160 704H1214" class="connector data"/>
+<path d="M1380 862V920H228V864" class="connector action"/>
+<path d="M64 792H24V1120H62" class="connector truth"/>
+<path d="M504 1120H578" class="connector truth"/>
+<path d="M1020 1120H1094" class="connector data"/>
+<path d="M1544 810H1576V990H800V1060" class="connector data"/>
+<path d="M64 1240H96" class="connector data"/>
+<path d="M464 1240H496" class="connector action"/>
+<path d="M832 1240H864" class="connector truth"/>
+<path d="M1200 1240H1232" class="connector weights"/>
+<text x="64" y="63" font-size="36" fill="#173648" font-weight="700">Spectra Scheduler</text>
+<text x="64" y="98" font-size="20" fill="#526c7c">Implemented system architecture · passive frequency–time scheduling · frozen model at runtime</text>
+<text x="1420" y="57" font-size="15" fill="#18796c" font-weight="700" text-anchor="middle">Passive / receive-only</text>
+<text x="84" y="158" font-size="21" fill="#173648" font-weight="700">CLI · simulation and PDW replay</text>
+<text x="84" y="188" font-size="17" fill="#526c7c">Configure receiver, checkpoint and matched comparisons</text>
+<text x="84" y="206" font-size="12" fill="#526c7c">cli.py / timing_cli.py · replay_cli.py</text>
+<text x="844" y="158" font-size="21" fill="#173648" font-weight="700">Browser · comparisons and playback</text>
+<text x="844" y="188" font-size="17" fill="#526c7c">Request matched synthetic runs; inspect metrics and traces</text>
+<text x="844" y="206" font-size="12" fill="#526c7c">web/server.py → web/api.py → web/timing_backend.py</text>
+<text x="800" y="242" font-size="15" fill="#526c7c" text-anchor="middle">Both interfaces invoke the Python core; the browser plays completed synthetic traces.</text>
+<text x="64" y="286" font-size="16" fill="#526c7c" font-weight="700">OFFLINE LEARNING · targets stay here; runtime does not train</text>
+<text x="84" y="340" font-size="21" fill="#173648" font-weight="700">Collect causal states</text>
+<text x="84" y="370" font-size="17" fill="#526c7c">Pre-action histories + future targets</text>
+<text x="84" y="394" font-size="17" fill="#526c7c">Bounded samples; streamed caches</text>
+<text x="84" y="420" font-size="12" fill="#526c7c">timing_study · PDW collector</text>
+<text x="468" y="340" font-size="21" fill="#173648" font-weight="700">Optimize on CUDA</text>
+<text x="468" y="370" font-size="17" fill="#526c7c">Forecast loss + state refinement</text>
+<text x="468" y="394" font-size="17" fill="#526c7c">Batch 256; staged GPU transfers</text>
+<text x="468" y="420" font-size="12" fill="#526c7c">timing_refine / timing_pdw_refine</text>
+<text x="852" y="340" font-size="21" fill="#173648" font-weight="700">Select on development</text>
+<text x="852" y="370" font-size="17" fill="#526c7c">Capture and discovery checks</text>
+<text x="852" y="394" font-size="17" fill="#526c7c">Separate selection inputs</text>
+<text x="852" y="420" font-size="12" fill="#526c7c">planner_study · selection reports</text>
+<text x="1236" y="340" font-size="21" fill="#18796c" font-weight="700">Freeze deployment bundle</text>
+<text x="1236" y="370" font-size="17" fill="#526c7c">Selected epoch-24 forecaster</text>
+<text x="1236" y="394" font-size="17" fill="#526c7c">Weights + policy settings + hashes</text>
+<text x="1236" y="420" font-size="12" fill="#526c7c">PDW fine-tune remains unselected</text>
+<text x="1188" y="479" font-size="16" fill="#18796c" font-weight="700" text-anchor="middle">Frozen model checkpoint</text>
+<text x="64" y="554" font-size="16" fill="#18796c" font-weight="700">ONLINE RECEIVER LOOP · only past observations and public receiver state</text>
+<text x="102" y="618" font-size="14" fill="#286987" font-weight="700" text-anchor="middle">01</text>
+<text x="134" y="620" font-size="23" fill="#173648" font-weight="700">Passive receiver</text>
+<text x="100" y="670" font-size="19" fill="#173648" font-weight="700">Synthetic RF worlds</text>
+<text x="100" y="693" font-size="16" fill="#526c7c">Agile / spatial / periodic arrivals</text>
+<text x="100" y="714" font-size="15" fill="#526c7c">Noise, sensitivity and false alarms</text>
+<text x="100" y="766" font-size="19" fill="#173648" font-weight="700">TSRD stare replay</text>
+<text x="100" y="789" font-size="16" fill="#526c7c">Stream PDWs; bandpass + dwell</text>
+<text x="100" y="810" font-size="14" fill="#526c7c">Retune delays; whole-pulse windows</text>
+<text x="84" y="846" font-size="12" fill="#526c7c">receiver.py · pulse_replay.py · replay_env.py</text>
+<text x="486" y="618" font-size="14" fill="#286987" font-weight="700" text-anchor="middle">02</text>
+<text x="518" y="620" font-size="23" fill="#173648" font-weight="700">Causal memory</text>
+<text x="468" y="650" font-size="20" fill="#173648" font-weight="700">Listening mask</text>
+<text x="468" y="676" font-size="20" fill="#173648" font-weight="700">Detection counts</text>
+<text x="468" y="702" font-size="17" fill="#173648">Measured power when available</text>
+<text x="468" y="740" font-size="18" fill="#286987" font-weight="700">Unobserved ≠ empty</text>
+<text x="468" y="765" font-size="16" fill="#526c7c">Replay: raw counts; no power gate</text>
+<text x="612" y="811" font-size="20" fill="#286987" font-weight="700" text-anchor="middle">288 ms × every band</text>
+<text x="468" y="846" font-size="12" fill="#526c7c">TimingHistory · record_pdw_history</text>
+<text x="870" y="618" font-size="14" fill="#18796c" font-weight="700" text-anchor="middle">03</text>
+<text x="902" y="620" font-size="23" fill="#173648" font-weight="700">Timing forecaster</text>
+<text x="852" y="650" font-size="19" fill="#173648">Band-shared causal TCN</text>
+<text x="852" y="677" font-size="19" fill="#173648">Learned phase / rate mixture</text>
+<text x="852" y="704" font-size="18" fill="#173648">Periods 2–144 ms: hypotheses</text>
+<text x="852" y="733" font-size="16" fill="#526c7c">Past evidence → future opportunity</text>
+<text x="996" y="783" font-size="23" fill="#18796c" font-weight="700" text-anchor="middle">80 ms × all bands</text>
+<text x="996" y="809" font-size="16" fill="#18796c" text-anchor="middle">Expected capture counts</text>
+<text x="852" y="846" font-size="12" fill="#526c7c">TimingBeliefNetwork · timing_belief.py</text>
+<text x="1254" y="618" font-size="14" fill="#286987" font-weight="700" text-anchor="middle">04</text>
+<text x="1286" y="620" font-size="23" fill="#173648" font-weight="700">Band + dwell</text>
+<text x="1236" y="650" font-size="17" fill="#173648" font-weight="700">Retune-aware dynamic program</text>
+<text x="1236" y="677" font-size="18" fill="#173648">Public band, delays and time left</text>
+<text x="1236" y="704" font-size="18" fill="#173648">1 / 10 / 50-ms listening dwell</text>
+<text x="1236" y="731" font-size="18" fill="#286987" font-weight="700">8 bands → 24 native actions</text>
+<text x="1236" y="770" font-size="18" fill="#526c7c">Coverage: 512-ms revisit</text>
+<text x="1236" y="797" font-size="17" fill="#526c7c">10-ms probe; execute first action</text>
+<text x="1236" y="846" font-size="12" fill="#526c7c">timing_planner.py · timing_replay.py</text>
+<text x="804" y="903" font-size="20" fill="#b24965" font-weight="700" text-anchor="middle">band + listening dwell · retune → listen → observe → replan</text>
+<text x="800" y="950" font-size="17" fill="#526c7c" text-anchor="middle">Policy inputs exclude emitter identity, actual period / phase, scenario identity and future truth.</text>
+<text x="64" y="1038" font-size="16" fill="#a27320" font-weight="700">PAIRED EVALUATION · truth is joined after the decision</text>
+<text x="84" y="1094" font-size="21" fill="#173648" font-weight="700">Evaluator-only truth</text>
+<text x="84" y="1124" font-size="17" fill="#526c7c">Source arrivals and file-local emitter labels</text>
+<text x="84" y="1148" font-size="17" fill="#526c7c">Captures, misses and discovery references</text>
+<text x="84" y="1174" font-size="12" fill="#526c7c">TruthOutcome · recording evaluation records</text>
+<text x="600" y="1094" font-size="21" fill="#173648" font-weight="700">Score paired runs</text>
+<text x="600" y="1124" font-size="17" fill="#526c7c">Capture, discovery, prediction and time costs</text>
+<text x="600" y="1148" font-size="17" fill="#526c7c">Identical receiver, seeds and physical time</text>
+<text x="600" y="1174" font-size="12" fill="#526c7c">evaluation_contract.py · synthetic / replay scoring</text>
+<text x="1116" y="1094" font-size="21" fill="#173648" font-weight="700">Matched benchmark reports</text>
+<text x="1116" y="1124" font-size="17" fill="#526c7c">Sweep / UCB / Thompson / Whittle / phase / MPC</text>
+<text x="1116" y="1148" font-size="17" fill="#526c7c">Paired intervals, JSON/CSV and provenance</text>
+<text x="1116" y="1174" font-size="12" fill="#526c7c">policy_benchmark.py · reports.py</text>
+<text x="1132" y="982" font-size="15" fill="#286987" text-anchor="middle">Pre-action forecasts + executed windows</text>
+<text x="108" y="1246" font-size="16" fill="#526c7c">Observations / forecasts</text>
+<text x="508" y="1246" font-size="16" fill="#526c7c">Receiver commands</text>
+<text x="876" y="1246" font-size="16" fill="#526c7c">Truth / labels only</text>
+<text x="1244" y="1246" font-size="16" fill="#526c7c">Frozen weights</text>
+<text x="64" y="1284" font-size="17" fill="#526c7c">Optional execution: native C++ planner + CUDA graph inference. Alternative policies share evaluation, not the forecaster pipeline.</text>
+<text x="64" y="1315" font-size="16" fill="#526c7c">TSRD replay is external synthetic data; no connected SDR or real RF validation. Replay timing forecasts are not externally calibrated.</text>
 </svg>
