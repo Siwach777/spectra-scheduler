@@ -1,8 +1,9 @@
 # Experiment report format
 
 An experiment report preserves the inputs and aggregate results needed to repeat or
-compare a simulation run. It deliberately excludes wall-clock timestamps and machine
-details because they do not affect simulation output.
+compare a simulation run. It excludes wall-clock timestamps. Legacy simulator
+reports also exclude machine details; timing reports retain runtime settings and
+resource measurements separately from deterministic receiver results.
 
 ## Common metadata
 
@@ -51,6 +52,10 @@ with no truth pulses are unavailable, rather than scored as zero.
 mean differences and bootstrap intervals against the declared listening-dwell
 round-robin baseline. CUDA/host peak memory and elapsed profiling durations are
 stored under `resources`; no calendar timestamp is added.
+
+The optional `inference_runtime` object records `cuda_graph`, `planner` (`numpy`
+or `native`) and `planner_library_sha256` (null for NumPy). These identify runtime
+acceleration without changing metric definitions or the selected policy.
 
 Timing CSV uses one row per policy/metric, with columns `policy`, `metric`, `mean`,
 `groups`, `paired_groups`, `paired_mean_difference` and `paired_bootstrap_95_interval`.

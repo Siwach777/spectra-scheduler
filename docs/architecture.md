@@ -22,6 +22,12 @@ estimates future per-band capture counts from that history. The
 and listening dwell, executes the first action of its plan, and replans after
 receiver feedback. Coverage probes use public listening history.
 
+Optional [compiled planning](../src/spectra_scheduler/planner_native.py) and
+[captured CUDA inference](../src/spectra_scheduler/timing_runtime.py) reuse fixed
+buffers and model launches. They preserve the selected policy and have been
+checked against the original 300-world reports. Runtime options and serial-path
+measurements are in the [runbook](runbook.md#accelerated-runtime-and-serial-latency).
+
 Hidden truth reaches the receiver simulation and evaluator, but not the scheduler.
 [Receiver metrics](../src/spectra_scheduler/metrics.py) and the
 [evaluation contract](../src/spectra_scheduler/evaluation_contract.py) measure
@@ -42,6 +48,11 @@ The GUI does not train models and currently plays synthetic comparisons, rather
 than recorded-pulse replay. Core modules, CLI commands and training entry points
 do not import the GUI. Training truth and labels remain separate from inference
 inputs; recording labels are also excluded from delivered replay observations.
+
+The [timing replay adapter](../src/spectra_scheduler/timing_replay.py) reconstructs
+causal millisecond history from delivered PDWs and applies the frozen planner to
+physical-time receiver actions. The completed external recording comparison
+verifies this software boundary; it does not demonstrate real RF hardware.
 
 Statistical schedulers, DQN/recurrent RL and Neural-MPC are alternative policy
 families. They are not stages inside the selected timing scheduler. Their

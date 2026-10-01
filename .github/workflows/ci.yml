@@ -29,6 +29,7 @@ jobs:
         run: |
           uv sync --locked --extra dataset --extra learning --extra dev
           uv pip install --python .venv/bin/python torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+          uv pip install --python .venv/bin/python gymnasium==1.2.3
       - name: Check correctness lint
         run: .venv/bin/ruff check --select F,B,UP src tests web
       - name: Test contracts and console

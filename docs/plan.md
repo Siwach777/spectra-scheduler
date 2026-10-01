@@ -7,6 +7,11 @@ commands. The current timing checkpoint is described in
 [timing-model-findings.md](timing-model-findings.md). Requirements are defined
 exclusively by [project_scope.md](project_scope.md).
 
+The live browser comparison, trained timing CLI, external PDW replay bridge and
+reproducibility CI are implemented. The completed 300-world control comparison
+and batch-one latency measurements are published in the linked findings.
+Spatial discovery and external-data transfer remain the next model priorities.
+
 ## Goal
 
 The receiver has less instantaneous bandwidth than the spectrum it must monitor.
@@ -170,7 +175,7 @@ Recorded scan data remains separate from the interactive simulation.
 - Extend the implemented observation-only training/evaluation contract to broader
   scenario layouts; retain current baselines until a learned policy demonstrates value.
 - Profile the simulator before deciding whether any part should move to Rust.
-- Add an API and graphical demonstration only after the experiment format is stable.
+- Extend the implemented API and graphical demonstration to recording replay.
 
 ## Project layout
 
@@ -194,7 +199,7 @@ tests/
 The layout can be split further when a module becomes difficult to understand. It
 should not be divided into extra layers in advance.
 
-## Checks before adding machine learning
+## Evaluation rules
 
 - Fixed seeds reproduce the same events and results.
 - Strategies are tested on identical events.
@@ -206,6 +211,6 @@ should not be divided into extra layers in advance.
 
 - Python 3.12 and NumPy for the initial simulator.
 - `uv` for the environment and dependency lock file.
-- pytest for tests and Ruff for formatting/linting.
-- HDF5 support when the external dataset is introduced.
-- Rust with PyO3/maturin only after profiling identifies a useful native boundary.
+- pytest and Ruff correctness lint for automated checks.
+- Streamed HDF5 support for external pulse data.
+- Optional C++17 planning kernel, introduced after serial-path profiling and parity checks.

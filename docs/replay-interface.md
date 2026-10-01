@@ -139,6 +139,6 @@ The generated report is `reports/generated/replay-interface-validation.json`.
 ## Next integration steps
 
 The integration infrastructure is implemented and validated. Downstream steps include:
-- Consuming this interface in the selected learning agent.
+- Adapting training-only recording features/rates after the completed frozen timing replay.
 - Verifying checkpoint compatibility across feature and action mappings.
 - Training and held-out evaluation on diverse pulse traces.
