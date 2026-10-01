@@ -36,7 +36,10 @@ class BeliefConfig:
 class TimingHistory:
     """Fixed ring of receiver-visible ticks: listen mask, count and measured power."""
 
-    def __init__(self, bands, steps):
+    def __init__(self, bands, steps, *, count_limit=4):
+        if count_limit is not None and (type(count_limit) is not int or count_limit < 1):
+            raise ValueError("count limit must be a positive integer or None")
+        self.count_limit = count_limit
         self.values = np.zeros((bands, 3, steps), np.float32)
         self.steps = steps
         self.time = 0
@@ -56,7 +59,10 @@ class TimingHistory:
         self.current_band = band
         if observation.listening:
             self.values[band, 0, slot] = 1
-            self.values[band, 1, slot] = min(observation.detections, 4)
+            self.values[band, 1, slot] = (
+                observation.detections if self.count_limit is None
+                else min(observation.detections, self.count_limit)
+            )
             if observation.measurements:
                 power = max(m.power_dbm for m in observation.measurements)
                 self.values[band, 2, slot] = np.clip((power + 100) / 40, 0, 2)
@@ -124,20 +130,29 @@ class TimingBeliefNetwork(nn.Module):
             persistent=False,
         )
 
-    def forward(self, history):
+    def forward(self, history, *, power_available=True, rate_prior=None):
         if history.ndim != 4 or tuple(history.shape[2:]) != (3, self.config.history):
             raise ValueError("expected batch, bands, three channels, history ticks")
         batch, bands = history.shape[:2]
         x = history.flatten(0, 1).float()
         mask, observed, power = x.unbind(1)
-        quality = ((power - self.quality_threshold) * self.quality_gain.exp()).sigmoid()
+        quality = (
+            ((power - self.quality_threshold) * self.quality_gain.exp()).sigmoid()
+            if power_available else torch.ones_like(observed)
+        )
         hits = observed * quality
         exposure = mask.sum(-1)
         count = hits.sum(-1)
         rate = (count + 0.2) / (exposure + 4)
         global_rate = rate.reshape(batch, bands).mean(-1, keepdim=True).expand(-1, bands).flatten()
         unseen = exposure == 0
-        rate = torch.where(unseen, global_rate.clamp_min(0.025), rate)
+        backoff = global_rate.clamp_min(0.025)
+        if rate_prior is not None:
+            if tuple(rate_prior.shape) != (batch, bands):
+                raise ValueError("causal rate prior must match batch and bands")
+            prior_rate = rate_prior.flatten()
+            backoff = torch.where(prior_rate >= 0, prior_rate, backoff)
+        rate = torch.where(unseen, backoff, rate)
         encoded = self.temporal(torch.stack((mask, hits, power * (observed > 0)), 1))
         summary = torch.stack(
             (torch.log1p(exposure) / 6, torch.log1p(count) / 5, rate, global_rate), -1

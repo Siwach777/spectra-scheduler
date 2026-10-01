@@ -38,8 +38,21 @@ build/
 *.hdf5
 *.parquet
 
-# Local presentations and legacy graphical clients
-ppt/
+# Submission presentation; keep backups and local guidance private
+/ppt/*
+!/ppt/README.md
+!/ppt/build_presentation.py
+!/ppt/requirements.txt
+!/ppt/.gitattributes
+!/ppt/SIH2026-IDEA-Presentation-Format.pptx
+!/ppt/Spectra-Scheduler-SIH2026.pptx
+!/ppt/Spectra-Scheduler-SIH2026.pdf
+!/ppt/assets/
+/ppt/assets/*
+!/ppt/assets/cover-fields.json
+!/ppt/assets/cover-logo.png
+
+# Legacy graphical clients
 gui/
 GUI/
 

@@ -23,29 +23,69 @@ The original compact feature vector and policy `reset/act` contract remain avail
 ```bash
 .venv-rl/bin/python -m spectra_scheduler.experiments.timing_replay_study \
   --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
-  --run-dir artifacts/timing-replay-new --max-files 10 --workers 20 --batch-size 20
+  --legacy-checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --plan reports/timing-pdw-validation-plan.json \
+  --run-dir artifacts/timing-replay-new --workers 20 --batch-size 20
 ```
 
-This freezes ten validation stare recordings before comparison. The receiver uses
+The published plan freezes 32 validation stare recordings, excluding the ten
+previously examined files. Without `--plan`, `--max-files` and `--selection-seed`
+create a new seeded validation plan. The receiver uses
 eight 2250-MHz passbands, 2-ms retuning, 90% detection probability and the model's
 1/10/50-ms listening dwells, over each complete 10-second recording. The adapter
 requires whole 1-ms ticks and rejects fractional slew/retune timing. It uses actual
-PDW timestamps to reconstruct listening masks and counts, capped at four per tick.
-Dataset amplitude is not calibrated dBm, so the pretrained power channel is zeroed.
-It does not claim calibrated forecasts on these recordings or train on validation data.
+PDW timestamps to reconstruct masks and raw counts. Dataset amplitude is not
+calibrated dBm, so the power channel is zero and its sensitivity gate is explicitly
+disabled. Previously, missing power was interpreted as extremely weak detections:
+the selected checkpoint multiplied their counts by approximately 1.6e-14.
+`--adapter legacy` reproduces that original capped-count transfer.
 
-Mean capture/discovery across ten independent files was 10.19%/96.15% for the
-frozen model, 10.91%/94.79% for the 50-ms sweep and 43.97%/82.68% for the causal
-rate-probe control. The model's capture difference from sweep was -0.72 percentage
-points, interval [-1.60, 0.57]; this establishes no capture gain. The full loop is
-implemented, but simulation gains do not automatically transfer to external PDWs.
-These are external **synthetic** recordings, not real RF or hardware-in-the-loop.
-See the [public summary](../reports/timing-replay-summary.json) for hashes and intervals.
-Serial and batched CUDA counts agreed on two separate recording windows.
+| Policy | Mean capture | Mean emitter discovery |
+| --- | ---: | ---: |
+| Fixed sweep, 50 ms | 10.45% | 95.86% |
+| Rate-probe | 51.66% | 84.39% |
+| Legacy frozen transfer | 9.85% | 96.40% |
+| Corrected frozen forecaster | **43.49%** | **93.35%** |
+| Training-only PDW fine-tune | 42.72% | 92.60% |
 
-Recording-specific feature calibration and training-only adaptation remain necessary
-before claiming a robust transferred model. Use `--verify-only --max-files 2` for
-the serial/batched integration check.
+The corrected forecaster captures 4.16 times the sweep's mean recording-level
+ratio. Its paired sweep advantage is 33.04 percentage points [28.19, 38.12].
+Rate-probe still captures more; the forecaster discovers more emitters. These are
+external **synthetic** recordings, not real RF or hardware-in-the-loop. The adapter
+returns actions; externally calibrated intercept-time predictions are not claimed.
+See the [current evidence](../reports/timing-pdw-summary.json). The
+[initial ten-file report](../reports/timing-replay-summary.json) remains historical.
+
+Fine-tuning used 64 fit and 16 separate development recordings from the training
+split, batch 256, 20 preparation workers, eight CUDA epochs and 3.38 GB peak GPU
+memory. Epoch 6 improved development capture from 34.89% to 40.21% while retaining
+93.21% discovery. Epoch 8 and shorter coverage probes failed the discovery floor.
+On the new validation files, the fine-tune's capture difference from the corrected
+frozen forecaster was -0.77 points [-2.36, 0.94]. It did not justify replacement.
+The test split was untouched; fitting/development hashes are checked against
+validation inputs. PDW checkpoints have a distinct version and are rejected by
+synthetic CLI/GUI loaders.
+
+Run a new training-only adaptation, then compare its frozen checkpoint:
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.timing_pdw_refine \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --run-dir artifacts/timing-pdw-new --training-files 64 --development-files 16 \
+  --batch-size 256 --workers 20 --epochs 8
+
+.venv-rl/bin/python -m spectra_scheduler.experiments.timing_replay_study \
+  --checkpoint artifacts/timing-pdw-new/best.pt \
+  --reference-checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --plan reports/timing-pdw-validation-plan.json \
+  --run-dir artifacts/timing-pdw-comparison-new --workers 20 --batch-size 20
+```
+
+`timing_replay_transfer` evaluates missing-power/count ablations on training files;
+`timing_pdw_refine --select-policy-only` selects replay probe settings on its
+existing training-split development set. `--prepare-only` builds bounded shards
+without neural training. Use `timing_replay_study --verify-only --max-files 2` for
+serial/batched CUDA integration checks.
 
 ## Environment contract
 

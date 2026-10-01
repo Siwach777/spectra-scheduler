@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1136" viewBox="0 0 1440 1136" role="img" aria-labelledby="title desc">
   <title id="title">Spectra Scheduler architecture</title>
-  <desc id="desc">The independent CLI and browser interface invoke the Python core. Synthetic emitter scenarios feed a passive receiver. Receiver observations form causal history for a trained timing forecaster and receding-horizon planner, which returns band and dwell actions to the receiver. Hidden simulator truth is separate and used for evaluation. CUDA training creates local checkpoints offline. TSRD pulse ingestion, association and physical-time replay are separate workflows.</desc>
+  <desc id="desc">Independent simulation and replay CLIs and a synthetic browser demo invoke the Python core. Synthetic worlds or streamed synthetic TSRD pulse recordings feed a passive receiver environment. Label-free receiver observations form 288 milliseconds of causal history for a temporal forecaster and an 80-millisecond band-and-dwell planner. Replay retains raw pulse counts and explicitly marks calibrated power as unavailable. Truth and emitter labels reach evaluation only. Offline CUDA training selects frozen checkpoints; PDW fine-tuning remains experimental.</desc>
   <defs>
     <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0 0 8 4 0 8" fill="none" stroke="#526477" stroke-width="1.4"/></marker>
     <marker id="truth-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth"><path d="M0 0 8 4 0 8" fill="none" stroke="#a16f2d" stroke-width="1.4"/></marker>
@@ -29,40 +29,40 @@
   <text x="64" y="154" class="section">Independent entry points</text>
   <rect x="64" y="172" width="612" height="78" rx="8" class="card"/>
   <text x="84" y="202" class="heading">Command-line interface</text>
-  <text x="84" y="228" class="small">Paired experiments and JSON / CSV reports</text>
-  <text x="452" y="203" class="code">spectra_scheduler.cli</text>
+  <text x="84" y="228" class="small">Synthetic / PDW replay · matched controls · JSON reports</text>
+  <text x="452" y="203" class="code">cli.py · replay_cli.py</text>
   <rect x="704" y="172" width="672" height="78" rx="8" class="card"/>
   <text x="724" y="202" class="heading">Browser interface</text>
-  <text x="724" y="228" class="small">Playback, measured results and JSON export</text>
+  <text x="724" y="228" class="small">Synthetic head-to-head playback, live metrics and export</text>
   <text x="1096" y="203" class="code">HTTP + web adapter</text>
   <text x="64" y="270" class="small">Both invoke the Python core. The CLI, core and training workflows do not depend on the GUI.</text>
 
   <rect x="40" y="310" width="1360" height="478" rx="12" class="lane"/>
-  <text x="64" y="346" class="section">Synthetic runtime</text>
-  <text x="64" y="372" class="small">Selected timing path shown below; baseline and experimental policies share the receiver interface.</text>
+  <text x="64" y="346" class="section">Closed-loop simulation and PDW replay</text>
+  <text x="64" y="372" class="small">Selected frozen timing path; fixed sweep and stronger causal controls share the same receiver and time budget.</text>
 
   <rect x="64" y="398" width="272" height="146" rx="8" class="card"/>
-  <text x="84" y="430" class="heading">RF scenarios</text>
-  <text x="84" y="462" class="body">Frequency-agile</text>
-  <text x="84" y="487" class="body">Spatial / periodic scanning</text>
-  <text x="84" y="522" class="code">scenarios.py · emitters.py</text>
+  <text x="84" y="430" class="heading">Simulation or PDW input</text>
+  <text x="84" y="462" class="body">Synthetic RF worlds</text>
+  <text x="84" y="487" class="body">or streamed TSRD stare PDWs</text>
+  <text x="84" y="522" class="code">scenarios.py · pulse_replay.py</text>
 
   <rect x="376" y="398" width="272" height="146" rx="8" class="card"/>
   <text x="396" y="430" class="heading">Passive receiver</text>
   <text x="396" y="462" class="body">One observed band at a time</text>
-  <text x="396" y="487" class="body">Sensitivity, noise, retuning</text>
-  <text x="396" y="522" class="code">receiver.py · simulation.py</text>
+  <text x="396" y="487" class="body">Simulated detection and retuning</text>
+  <text x="396" y="522" class="code">receiver.py · replay_env.py</text>
 
   <rect x="688" y="398" width="272" height="146" rx="8" class="card"/>
   <text x="708" y="430" class="heading">Causal history</text>
-  <text x="708" y="462" class="body">Listen mask, hits and misses</text>
-  <text x="708" y="487" class="body">Measured power over time</text>
-  <text x="708" y="522" class="code">TimingHistory</text>
+  <text x="708" y="462" class="body">Listen mask, observed counts</text>
+  <text x="708" y="487" class="body">Measured power when available</text>
+  <text x="708" y="522" class="code">TimingHistory · 288-ms window</text>
 
   <rect x="1000" y="398" width="376" height="146" rx="8" fill="#eef6f3" stroke="#90b8ac" stroke-width="1.2"/>
   <text x="1020" y="430" class="heading" style="fill:#236b61">Trained timing scheduler</text>
-  <text x="1020" y="462" class="body">Learned temporal forecasts on CUDA</text>
-  <text x="1020" y="487" class="body">Receding-horizon plan + coverage probes</text>
+  <text x="1020" y="462" class="body">TCN + learned temporal mixture</text>
+  <text x="1020" y="487" class="body">80-ms forecast → band / dwell plan</text>
   <text x="1020" y="522" class="code">timing_belief.py · timing_planner.py</text>
 
   <path d="M336 470H374" class="flow"/>
@@ -73,33 +73,33 @@
   <text x="858" y="595" text-anchor="middle" class="body">Next action: band + listening dwell</text>
 
   <path d="M200 544V642" class="truth"/>
-  <text x="214" y="623" class="small" style="fill:#a16f2d">Hidden truth → evaluation only</text>
+  <text x="214" y="623" class="small" style="fill:#a16f2d">Truth / labels → evaluation only</text>
   <rect x="64" y="644" width="1312" height="106" rx="8" class="card"/>
   <text x="84" y="675" class="heading">Paired evaluation and reports</text>
-  <text x="84" y="704" class="body">Actual receiver outcomes + pre-action forecasts + shared scenario truth</text>
-  <text x="84" y="730" class="small">Capture, discovery, detection / false alarms, reward and intercept-time prediction error</text>
+  <text x="84" y="704" class="body">Capture and discovery on matched physical time; pre-action forecast evaluation in synthetic worlds</text>
+  <text x="84" y="730" class="small">Replay does not establish calibrated forecast error, false-alarm probability or hardware sensitivity.</text>
   <text x="1002" y="678" class="code">metrics.py</text>
   <text x="1002" y="703" class="code">evaluation_contract.py · reports.py</text>
-  <text x="64" y="776" class="small">Scheduling uses receiver observations and public timing settings; it never receives future truth or emitter identities.</text>
+  <text x="64" y="776" class="small">No emitter ID · no supplied period / phase · no future truth. Replay keeps raw counts and explicitly omits the power gate.</text>
 
   <rect x="40" y="818" width="1360" height="246" rx="12" class="lane"/>
   <text x="64" y="854" class="section">Offline workflows</text>
   <rect x="64" y="874" width="644" height="166" rx="8" class="card"/>
   <text x="84" y="905" class="heading">Model training and checkpoint selection</text>
   <text x="84" y="936" class="body">Observed histories + training targets → CUDA training</text>
-  <text x="84" y="962" class="body">Held-out validation → selected local checkpoint</text>
-  <text x="84" y="994" class="small">The runtime loads frozen weights; the GUI performs no training.</text>
+  <text x="84" y="962" class="body">Held-out validation → frozen epoch-24 forecaster</text>
+  <text x="84" y="994" class="small">PDW fine-tuning is experimental; new weights did not improve validation.</text>
   <text x="84" y="1022" class="code">experiments/ · timing_belief.py · artifacts/</text>
   <rect x="732" y="874" width="644" height="166" rx="8" class="card"/>
-  <text x="752" y="905" class="heading">Recorded pulse data</text>
-  <text x="752" y="936" class="body">TSRD HDF5 → streamed ingestion and validation</text>
-  <text x="752" y="962" class="body">Offline association or physical-time receiver replay</text>
-  <text x="752" y="994" class="small">A separate data path; recordings do not feed browser playback.</text>
-  <text x="752" y="1022" class="code">dataset_io.py · dataset_evaluation.py · pulse_replay.py</text>
+  <text x="752" y="905" class="heading">External synthetic pulse replay</text>
+  <text x="752" y="936" class="body">TSRD HDF5 → streamed, label-free PDW observations</text>
+  <text x="752" y="962" class="body">1-ms history adapter → shared forecaster and planner</text>
+  <text x="752" y="994" class="small">Replay CLI supports matched controls; browser playback is synthetic.</text>
+  <text x="752" y="1022" class="code">timing_replay.py · replay_evaluation.py</text>
 
   <path d="M42 1099H75" class="flow"/>
   <text x="89" y="1105" class="small">Receiver data / actions</text>
   <path d="M318 1099H352" class="truth"/>
   <text x="366" y="1105" class="small">Evaluator-only truth</text>
-  <text x="1400" y="1105" text-anchor="end" class="small">Other policy families: statistical baselines · DQN / recurrent RL · Neural-MPC</text>
+  <text x="1400" y="1105" text-anchor="end" class="small">Controls: UCB · Thompson · Whittle · golden sweep · phase planning · Neural-MPC</text>
 </svg>

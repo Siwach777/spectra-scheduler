@@ -1,0 +1,151 @@
+{
+  "version": 1,
+  "split": "val",
+  "seeds": [
+    0
+  ],
+  "selection_seed": 197,
+  "recordings": [
+    {
+      "path": "stare/val_stare/config_98.h5",
+      "sha256": "ef4c304637a7fd2bd6926e3fc4525a82bcaa0fbb705d4dd8a11c11c1eecd3212"
+    },
+    {
+      "path": "stare/val_stare/config_234.h5",
+      "sha256": "f82d5736dcf4dafff1d925db798aa23dc7e3bb2b40dac40c090e7640fe088db3"
+    },
+    {
+      "path": "stare/val_stare/config_186.h5",
+      "sha256": "3fa99c77170a028da7e7a030c3e73ce6382e001c029ca9da0c1c91a696243d57"
+    },
+    {
+      "path": "stare/val_stare/config_75.h5",
+      "sha256": "81ce9d2704345d43aa69f8e6fe2451563c74576d3321cb249eb30fc2f0f0c9ed"
+    },
+    {
+      "path": "stare/val_stare/config_115.h5",
+      "sha256": "7b1d141a2586f40df2d506080e1aac7e46692e2cd59e21dca568b8d66e0b780b"
+    },
+    {
+      "path": "stare/val_stare/config_240.h5",
+      "sha256": "94763b454d608de728f989f0ad336757a73da41b9370f792e2c52917c2b97545"
+    },
+    {
+      "path": "stare/val_stare/config_50.h5",
+      "sha256": "41c30d667313b85120930d620e5350f3ed2618e7e5bd0af1fe2d0a8c1423e240"
+    },
+    {
+      "path": "stare/val_stare/config_102.h5",
+      "sha256": "fc408688cdccfd9571d24b71841213d34ae2982c4c8e4a941a58e803fdac2a0a"
+    },
+    {
+      "path": "stare/val_stare/config_67.h5",
+      "sha256": "c78defad160dcf1978173b7f0373660824c2d9014bab2ce3af7043eb3883c78f"
+    },
+    {
+      "path": "stare/val_stare/config_95.h5",
+      "sha256": "57b6a6e25bdcbcc68fedf5489e94d158aac51e6c364109dd8e8fe4e434dab240"
+    },
+    {
+      "path": "stare/val_stare/config_124.h5",
+      "sha256": "ee70b279782c2aef521006ffb51f8d4d692bbf39ff7e74f2ac554ba43474d162"
+    },
+    {
+      "path": "stare/val_stare/config_219.h5",
+      "sha256": "9e17ada10f1180c73c9f5d722767054bb146768a31e75de63e3b852c68955a00"
+    },
+    {
+      "path": "stare/val_stare/config_28.h5",
+      "sha256": "34835f3d2b2843d5225f67c71c4f1623235952a1008d1c8dff74d8dc624a1a4b"
+    },
+    {
+      "path": "stare/val_stare/config_85.h5",
+      "sha256": "08ad73f1744e856f7d752097609e7cc45a0283d8e491d6987a850f3d13d4daa5"
+    },
+    {
+      "path": "stare/val_stare/config_185.h5",
+      "sha256": "0710eb409395a525f22a2b95246ee972e7a4772f03cd483e75a10eb76bc3e9c6"
+    },
+    {
+      "path": "stare/val_stare/config_209.h5",
+      "sha256": "0c858da3cfffbc2bc5f10bcedb170206632a95fd1e69d746b0a4a465186adc1f"
+    },
+    {
+      "path": "stare/val_stare/config_145.h5",
+      "sha256": "fe9691e6bd672d7fb9105f075675a6d9f27c6378e9280053dc871a1a53458dd3"
+    },
+    {
+      "path": "stare/val_stare/config_127.h5",
+      "sha256": "daf8d02601a8c93b092d8bafa82bee3b6d75d48954c737560fba55d468178873"
+    },
+    {
+      "path": "stare/val_stare/config_224.h5",
+      "sha256": "60d5680250ac2cc834b4f6fe8a1d27886fdca2a27a388ecf808ad28627e911d1"
+    },
+    {
+      "path": "stare/val_stare/config_241.h5",
+      "sha256": "00315037b52d4e8e362f7c625d6a44700f3f8204b116f65fc505b56d5a8e302f"
+    },
+    {
+      "path": "stare/val_stare/config_1.h5",
+      "sha256": "6d182dac7803bef76aafede9752f19dc70e8422d287bf33f2701b78947e4bfa9"
+    },
+    {
+      "path": "stare/val_stare/config_53.h5",
+      "sha256": "09c88254b398a2cfeaf2a9df9165f99d77c8a38c593932bdc52c7e7835c11bf0"
+    },
+    {
+      "path": "stare/val_stare/config_47.h5",
+      "sha256": "5e890a165c56202769c82ab354bd8cae6edbd82092b622e0f03e6afc4df7dd82"
+    },
+    {
+      "path": "stare/val_stare/config_248.h5",
+      "sha256": "8bf36f0f17d761dfaad404cf8d77ff1a7f0da5dc25bdc79468aa6fd30bcfe549"
+    },
+    {
+      "path": "stare/val_stare/config_105.h5",
+      "sha256": "de21a79820eaf1abb65676206c0e2ccf89383bc9d85db38b24ba6f045dde4f04"
+    },
+    {
+      "path": "stare/val_stare/config_51.h5",
+      "sha256": "450a5747b5dbf9394a7b52591e1b46f31556189bf379d96196ecfc9f76573c85"
+    },
+    {
+      "path": "stare/val_stare/config_32.h5",
+      "sha256": "9bff61c1bb58e148ca5cb25e3ea0d07eb62f45113836a0013509aa213460d8f7"
+    },
+    {
+      "path": "stare/val_stare/config_78.h5",
+      "sha256": "0a86622d4122264dcc761db8068b10176a7b7a7b4ea3731a04e8158d7eba79c3"
+    },
+    {
+      "path": "stare/val_stare/config_39.h5",
+      "sha256": "0ce038b39247964a7afffd500d0eca96b2caab1f7eaa9f8ce03874cb86ae0c35"
+    },
+    {
+      "path": "stare/val_stare/config_44.h5",
+      "sha256": "c2cdd2533eb9066b1821a6e916c695f62cb40963e35aab5bb48b4b89072e0b0c"
+    },
+    {
+      "path": "stare/val_stare/config_101.h5",
+      "sha256": "6638e8e153395cb2c438216e5d31510ddf2f1025ddbff287f65aaf86ba880069"
+    },
+    {
+      "path": "stare/val_stare/config_70.h5",
+      "sha256": "cdbe6630584a1f0100af46cb869af2f608ef45edc7a7e836167ab26e6893bc53"
+    }
+  ],
+  "excluded_previously_examined_sha256": [
+    "03ff11aea3ea3fd0d8610a82563f4528e95863e500eb74e5338294023857fb78",
+    "27c6d49e2a1c45620228161dc5df015fae88c2ac164d7684e2057b1055b03251",
+    "2e3c5e61055cf254a1232fc0155316994658c7154c7f7be2fc054b8a815b4f0d",
+    "3b94146ba8366266d905dc08c56e75d4f3770e68763a0ab3ac91dacc721f977a",
+    "4ce2c7c490204453593aae07ebab3e8a92ab0b8b1edcee81abd48b53625fcf16",
+    "5ec6295afd398c6899b83bc8734022e9c4f78fb752101b6371d929e55add2dd5",
+    "777b5c655a6134a287c1a7b14164fa9b46c16729663b327c7c9ce7d29323edac",
+    "77c37939c117dc73a30ec47fc36d923f54ebb83c5f02005ead9231088bae983c",
+    "9fe835baa187241ec2340e3dbb99f2c7bed881c00265db224da73803f0d42948",
+    "fcdf158c28ff69483eceb119da787d13890567d899d7bceb9330498a08d1f86f"
+  ],
+  "selection_method": "42 seeded candidates; exclude old validation recordings; seeded shuffle; first 32"
+}

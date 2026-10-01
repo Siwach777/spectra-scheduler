@@ -38,11 +38,11 @@ Comparisons reuse the same seeded world and receiver settings for each policy.
 
 | Area | Implementation | Relationship to the runtime |
 | --- | --- | --- |
-| CLI | [cli.py](../src/spectra_scheduler/cli.py), [comparison.py](../src/spectra_scheduler/comparison.py), [reports.py](../src/spectra_scheduler/reports.py) | Runs paired experiments and writes reports independently of the GUI. |
+| CLI | [cli.py](../src/spectra_scheduler/cli.py), [replay_cli.py](../src/spectra_scheduler/replay_cli.py), [reports.py](../src/spectra_scheduler/reports.py) | Runs synthetic comparisons or trained PDW replay with matched sweep/rate controls independently of the GUI. |
 | Browser | [server.py](../web/server.py), [api.py](../web/api.py), [timing_backend.py](../web/timing_backend.py), [static assets](../web/static/) | Imports the core through a web-only adapter; exposes traces, playback, measurements and exports. |
 | Timing training | [timing_refine.py](../src/spectra_scheduler/experiments/timing_refine.py) and [timing model](../src/spectra_scheduler/timing_belief.py) | Trains on CUDA and selects checkpoints using held-out validation. Runtime inference loads the selected local weights. |
 | Pulse ingestion and association | [dataset_io.py](../src/spectra_scheduler/dataset_io.py), [dataset_evaluation.py](../src/spectra_scheduler/dataset_evaluation.py) | Streams TSRD HDF5 recordings and evaluates offline pulse association. |
-| Physical-time replay | [pulse_replay.py](../src/spectra_scheduler/pulse_replay.py), [replay_env.py](../src/spectra_scheduler/replay_env.py), [replay_evaluation.py](../src/spectra_scheduler/replay_evaluation.py) | Provides a separate receiver environment and policy evaluation contract for recorded pulses. |
+| Physical-time replay | [pulse_replay.py](../src/spectra_scheduler/pulse_replay.py), [replay_env.py](../src/spectra_scheduler/replay_env.py), [timing_replay.py](../src/spectra_scheduler/timing_replay.py) | Feeds delivered PDWs into the causal timing history and executes the shared frozen planner through a separate receiver environment. |
 
 The GUI does not train models and currently plays synthetic comparisons, rather
 than recorded-pulse replay. Core modules, CLI commands and training entry points
@@ -53,6 +53,9 @@ The [timing replay adapter](../src/spectra_scheduler/timing_replay.py) reconstru
 causal millisecond history from delivered PDWs and applies the frozen planner to
 physical-time receiver actions. The completed external recording comparison
 verifies this software boundary; it does not demonstrate real RF hardware.
+Uncalibrated PDW amplitude is omitted, and the measured-power gate is explicitly
+disabled when power is unavailable. Raw counts are retained. PDW fine-tunes use
+a distinct checkpoint version, preventing accidental use in the synthetic GUI.
 
 Statistical schedulers, DQN/recurrent RL and Neural-MPC are alternative policy
 families. They are not stages inside the selected timing scheduler. Their

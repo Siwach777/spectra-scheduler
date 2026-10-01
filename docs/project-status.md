@@ -31,9 +31,11 @@ policies under instantaneous bandwidth constraints in simulation and pulse repla
   mapping, observable rewards and time-dependent discounts. A shared inference
   runner measures receiver results and policy latency; paired file-level evaluation
   supports CPU workers. See [replay interface](replay-interface.md).
-- The frozen timing scheduler now receives timestamped, label-free PDW feedback
-  through a whole-ms replay adapter. Ten external synthetic validation recordings
-  completed head-to-head evaluation; no capture gain over sweep was established.
+- The frozen timing scheduler receives timestamped, label-free PDW feedback
+  through a whole-ms replay adapter. Missing-power handling and raw counts were
+  validated on 32 unseen synthetic TSRD recordings: 43.49% capture versus 10.45%
+  for sweep, with 93.35% discovery. Rate-probe still captures more (51.66%).
+  Training-only PDW fine-tuning is implemented; it did not improve unseen results.
 - Experimental learned hit models, DQN, recurrent PPO and recurrent model-based
   search training, with saved artifacts. Physical MPC includes optional Gumbel
   search, elapsed-macro-time input and causal coverage probes. Fresh matched
@@ -102,8 +104,8 @@ dwell/retune semantics, with completed external synthetic recording comparisons.
 
 - Discovery and receiver-shift robustness beyond the completed 300-world development
   comparison. Coverage recovery did not establish a suitable replacement.
-- Training-only adaptation to external PDW rates/features; the inference bridge is
-  implemented, but frozen simulation weights did not outperform the replay rate control.
+- Better generalization of training-only PDW adaptation; the corrected inference
+  bridge beats fixed sweep but still trails the replay rate control in capture.
 - End-to-end streaming, latency/resource profiling and long-run robustness at realistic
   pulse rates.
 - Agreed software acceptance criteria, separate validation/test runs, reproducible

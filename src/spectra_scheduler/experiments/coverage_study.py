@@ -13,7 +13,12 @@ import torch
 from ..scenarios import REQUIREMENT_SCENARIOS
 from ..synthetic_evaluation import evaluate_scheduler
 from ..timing_belief import BeliefPolicyConfig
-from ..timing_coverage import RecoveryConfig, RecoveryTimingPlanner
+from ..timing_coverage import (
+    AcquisitionConfig,
+    AcquisitionTimingPlanner,
+    RecoveryConfig,
+    RecoveryTimingPlanner,
+)
 from ..timing_ensemble import load_predictor
 from ..timing_planner import CalibratedTimingPlannerPolicy
 from .planner_study import batched_planned_results
@@ -44,6 +49,8 @@ def main(arguments=None):
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--runs", type=int, default=32)
     parser.add_argument("--batch-size", type=int, default=20)
+    parser.add_argument("--mode", choices=("recovery", "acquisition"), default="recovery")
+    parser.add_argument("--seed", type=int, default=2000)
     parser.add_argument("--verify-only", action="store_true")
     args = parser.parse_args(arguments)
     if min(args.runs, args.batch_size) < 1:
@@ -60,9 +67,12 @@ def main(arguments=None):
     checkpoint_digest = fingerprint(args.checkpoint)
     coverage_digest = fingerprint(Path(__file__).parent.parent / "timing_coverage.py")
     if args.verify_only:
-        for dwell in (10, 50):
-            factory = partial(RecoveryTimingPlanner, recovery=RecoveryConfig(96, dwell))
-            jobs = [(s, 2000) for s in REQUIREMENT_SCENARIOS]
+        factories = ([partial(RecoveryTimingPlanner, recovery=RecoveryConfig(96, dwell))
+                      for dwell in (10, 50)] if args.mode == "recovery" else
+                     [partial(AcquisitionTimingPlanner, acquisition=AcquisitionConfig(
+                         maximum_relative_loss=loss)) for loss in (0.05, 0.1)])
+        for factory in factories:
+            jobs = [(s, args.seed) for s in REQUIREMENT_SCENARIOS]
             rows, _ = batched_planned_results(model, config, jobs, 2,
                                                scheduler_factory=factory)
             indexed = {r["group"]: r["value"]["evaluation"] for r in rows}
@@ -76,31 +86,40 @@ def main(arguments=None):
         print("Serial and batched CUDA coverage reports agree in six worlds.", flush=True)
         return 0
     candidates = {"incumbent": (config, None)}
-    for revisit in (128, 192, 256):
-        candidates[f"uniform-{revisit}"] = (replace(config, revisit=revisit), None)
-    for revisit in (96, 192):
-        for dwell in (10, 50):
-            for fraction in (0.15, 0.25):
-                recovery = RecoveryConfig(revisit, dwell, fraction)
-                candidates[f"recovery-{revisit}-{dwell}-{fraction}"] = (config, recovery)
-    jobs = [(s, seed) for s in REQUIREMENT_SCENARIOS for seed in range(2000, 2000 + args.runs)]
+    if args.mode == "recovery":
+        for revisit in (128, 192, 256):
+            candidates[f"uniform-{revisit}"] = (replace(config, revisit=revisit), None)
+        for revisit in (96, 192):
+            for dwell in (10, 50):
+                for fraction in (0.15, 0.25):
+                    recovery = RecoveryConfig(revisit, dwell, fraction)
+                    candidates[f"recovery-{revisit}-{dwell}-{fraction}"] = (config, recovery)
+    else:
+        for fraction in (0.1, 0.2):
+            for loss in (0.05, 0.1):
+                extension = AcquisitionConfig(fraction=fraction, maximum_relative_loss=loss)
+                candidates[f"acquisition-10-{fraction}-{loss}"] = (config, extension)
+    jobs = [(s, seed) for s in REQUIREMENT_SCENARIOS
+            for seed in range(args.seed, args.seed + args.runs)]
     with run_lock(args.run_dir):
         if (args.run_dir / "selection.json").exists():
             raise ValueError("selection already exists")
         results = {}
         for name, (policy, recovery) in candidates.items():
             factory = (CalibratedTimingPlannerPolicy if recovery is None else
-                       partial(RecoveryTimingPlanner, recovery=recovery))
+                       partial(RecoveryTimingPlanner, recovery=recovery) if args.mode == "recovery"
+                       else partial(AcquisitionTimingPlanner, acquisition=recovery))
             rows, profile = batched_planned_results(model, policy, jobs, args.batch_size,
                                                     scheduler_factory=factory)
-            results[name] = {"policy": asdict(policy), "recovery": (
+            results[name] = {"policy": asdict(policy), args.mode: (
                 asdict(recovery) if recovery is not None else None),
                 "means": selection_means(rows), "profile": profile, "results": rows}
             write_json(args.run_dir / "progress.json", results)
             print(json.dumps({"candidate": name, "means": results[name]["means"]}), flush=True)
         incumbent = results["incumbent"]["means"]
+        retention = 0.90 if args.mode == "recovery" else 0.95
         eligible = [n for n, row in results.items() if all(
-            row["means"][s]["capture"] >= 0.90 * incumbent[s]["capture"]
+            row["means"][s]["capture"] >= retention * incumbent[s]["capture"]
             and row["means"][s]["discovery"] >= incumbent[s]["discovery"]
             for s in REQUIREMENT_SCENARIOS)]
         selected = max(eligible, key=lambda n: (
@@ -111,8 +130,10 @@ def main(arguments=None):
         ) != coverage_digest:
             raise ValueError("model or coverage implementation changed during selection")
         report = {"checkpoint_sha256": checkpoint_digest,
-            "selection_seeds": list(range(2000, 2000 + args.runs)),
-            "rule": "retain >=90% capture, no discovery loss per scenario; maximize discovery",
+            "selection_seeds": list(range(args.seed, args.seed + args.runs)),
+            "mode": args.mode,
+            "rule": f"retain >={retention:.0%} capture, no discovery loss per scenario; "
+                    "maximize discovery",
             "selected": selected, "eligible": eligible, "candidates": results,
             "scope": "development selection only; no guaranteed discovery",
             "source_sha256": coverage_digest}

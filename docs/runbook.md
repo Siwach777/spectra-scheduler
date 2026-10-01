@@ -15,6 +15,7 @@ This manual covers the backend console and experiment commands. The
 | Open the browser comparison interface | `.venv-rl/bin/python web/server.py --timing-model PATH` |
 | Screen Whittle and scan handover controls | `.venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study` |
 | Select coverage without retraining | `.venv-rl/bin/python -m spectra_scheduler.experiments.coverage_study` |
+| Diagnose discovery / report frozen coverage | `.venv-rl/bin/python -m spectra_scheduler.experiments.timing_discovery` / `.venv-rl/bin/python -m spectra_scheduler.experiments.coverage_report` |
 | Run the older comparison script | `.venv/bin/python scripts/run_comparison.py` |
 | Check downloaded HDF5 files | `.venv/bin/python -m spectra_scheduler.dataset_cli inspect` |
 | Benchmark offline pulse clustering | `.venv/bin/python -m spectra_scheduler.dataset_cli evaluate` |
@@ -25,10 +26,13 @@ This manual covers the backend console and experiment commands. The
 | Fit the demonstration-based MPC model | `.venv-rl/bin/python -m spectra_scheduler.neural_mpc` |
 | Train, resume or evaluate search-driven MPC | `.venv-rl/bin/python -m spectra_scheduler.mpc_training` |
 | Run a fixed sweep on pulse replay | `.venv/bin/python -m spectra_scheduler.replay_cli` |
+| Run trained timing replay with matched sweep / rate controls | `.venv-rl/bin/python -m spectra_scheduler.replay_cli --timing-model PATH --retune-us 2000 --compare-controls` |
 | Compare replay policies | `.venv/bin/python -m spectra_scheduler.replay_evaluation` |
 | Validate frozen timing on external stare PDWs | `.venv-rl/bin/python -m spectra_scheduler.experiments.timing_replay_study` |
+| Check replay input transfer / fine-tune on training PDWs | `.venv-rl/bin/python -m spectra_scheduler.experiments.timing_replay_transfer` / `.venv-rl/bin/python -m spectra_scheduler.experiments.timing_pdw_refine` |
 | Create or reuse a frozen multi-policy benchmark | `.venv/bin/python -m spectra_scheduler.policy_benchmark` |
 | Run the full test suite | `.venv/bin/python -m pytest -q` |
+| Rebuild the editable submission slides and PDF | `.venv/bin/python ppt/build_presentation.py` |
 
 The learning commands require additional arguments, shown below. The examples use
 the virtual environment's Python explicitly: shell activation is not required.

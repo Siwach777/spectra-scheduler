@@ -74,6 +74,22 @@ scenario. The experimental recovery policy is not enabled in the CLI or GUI.
 The completed selection is `artifacts/coverage-opportunity-v2/selection.json`.
 Short probes and band coverage do not guarantee interception of brief windows.
 
+A later diagnosis found nine missed spatial emitters in 96 development worlds;
+eight never transmitted during the receiver's listening ticks on their bands.
+Acquisition extensions therefore consolidate already-selected short probes,
+using measured-power support, at most 10% added elapsed time and a 5% forecast
+opportunity-cost gate. Extensions begin only after a reliable signal is observed;
+initial search and mandatory coverage are preserved.
+
+On 300 fresh worlds (seeds 54000–54099), spatial discovery changed from 81.0% to
+83.5%, with paired difference 2.5 points [-2.5, 7.5]; capture changed from 48.65%
+to 49.00%. Agile capture changed from 35.34% to 34.83%, and periodic from 66.38%
+to 66.44%; discovery in those scenarios was unchanged. The spatial discovery gain
+is not established, so this extension is also experimental and the CLI/GUI retain
+the incumbent. Fixed sweeps, adaptive controls, the phase planner and both MPC
+models used identical fresh worlds and physical-time budgets. See the
+[acquisition evidence](../reports/timing-acquisition-summary.json).
+
 Run a new selection without retraining:
 
 ```bash
@@ -81,6 +97,11 @@ Run a new selection without retraining:
   --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
   --run-dir artifacts/coverage-selection-new --runs 32 --batch-size 20
 ```
+
+Use `--mode acquisition` for contiguous extensions. Diagnose completed episodes
+with `timing_discovery`; report a frozen choice with `coverage_report`, passing
+`--coverage-selection`, the existing `--control-selection`, and the saved `--mpc`
+checkpoints. Discovery diagnostics join truth only after scheduling finishes.
 
 ### Matched scan controls
 

@@ -14,11 +14,34 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -m spectra_scheduler.r
   --output reports/generated/stare-replay.json
 ```
 
-This runs a fixed sweep, not an ML policy. `--help` lists receiver, memory and
-detection settings. Only completed files in the selected stare split are discovered.
+This runs a fixed sweep. `--help` lists receiver, memory and detection settings.
+Only completed files in the selected stare split are discovered.
 The same command with `--split val` or `test` evaluates a separate split; keep test
 data out of training and tuning. A file index refers to the sorted discovered paths;
 the output records the actual path. No downloads or dataset modifications occur.
+
+Run the selected frozen timing model on CUDA, alongside matched fixed-sweep and
+RateProbe controls:
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv-rl/bin/python -m spectra_scheduler.replay_cli \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --split val --file-index 0 --retune-us 2000 --stop-us 10000000 \
+  --detection-probability 0.9 --compare-controls \
+  --output reports/generated/timing-stare-replay.json
+```
+
+The model uses its saved 1/10/50-ms dwell menu; `--dwell-us` applies only to the
+fixed-sweep command. Timing replay requires whole millisecond start, stop and
+retune settings and rejects fractional slew timing. It fails if CUDA is unavailable.
+The default `--timing-adapter missing-power` retains raw delivered counts and omits
+the calibrated-power gate because TSRD amplitude is not dBm. `legacy` reproduces
+the old input handling for ablations. The JSON includes the checkpoint hash,
+receiver contract, per-policy capture/discovery and explicit unavailable forecast
+metrics. Output cannot overwrite the dataset or checkpoint.
+
+This command compares one recording; the frozen 32-recording aggregate and its
+paired intervals are in the [replay results](replay-interface.md#frozen-timing-scheduler-on-external-recordings).
 
 ## Interactive interface
 
@@ -38,8 +61,9 @@ Creating another environment starts a new episode. `step` returns only receiver
 timing, center frequency, observed PDWs and overflow count. PDW columns are ToA in
 microseconds, frequency in MHz, width in microseconds, angle in degrees, amplitude
 in dataset dB units. Amplitude is **not** silently reinterpreted as calibrated dBm.
-Labels remain evaluator-only and file-local. Existing abstract schedulers and MPC
-are unchanged; they are not automatically trained or evaluated on this new interface.
+Labels remain evaluator-only and file-local. The timing adapter reconstructs causal
+history from delivered pulse timestamps and listening masks. Old discrete-step MPC
+checkpoints require their own compatible replay adapter.
 
 ## Receiver contract
 

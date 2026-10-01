@@ -53,11 +53,16 @@ The [findings](docs/timing-model-findings.md) and
 [public benchmark summary](reports/timing-selected-summary.json) include paired
 intervals, discovery, selection rules and artifact provenance.
 
-External TSRD PDW replay now exercises the same frozen scheduler end to end.
-On ten validation recordings, capture was 10.19%, versus 10.91% for fixed sweep
-and 43.97% for a rate-probe control. This exposes a transfer gap; TSRD is synthetic
-radar data, not real RF or hardware validation. See the
+External TSRD PDW replay now exercises the frozen scheduler end to end. Correctly
+handling unavailable measurement power and retaining raw pulse counts raised
+capture from **9.85% to 43.49%** on 32 unseen validation recordings. Fixed sweep
+captured 10.45% and rate-probe 51.66%; the corrected model discovered 93.35% of
+emitters versus rate-probe's 84.39%. A training-only fine-tune did not improve
+unseen results. TSRD is synthetic radar data, not real RF or hardware validation.
+See the [external evidence](reports/timing-pdw-summary.json) and
 [replay interface and results](docs/replay-interface.md#frozen-timing-scheduler-on-external-recordings).
+The [replay CLI](docs/pulse-replay.md#run) runs the trained model and matched
+controls on an individual recording.
 
 With optional compiled planning and captured CUDA inference, warmed serial p99
 was **0.464–0.532 ms** on the RTX 5070 Laptop GPU, with no 1-ms budget violations
@@ -128,6 +133,7 @@ CUDA and run separately from CI.
 - [Running manual](docs/runbook.md): environment, commands and troubleshooting.
 - [Project status](docs/project-status.md): implemented features and remaining gaps.
 - [Architecture](docs/architecture.md): interfaces and causal observation boundaries.
+- [Submission slides](ppt/Spectra-Scheduler-SIH2026.pptx), [PDF](ppt/Spectra-Scheduler-SIH2026.pdf) and [rebuild instructions](ppt/README.md).
 - [Evaluation contract](docs/evaluation-contract.md) and [report format](docs/report-format.md).
 - [Timing findings](docs/timing-model-findings.md): selected model, controls and measured limitations.
 - [Dataset workflow](docs/dataset-workflow.md), [pulse replay](docs/pulse-replay.md) and [replay policy interface](docs/replay-interface.md).

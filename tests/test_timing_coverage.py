@@ -5,7 +5,13 @@ import pytest
 
 from spectra_scheduler.simulation import SyntheticAction
 from spectra_scheduler.timing_belief import BeliefPolicyConfig, TimingHistory
-from spectra_scheduler.timing_coverage import RecoveryConfig, RecoveryTimingPlanner
+from spectra_scheduler.models import Observation, SignalMeasurement
+from spectra_scheduler.timing_coverage import (
+    AcquisitionConfig,
+    AcquisitionTimingPlanner,
+    RecoveryConfig,
+    RecoveryTimingPlanner,
+)
 
 
 def policy():
@@ -67,3 +73,50 @@ def test_invalid_recovery_settings_fail():
         RecoveryConfig(fraction=1.1)
     with pytest.raises(ValueError):
         RecoveryConfig(revisit=0)
+
+
+def acquisition_policy():
+    scheduler = object.__new__(AcquisitionTimingPlanner)
+    source = policy()
+    scheduler.__dict__.update(source.__dict__)
+    scheduler.acquisition = AcquisitionConfig(fraction=0.1)
+    scheduler.reliable_hits = np.array([3, 0, 0])
+    scheduler.power_threshold = 0.5
+    scheduler.acquisition_ticks = 0
+    scheduler._pending_acquisition = None
+    scheduler.history.time = 150
+    return scheduler
+
+
+def test_acquisition_extends_already_selected_band_and_charges_only_added_time():
+    scheduler = acquisition_policy()
+    values = np.zeros((3, 3))
+    values[1, 0], values[1, 1] = 10, 9.7
+    action = scheduler.filter_coverage_action(None, values)
+    assert action == SyntheticAction(1, 10)
+    scheduler.accept_action(150, np.zeros((3, 80)), action)
+    assert scheduler.acquisition_ticks == 9
+    scheduler.acquisition_ticks = 45
+    assert scheduler.filter_coverage_action(None, values) is None
+
+
+def test_acquisition_preserves_first_signal_search_and_rejects_expensive_extension():
+    scheduler = acquisition_policy()
+    values = np.zeros((3, 3))
+    values[1, 0], values[1, 1] = 10, 9.7
+    scheduler.reliable_hits[:] = 0
+    assert scheduler.filter_coverage_action(None, values) is None
+    scheduler.reliable_hits[0] = 3
+    values[1, 1] = 5
+    assert scheduler.filter_coverage_action(None, values) is None
+    forced = SyntheticAction(2, 10)
+    assert scheduler.filter_coverage_action(forced, values) == forced
+
+
+def test_acquisition_evidence_uses_measured_power_instead_of_raw_hit_flag():
+    scheduler = acquisition_policy()
+    scheduler.observe(Observation(150, 1, 1, measurements=(SignalMeasurement(-95),)))
+    assert scheduler.history.hits[1] == 1
+    assert scheduler.reliable_hits[1] == 0
+    scheduler.observe(Observation(151, 1, 1, measurements=(SignalMeasurement(-60),)))
+    assert scheduler.reliable_hits[1] == 1
