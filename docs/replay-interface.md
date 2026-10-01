@@ -12,6 +12,41 @@ without sharing network architectures, optimizers or training loops.
 | `replay_evaluation.py` | Policy contract, episode runner, paired reference checks |
 | Existing `mpc/` modules | Strategy-specific model, search, learning, checkpoints |
 
+## Frozen timing scheduler on external recordings
+
+The trained timing model can now run through this receiver interface. `Transition`
+includes `receiver_observation`, containing only the executed window's delivered
+PDWs and public timing. Policies implementing `observe_pulses(observation)` receive
+this feedback after the action; emitter labels and future arrivals remain evaluator-only.
+The original compact feature vector and policy `reset/act` contract remain available.
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.timing_replay_study \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --run-dir artifacts/timing-replay-new --max-files 10 --workers 20 --batch-size 20
+```
+
+This freezes ten validation stare recordings before comparison. The receiver uses
+eight 2250-MHz passbands, 2-ms retuning, 90% detection probability and the model's
+1/10/50-ms listening dwells, over each complete 10-second recording. The adapter
+requires whole 1-ms ticks and rejects fractional slew/retune timing. It uses actual
+PDW timestamps to reconstruct listening masks and counts, capped at four per tick.
+Dataset amplitude is not calibrated dBm, so the pretrained power channel is zeroed.
+It does not claim calibrated forecasts on these recordings or train on validation data.
+
+Mean capture/discovery across ten independent files was 10.19%/96.15% for the
+frozen model, 10.91%/94.79% for the 50-ms sweep and 43.97%/82.68% for the causal
+rate-probe control. The model's capture difference from sweep was -0.72 percentage
+points, interval [-1.60, 0.57]; this establishes no capture gain. The full loop is
+implemented, but simulation gains do not automatically transfer to external PDWs.
+These are external **synthetic** recordings, not real RF or hardware-in-the-loop.
+See the [public summary](../reports/timing-replay-summary.json) for hashes and intervals.
+Serial and batched CUDA counts agreed on two separate recording windows.
+
+Recording-specific feature calibration and training-only adaptation remain necessary
+before claiming a robust transferred model. Use `--verify-only --max-files 2` for
+the serial/batched integration check.
+
 ## Environment contract
 
 `ReplayEnv(path, receiver, interface)` accepts `ReplayConfig` and `InterfaceConfig`.

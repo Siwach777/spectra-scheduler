@@ -26,6 +26,7 @@ This manual covers the backend console and experiment commands. The
 | Train, resume or evaluate search-driven MPC | `.venv-rl/bin/python -m spectra_scheduler.mpc_training` |
 | Run a fixed sweep on pulse replay | `.venv/bin/python -m spectra_scheduler.replay_cli` |
 | Compare replay policies | `.venv/bin/python -m spectra_scheduler.replay_evaluation` |
+| Validate frozen timing on external stare PDWs | `.venv-rl/bin/python -m spectra_scheduler.experiments.timing_replay_study` |
 | Create or reuse a frozen multi-policy benchmark | `.venv/bin/python -m spectra_scheduler.policy_benchmark` |
 | Run the full test suite | `.venv/bin/python -m pytest -q` |
 

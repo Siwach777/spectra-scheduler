@@ -31,6 +31,9 @@ policies under instantaneous bandwidth constraints in simulation and pulse repla
   mapping, observable rewards and time-dependent discounts. A shared inference
   runner measures receiver results and policy latency; paired file-level evaluation
   supports CPU workers. See [replay interface](replay-interface.md).
+- The frozen timing scheduler now receives timestamped, label-free PDW feedback
+  through a whole-ms replay adapter. Ten external synthetic validation recordings
+  completed head-to-head evaluation; no capture gain over sweep was established.
 - Experimental learned hit models, DQN, recurrent PPO and recurrent model-based
   search training, with saved artifacts. Physical MPC includes optional Gumbel
   search, elapsed-macro-time input and causal coverage probes. Fresh matched
@@ -89,14 +92,14 @@ RF validation.
 
 Both the abstract synthetic simulator and the physical-time PDW replay engine are
 implemented and tested. Replay supports continuous-frequency passbands and explicit
-dwell/retune semantics, with a real-data full-recording smoke run.
+dwell/retune semantics, with completed external synthetic recording comparisons.
 
 ## Ongoing software development
 
-- Larger fresh-world assessment of the refined timing checkpoint, including discovery,
-  reacquisition, independent training seeds and stronger receiver shifts. Existing
-  evidence covers development simulations; small screening runs are not final validation.
-- Replay-to-learning integration for end-to-end policy training and evaluation.
+- Discovery and receiver-shift robustness beyond the completed 300-world development
+  comparison. Coverage recovery did not establish a suitable replacement.
+- Training-only adaptation to external PDW rates/features; the inference bridge is
+  implemented, but frozen simulation weights did not outperform the replay rate control.
 - End-to-end streaming, latency/resource profiling and long-run robustness at realistic
   pulse rates.
 - Agreed software acceptance criteria, separate validation/test runs, reproducible

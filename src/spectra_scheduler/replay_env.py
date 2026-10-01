@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from .action_contract import DWELL_US
-from .pulse_replay import DwellAction, PulseReplay, ReplayConfig
+from .pulse_replay import DwellAction, PulseObservation, PulseReplay, ReplayConfig
 from .replay_features import FEATURE_NAMES, FEATURE_VERSION, ReplayFeatures
 
 
@@ -48,6 +48,7 @@ class Transition:
     terminated: bool
     discount: float
     elapsed_us: float
+    receiver_observation: PulseObservation | None = None
 
 
 def tune_centers(receiver: ReplayConfig, interface: InterfaceConfig) -> np.ndarray:
@@ -134,7 +135,9 @@ class ReplayEnv:
         reward = len(obs.pulses) / cfg.pulse_scale - cfg.retune_cost * retune / cfg.reference_us
         done = self._replay.done
         discount = 0.0 if done else cfg.gamma ** (elapsed / cfg.reference_us)
-        return Transition(self._features.encode(obs.end_us, band), reward, done, discount, elapsed)
+        return Transition(
+            self._features.encode(obs.end_us, band), reward, done, discount, elapsed, obs
+        )
 
     def metrics(self):
         if self._replay is None:

@@ -61,6 +61,19 @@ def test_reset_reward_time_discount_and_terminal(recording):
         np.testing.assert_array_equal(first.observation, env.step(1).observation)
 
 
+def test_receiver_callback_exposes_only_executed_window_pdws(recording):
+    class ObservingPolicy(ReferencePolicy):
+        def observe_pulses(self, observation):
+            assert observation.pulses.ndim == 2 and observation.pulses.shape[1] == 5
+            assert not hasattr(observation, "labels")
+            self.last_end = observation.end_us
+
+    receiver, interface = settings()
+    policy = ObservingPolicy()
+    evaluate_policy(recording, policy, receiver, interface)
+    assert policy.last_end == receiver.stop_us
+
+
 def test_overlapping_centers_match_dense_labels_and_slew(recording):
     from spectra_scheduler.experiments.dense_replay import DenseReplayIndex
 

@@ -71,6 +71,8 @@ def evaluate_policy(path, policy: Policy, receiver=None, interface=None):
             inference_seconds += latency
             maximum_latency = max(maximum_latency, latency)
             transition = env.step(action)
+            if hasattr(policy, "observe_pulses"):
+                policy.observe_pulses(transition.receiver_observation)
             evaluation.add(env.evaluation_outcome(), transition.reward, forecast)
             reward += transition.reward
             observation = transition.observation
@@ -141,6 +143,8 @@ def evaluate_policy_batch(jobs, factory, interface):
                 action = decision.action if isinstance(decision, Decision) else decision
                 forecast = decision.forecast if isinstance(decision, Decision) else None
                 transition = state["env"].step(action)
+                if hasattr(state["policy"], "observe_pulses"):
+                    state["policy"].observe_pulses(transition.receiver_observation)
                 state["accumulator"].add(
                     state["env"].evaluation_outcome(), transition.reward, forecast
                 )

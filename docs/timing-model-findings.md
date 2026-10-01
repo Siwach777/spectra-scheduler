@@ -389,7 +389,9 @@ matched-action actor and its main comparison from those bytes:
 
 For serial/batched parity, add `--verify-only` to the reporting command. It checks
 selection worlds and does not overwrite a report. The experiment modules provide
-Python integration; a hardware or replay frontend integration is not implemented.
+Python integration; the selected forecaster also has a
+[PDW replay adapter](replay-interface.md#frozen-timing-scheduler-on-external-recordings).
+There is no hardware receiver integration.
 
 ```python
 from pathlib import Path
