@@ -1,9 +1,9 @@
-# Backend status and dataset role
+# Project status and dataset role
 
 ## Scope
 
-Spectra Scheduler is a software-defined spectrum scheduling engine designed for
-cognitive radio and passive wideband spectrum sensing. It evaluates heuristic,
+Spectra Scheduler is a passive, receive-only spectrum scheduling prototype.
+[project_scope.md](project_scope.md) defines its requirements. It evaluates heuristic,
 Bayesian, reinforcement learning, and model predictive control (MPC) scheduling
 policies under instantaneous bandwidth constraints in simulation and pulse replay.
 
@@ -13,7 +13,7 @@ policies under instantaneous bandwidth constraints in simulation and pulse repla
   physical-time replay and a discrete-simulation adapter. Includes prediction
   accuracy/calibration, ratio error, intercept-time error with censoring/coverage,
   time-normalized rewards and explicit unavailable metrics. See the
-  [evaluation contract](evaluation-contract.md). Predictors remain future model work.
+  [evaluation contract](evaluation-contract.md). Causal timing predictors are implemented.
 
 - Discrete-time passive receiver simulator: periodic, hopping, scanning, burst,
   windowed and mode-switching emitters; retuning delays; sensitivity, missed
@@ -38,6 +38,20 @@ policies under instantaneous bandwidth constraints in simulation and pulse repla
   worse capture; neither established learned gains over its own initialization.
   See [MPC assessment](mpc-repair.md). These are experimental policies, not a
   satisfactory final scheduler.
+- A trained timing forecaster with receding-horizon action planning, native
+  1/10/50-tick listening dwells and public retuning costs. The main CLI accepts
+  `--timing-model` and repeatable `--mpc-model` options, with capture/discovery,
+  phase-planner controls and paired reporting. The current selected checkpoint is
+  `artifacts/timing-refine-v1/seed-0/best.pt` (epoch 24); see
+  [timing findings](timing-model-findings.md) and [runbook](runbook.md).
+- Experimental Whittle, golden sweep and observation-driven scan handover controls.
+  Markov belief updates account for receiver errors and elapsed retuning ticks.
+  A nine-world screening run retained the current timing model; these controls
+  remain in `experiments.scan_strategy_study`, outside the main CLI defaults.
+- A browser interface with synchronized head-to-head comparisons, causal receiver
+  traces, playback, model availability and JSON exports. The trained timing policy
+  runs on CUDA through the same planner; the [GUI guide](../web/README.md) documents
+  setup and the HTTP API. Exported simulation truth is for evaluation and display.
 
 ## How the dataset is used now
 
@@ -79,8 +93,9 @@ dwell/retune semantics, with a real-data full-recording smoke run.
 
 ## Ongoing software development
 
-- A learned scheduler that reliably improves held-out performance, including coverage
-  and reacquisition, across multiple seeds and stronger receiver shifts.
+- Larger fresh-world assessment of the refined timing checkpoint, including discovery,
+  reacquisition, independent training seeds and stronger receiver shifts. Existing
+  evidence covers development simulations; small screening runs are not final validation.
 - Replay-to-learning integration for end-to-end policy training and evaluation.
 - End-to-end streaming, latency/resource profiling and long-run robustness at realistic
   pulse rates.

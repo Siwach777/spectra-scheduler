@@ -1,8 +1,10 @@
 # Requirement scenarios, paired benchmarks and predictor adapters
 
-This stage supplies reproducible evaluation and learner interfaces. No production
-training or learned-performance claim accompanies it. The metric definitions are
-in [evaluation-contract.md](evaluation-contract.md).
+This document covers reproducible evaluation and the reference learner interfaces.
+Results for the subsequently trained timing scheduler are in
+[timing-model-findings.md](timing-model-findings.md); its CLI and Python integration
+are documented in [runbook.md](runbook.md). Metric definitions are in
+[evaluation-contract.md](evaluation-contract.md).
 
 ## Dedicated scenarios
 

@@ -6,7 +6,7 @@ details because they do not affect simulation output.
 
 ## Common metadata
 
-Every report contains:
+Legacy simulator reports contain:
 
 - `schema_version`: the report contract version;
 - `scenario`: the selected built-in scenario;
@@ -37,3 +37,23 @@ self-describing.
 Readers should reject an unsupported `schema_version` instead of guessing field
 meaning. Adding a new optional metric does not require changing existing meanings;
 renaming or redefining a field requires a new schema version.
+
+## Trained timing comparisons
+
+The main CLI's `--timing-model` path writes JSON schema version 2 with
+`backend: synthetic_timing`. It retains scenario/seed metadata and adds
+`checkpoint_sha256`, `policy`, `baseline`, `summary`, per-world `results`,
+`resources` and an explicit development-comparison `scope`. Every paired policy
+receives the same truth denominator and physical time budget. Capture ratios
+with no truth pulses are unavailable, rather than scored as zero.
+
+`summary` includes metric means, contributing and paired group counts, paired
+mean differences and bootstrap intervals against the declared listening-dwell
+round-robin baseline. CUDA/host peak memory and elapsed profiling durations are
+stored under `resources`; no calendar timestamp is added.
+
+Timing CSV uses one row per policy/metric, with columns `policy`, `metric`, `mean`,
+`groups`, `paired_groups`, `paired_mean_difference` and `paired_bootstrap_95_interval`.
+Use JSON when full per-world results and checkpoint provenance are needed.
+Experimental scan-study JSON has its own frozen configuration and results layout;
+it is not the main CLI schema.

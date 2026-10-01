@@ -38,11 +38,10 @@ build/
 *.hdf5
 *.parquet
 
-# Local presentations and graphical clients
+# Local presentations and legacy graphical clients
 ppt/
 gui/
 GUI/
-/web/
 
 # Local development guidance and handoff notes
 /AGENTS.md

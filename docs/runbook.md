@@ -2,7 +2,8 @@
 
 This manual explains which command to run for each task. All commands assume a
 terminal opened in the repository root (`spectra-scheduler`), not its parent folder.
-There is currently no GUI or API server to start.
+This manual covers the backend console and experiment commands. The
+[browser guide](../web/README.md) covers the GUI and its HTTP API.
 
 ## Command map
 
@@ -10,11 +11,21 @@ There is currently no GUI or API server to start.
 | --- | --- |
 | Download or resume the dataset | `bash scripts/download_dataset.sh 32` |
 | Compare existing scheduling strategies | `.venv/bin/python -m spectra_scheduler` |
+| Compare trained timing with round-robin and saved MPC | `.venv-rl/bin/python -m spectra_scheduler --timing-model PATH` |
+| Open the browser comparison interface | `.venv-rl/bin/python web/server.py --timing-model PATH` |
+| Screen Whittle and scan handover controls | `.venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study` |
 | Run the older comparison script | `.venv/bin/python scripts/run_comparison.py` |
 | Check downloaded HDF5 files | `.venv/bin/python -m spectra_scheduler.dataset_cli inspect` |
 | Benchmark offline pulse clustering | `.venv/bin/python -m spectra_scheduler.dataset_cli evaluate` |
 | Train a hit-prediction model | `.venv/bin/python -m spectra_scheduler.learning_cli train` |
 | Evaluate a saved scheduling model | `.venv/bin/python -m spectra_scheduler.learning_cli evaluate` |
+| Train or benchmark the NumPy DQN reference | `.venv/bin/python -m spectra_scheduler.rl_cli` |
+| Train or assess recurrent PPO | `.venv-rl/bin/python -m spectra_scheduler.recurrent_cli` |
+| Fit the demonstration-based MPC model | `.venv-rl/bin/python -m spectra_scheduler.neural_mpc` |
+| Train, resume or evaluate search-driven MPC | `.venv-rl/bin/python -m spectra_scheduler.mpc_training` |
+| Run a fixed sweep on pulse replay | `.venv/bin/python -m spectra_scheduler.replay_cli` |
+| Compare replay policies | `.venv/bin/python -m spectra_scheduler.replay_evaluation` |
+| Create or reuse a frozen multi-policy benchmark | `.venv/bin/python -m spectra_scheduler.policy_benchmark` |
 | Run the full test suite | `.venv/bin/python -m pytest -q` |
 
 The learning commands require additional arguments, shown below. The examples use
@@ -36,9 +47,35 @@ On another machine, replace the `cd` path with your checkout. Keep all three ext
 when syncing the working environment; syncing fewer extras can remove optional
 packages. Once installed, the commands below run directly without a registry check.
 
-Installed shorthand commands are `spectra-scheduler`, `spectra-dataset` and
-`spectra-learn` under `.venv/bin/`. For example, `.venv/bin/spectra-learn train`
+Installed shorthand commands are `spectra-scheduler`, `spectra-dataset`,
+`spectra-learn` and `spectra-rl` under `.venv/bin/`. For example, `.venv/bin/spectra-learn train`
 is equivalent to `.venv/bin/python -m spectra_scheduler.learning_cli train`.
+
+Neural timing, PPO and MPC commands use a separate environment. The installed
+development environment uses PyTorch 2.7.1 with CUDA 12.8; this reproduces its
+Torch build using the [official wheel index](https://pytorch.org/get-started/previous-versions/):
+
+```bash
+uv venv .venv-rl --python 3.12
+uv pip install --python .venv-rl/bin/python torch==2.7.1 \
+  --index-url https://download.pytorch.org/whl/cu128
+uv pip install --python .venv-rl/bin/python -e '.[dataset,learning,dev]'
+```
+
+For recurrent PPO, also install its optional dependencies:
+
+```bash
+uv pip install --python .venv-rl/bin/python \
+  stable-baselines3==2.7.1 sb3-contrib==2.7.1
+```
+
+These packages are not installed by the core project's extras. Training and
+neural validation require a working NVIDIA driver and CUDA access; they fail
+instead of falling back to CPU. CPU simulation, dataset preparation and unit
+checks can use `.venv`. Historical workflows are documented in
+[rl-training.md](rl-training.md), [neural-mpc.md](neural-mpc.md) and
+[mpc-training.md](mpc-training.md); pulse commands are covered by
+[pulse-replay.md](pulse-replay.md) and [replay-interface.md](replay-interface.md).
 
 ## 2. Download or resume the dataset
 
@@ -97,6 +134,9 @@ Available scenarios:
 | `tracking` | Following a moving signal |
 | `change` | Responding to an emitter mode change |
 | `crowded` | More crowded traffic and ambiguous signal association |
+| `frequency-agile` | Seeded hopping across eight bands |
+| `spatial-scan` | Periodic visibility of fixed-frequency emitters |
+| `periodic-scan` | Repeating short visibility windows and pulse timing |
 
 Show association metrics without saving a report:
 
@@ -127,6 +167,8 @@ without `--timing-model`.
 ```bash
 .venv-rl/bin/python -m spectra_scheduler \
   --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --mpc-model artifacts/mpc-physical-fresh-control/best.pt \
+  --mpc-model artifacts/mpc-physical-gumbel-fresh/best.pt \
   --scenario frequency-agile --runs 30 --seed 24000 --workers 20 \
   --output reports/generated/timing-agile.json
 ```
@@ -136,6 +178,77 @@ Add repeatable `--mpc-model PATH` options for saved physical MPC checkpoints on
 include full listening-dwell round-robin controls and a non-neural phase predictor
 with the same planner. `--inference-batch-size` defaults to 20; `.csv` output is
 supported. CUDA is required. Track association uses the original comparison.
+
+The selected timing checkpoint is epoch 24. Its weights and the MPC artifacts
+must already exist locally; they are not shipped in Git. Use an environment with
+CUDA-enabled PyTorch for these commands. `--workers 20` controls CPU evaluation
+workers; `--inference-batch-size 20` controls concurrent GPU episodes and is
+independent of the training minibatch size. Named requirement scenarios use a
+hashed reporting seed namespace, so their CLI seed is not a raw scenario-builder seed.
+
+For a small scan-strategy screening run, select candidates before evaluating them
+on separate seeds. This reuses trained weights and does not retrain the model:
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --run-dir artifacts/scan-screen-selection --selection-runs 2 \
+  --report-runs 3 --report-seed 29000 --workers 20 --batch-size 8 \
+  --mpc artifacts/mpc-physical-fresh-control/best.pt \
+  --mpc artifacts/mpc-physical-gumbel-fresh/best.pt
+
+.venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt --stage report \
+  --selection artifacts/scan-screen-selection/selection.json \
+  --run-dir artifacts/scan-screen-report --workers 20 --batch-size 8 \
+  --mpc artifacts/mpc-physical-fresh-control/best.pt \
+  --mpc artifacts/mpc-physical-gumbel-fresh/best.pt
+```
+
+Use fresh output directories. Source, checkpoint and MPC hashes must match between
+selection and reporting. Here `--batch-size` is the inference batch. Three reporting
+seeds per scenario check execution and obvious regressions; they do not establish
+general superiority. Larger studies default to 32 selection and 100 reporting seeds
+per scenario. Findings and assumptions are in [timing-model-findings.md](timing-model-findings.md).
+
+### Python timing-policy interface
+
+The selected individual checkpoint can also be evaluated through the Python API:
+
+```python
+from pathlib import Path
+from spectra_scheduler.experiments.calibrated_timing import configure_public_detection
+from spectra_scheduler.scenarios import build_requirement_scenario
+from spectra_scheduler.synthetic_evaluation import evaluate_scheduler
+from spectra_scheduler.timing_belief import BeliefPolicyConfig
+from spectra_scheduler.timing_ensemble import load_predictor
+from spectra_scheduler.timing_planner import CalibratedTimingPlannerPolicy
+
+model, metadata = load_predictor(Path("artifacts/timing-refine-v1/seed-0/best.pt"))
+settings = dict(metadata["policy"])
+settings["dwells"] = tuple(settings["dwells"])
+policy = CalibratedTimingPlannerPolicy(model, BeliefPolicyConfig(**settings))
+world = build_requirement_scenario("periodic-scan", seed=42)
+configure_public_detection(world, policy)
+evaluation = evaluate_scheduler(
+    world, policy, step_seconds=0.001,
+    reward=lambda observation: float(observation.hit) - 0.05 * (not observation.listening),
+    reward_description="observed_hit - 0.05 * retuning",
+)
+```
+
+`load_predictor` returns a CUDA model in evaluation mode and its metadata.
+`evaluate_scheduler` configures public retuning/horizon data, resets the policy
+and evaluates causal observations; future truth and emitter identities remain
+outside the policy. This example uses a raw scenario seed. The named-scenario
+CLI instead uses the reporting seed namespace.
+
+Synthetic schedulers and pulse-replay policies have different interfaces:
+synthetic macro policies use `reset(bands)`, `choose_action(time_step)` and
+`observe(observation)` with `SyntheticAction`; pulse-replay policies use
+`reset(specification, seed)` and `act(observation)` with indexed actions or
+`Decision` forecasts. See [replay-interface.md](replay-interface.md) for the
+replay contract and [evaluation-contract.md](evaluation-contract.md) for metric units.
 
 ## 4. Inspect completed dataset files
 
@@ -269,15 +382,17 @@ pytest-style tests. For read-only lint checks on the newly added learning module
 | Location | Contents |
 | --- | --- |
 | `data/tsrd/` | Downloaded data, downloader cache and optional download log |
-| `artifacts/` | Saved model JSON files |
+| `artifacts/` | Local checkpoints, training caches and frozen study reports |
 | `reports/generated/` | Simulator, dataset and learned-policy reports |
 | `docs/` | Usage documentation and experiment explanations |
 
-Data, artifacts and generated reports are Git-ignored. Reusing an output filename
+Data, artifacts and generated reports are Git-ignored. Reusing a console output filename
 replaces the previous report/model; use descriptive distinct names to preserve
 comparisons. The learning evaluator prevents its report from overwriting its input
 model. Reports do not add wall-clock timestamps; optional profiling reports elapsed
 durations.
+Frozen experiment directories have stricter overwrite and resume rules; follow
+their workflow's instructions rather than reusing a completed study directory.
 
 - **Missing module or command:** run the setup command with all extras from the
   repository root. Use `.venv/bin/python`, not a different system interpreter.
@@ -297,4 +412,7 @@ durations.
 .venv/bin/python -m spectra_scheduler.dataset_cli --help
 .venv/bin/python -m spectra_scheduler.learning_cli train --help
 .venv/bin/python -m spectra_scheduler.learning_cli evaluate --help
+.venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study --help
+.venv-rl/bin/python -m spectra_scheduler.mpc_training --help
+.venv-rl/bin/python -m spectra_scheduler.recurrent_cli --help
 ```

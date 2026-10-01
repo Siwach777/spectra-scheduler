@@ -1,5 +1,9 @@
 # Learned scheduling baseline
 
+This workflow covers the portable logistic hit-prediction baseline. The current
+selected CUDA timing planner has a separate checkpoint and command; see
+[timing-model-findings.md](timing-model-findings.md) and [runbook.md](runbook.md).
+
 ## What this stage adds
 
 The project can now collect observation-only training examples, fit a hit predictor,

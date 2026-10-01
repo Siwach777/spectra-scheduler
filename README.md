@@ -3,8 +3,8 @@
 For task-by-task commands, setup and troubleshooting, see the
 [running manual](docs/runbook.md).
 
-A prototype for SIH26055, which asks for a smarter way to scan a wide frequency
-range with a receiver that can listen to only a small part of it at once.
+A passive, receive-only prototype for SIH26055: scheduling a narrow-band receiver
+across a wider spectrum. [Project scope](docs/project_scope.md) defines the requirements.
 
 The Python implementation includes a dynamic emitter simulator, a narrow-band
 receiver, adaptive scan strategies and repeatable evaluation. A separate dataset
@@ -13,26 +13,55 @@ A supervised hit-prediction baseline now supports bounded training, portable JSO
 models and held-out comparison; it is experimental, not the default strategy.
 See [the learning workflow](docs/learning-workflow.md) for commands and measured results.
 
-## Current direction
+## Current capabilities
 
-- Build a small reproducible simulator.
-- Model emitters that enter, leave, scan adjacent bands, or change behaviour.
-- Model received power, sensitivity loss, and repeatable receiver noise.
-- Expose anonymous measured power and pulse width for later signal association.
-- Associate measurements into expiring tracks and schedule confirmed predictions.
-- Account for distance-based retuning cost and adapt dwell after detections.
-- Establish fixed-sweep and random baselines.
-- Add an adaptive scheduler that learns from hits and misses.
-- Forget stale observations so a scheduler can respond to changed emitters.
-- Detect sustained per-band hit-rate changes without exposing simulator truth.
-- Compare every strategy on the same generated scenarios.
-- Consider a Rust engine only if the Python version is demonstrably too slow.
-- Build a graphical interface after the experiments are reliable.
+- Seeded frequency-agile, spatial-scan and periodic-scan simulation with receiver errors.
+- Causal learned timing forecasts and action planning that accounts for retuning.
+- Console comparisons against round-robin, non-neural phase planning and saved MPC models.
+- Browser comparisons with synchronized receiver traces, playback and JSON exports.
+- Observation-based tracking, adaptive dwell, stale-belief forgetting and change detection.
+- Streamed pulse-data ingestion, offline association and physical-time receive-only replay.
+- Paired capture/discovery reports, forecast metrics and bounded CUDA neural evaluation.
 
 See [docs/plan.md](docs/plan.md) for the working plan and
 [docs/implementation-notes.md](docs/implementation-notes.md) for a brief explanation of
 what each part is for. The implementation-facing literature review is in
 [docs/related-work.md](docs/related-work.md).
+
+## Run the trained timing scheduler
+
+The current selected checkpoint is `artifacts/timing-refine-v1/seed-0/best.pt`
+(epoch 24). Supply an existing local checkpoint; weights and reports in `artifacts/`
+are not included in Git. The command requires the CUDA-enabled `.venv-rl` environment.
+See the [environment setup](docs/runbook.md#1-set-up-the-environment) before running it.
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --mpc-model artifacts/mpc-physical-fresh-control/best.pt \
+  --mpc-model artifacts/mpc-physical-gumbel-fresh/best.pt \
+  --scenario periodic-scan --runs 30 --seed 28000 --workers 20 \
+  --output reports/generated/timing-periodic.json
+```
+
+Use `frequency-agile` or `spatial-scan` for the other required behaviors. The
+console prints capture and discovery together; JSON retains per-world results
+and paired intervals. The [timing findings](docs/timing-model-findings.md) distinguish
+checkpoint selection, larger historical comparisons and recent smoke checks.
+Experimental Whittle and scan-handover controls did not replace this checkpoint.
+
+## Run the browser interface
+
+```bash
+.venv-rl/bin/python web/server.py \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt
+```
+
+Open `http://127.0.0.1:8080` and choose the trained timing comparison. Both policies
+receive the same simulated signals and receiver settings. See the
+[GUI and HTTP API guide](web/README.md) for available policies, controls and endpoints,
+and the [video instructions](web/video/README.md) for the selected demonstration.
+The checkpoint is local and requires CUDA; statistical policies also work without it.
 
 ## Run the prototype
 
@@ -60,7 +89,8 @@ Use a focused scenario to inspect one scheduler behavior at a time:
 PYTHONPATH=src python3 scripts/run_comparison.py --scenario change --runs 100
 ```
 
-Available scenarios are `mixed`, `acquisition`, `tracking`, `change`, and `crowded`.
+Available scenarios are `mixed`, `acquisition`, `tracking`, `change`, `crowded`,
+`frequency-agile`, `spatial-scan` and `periodic-scan`.
 The crowded case is longer and deliberately contains emitters with similar measured
 signatures, so it is mainly useful for checking track association.
 

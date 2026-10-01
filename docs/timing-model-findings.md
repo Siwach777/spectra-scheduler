@@ -1,17 +1,70 @@
 # Trained timing scheduler versus MPC and round-robin
 
-## Additional planner refinement
+## Current checkpoint
 
 The timing forecaster now supports receding-horizon action planning and controlled
 warm-start training on planner-generated histories. One seed completed 24 epochs
 of 256 updates, with CUDA batches of 256 and 20 preparation workers. Its selected
 checkpoint is `artifacts/timing-refine-v1/seed-0/best.pt` (epoch 24).
+Its SHA-256 is `f821a7672b5b378154caa89d981893b77a62ddc0119ea74053483aa611ca744f`.
+The planner uses 1/10/50-tick listening dwells, an 80-tick forecast horizon,
+revisit setting 512 and a 10-tick coverage probe. Retuning consumes physical time.
 
 On 32 selection worlds per scenario, capture was 35.33% agile, 52.78% spatial and
 68.75% periodic; discovery was 100%, 85.94% and 100%, respectively. These are
 development selection results, not fresh holdout comparisons. The second seed
 was stopped after epoch 14. The main simulator CLI loads this checkpoint with
 `--timing-model`; see [runbook.md](runbook.md) for the command and paired controls.
+
+## Scan-strategy screening
+
+The audited screening run reused the current checkpoint without changing its
+weights. Two selection seeds per scenario chose control settings; reporting used
+three separate seeds, 28000–28002, for each required scenario. All policies shared
+eight bands, 512 physical ticks, receiver realizations and native listening dwells.
+The saved MPC models retained their own search settings.
+
+Mean per-world true capture percentages on these nine reporting worlds:
+
+| Policy | Frequency-agile | Spatial scan | Periodic scan |
+| --- | ---: | ---: | ---: |
+| Current trained timing planner | 33.92% | 58.47% | 69.00% |
+| Non-neural phase planner | 33.53% | 43.34% | 72.12% |
+| Markov Whittle, 1-tick dwell, no age bonus | 10.14% | 22.51% | 39.74% |
+| Golden acquisition followed by timing planner | 28.27% | 50.76% | 25.75% |
+| Round-robin-50 | 12.09% | 8.83% | 13.57% |
+| PUCT MPC | 12.09% | 0.00% | 31.33% |
+| Gumbel MPC | 11.31% | 4.85% | 13.54% |
+
+The trained planner's discovery was 100%, 83.33% and 100%; round-robin-50
+discovered every emitter in these worlds. Markov Whittle's spatial discovery was
+50%. The phase planner captured more periodic opportunities than the trained
+planner. The selected checkpoint remains unchanged; three seeds per scenario
+are a smoke check, not evidence of universal superiority or a final benchmark.
+
+The full counts, discovery, acquisition times, paired intervals and frozen settings
+are in `artifacts/scan-strategy-audit-report/comparison.json`; its selection is in
+`artifacts/scan-strategy-audit-selection/selection.json`. These are local ignored
+artifacts. Source hashes identify the implementation used when each run executed.
+
+`whittle_policy.py` implements beta-rate and Markov-belief controls, signed
+persistence fitting, receiver-error conditioning and a 256-step numerical subsidy
+index approximation. The stationary rate is estimated separately; the dynamics
+fit is not joint maximum likelihood. Markov beliefs evolve through unobserved
+retuning ticks, and band scores account for public tuning duration.
+`scan_handover.py` feeds the full causal history to the existing timing model
+while acquisition runs. These controls are experimental and are not main CLI defaults.
+
+The numerical index was compared with a reference implementation in five regimes;
+focused checks also cover the closed-form branches in
+[Liu and Zhao](https://arxiv.org/abs/0810.4658), negative-correlation recovery and
+noisy belief updates. Observation-error treatment is related to
+[imperfect-observation restless-bandit analysis](https://arxiv.org/abs/2108.03812).
+Finite lookahead, estimated dynamics and native macro dwells limit applicability
+of the papers' optimality results. Fifteen focused CPU checks passed; neural
+screening used CUDA. Reproduction commands are in [runbook.md](runbook.md).
+
+## Earlier trajectory-policy comparison
 
 A trained causal timing model with a trajectory-trained action policy beats the
 repository's saved PUCT MPC, Gumbel MPC and 50-tick round-robin checkpoints on
@@ -25,7 +78,7 @@ Requirements come exclusively from [project_scope.md](project_scope.md).
 The algorithm choices and primary-paper references are in
 [trajectory-policy-research.md](trajectory-policy-research.md).
 
-## Main comparison with the same action menu
+### Comparison with the same action menu
 
 Each competitor receives the same world, stochastic receiver realization, eight
 bands and 512 physical ticks. One tick is explicitly 1 ms. All learned policies

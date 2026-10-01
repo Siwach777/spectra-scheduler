@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f6f8">
+  <meta name="color-scheme" content="light dark">
+  <title>Spectra Scheduler</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/">Spectra Scheduler <span>Passive receiver scheduling</span></a>
+    <nav aria-label="Views" class="nav-tabs">
+      <button class="nav-tab-btn active" data-tab="tab-cockpit" aria-current="page">Demonstration</button>
+      <button class="nav-tab-btn" data-tab="tab-fom">Results</button>
+      <button class="nav-tab-btn" data-tab="tab-feature-space">Signal tracks</button>
+    </nav>
+    <div class="header-tools"><span class="receive-only">Receive only</span><button id="btn-theme" type="button" aria-label="Toggle color theme">Theme: light</button></div>
+  </header>
+
+  <div class="workspace">
+    <aside class="setup-panel panel">
+      <div class="panel-heading"><h1>Run setup</h1><span class="muted">Simulation</span></div>
+      <form id="run-form">
+        <label for="select-preset">Demonstration</label>
+        <select id="select-preset" disabled></select>
+        <p id="preset-description" class="field-help">Loading demonstration settings…</p>
+        <div class="divider"></div>
+        <label for="select-scenario">Scenario</label>
+        <select id="select-scenario" disabled></select>
+        <label for="select-baseline">Reference policy</label>
+        <select id="select-baseline" disabled></select>
+        <label for="select-active">Comparison policy</label>
+        <select id="select-active" disabled></select>
+        <p id="model-note" class="field-help" hidden></p>
+        <div class="form-row">
+          <div><label for="input-seed">Seed</label><input type="number" id="input-seed" value="42" min="0" max="99999" step="1" required></div>
+          <div><label for="select-variation">Environment</label><select id="select-variation"><option value="">Original</option><option value="frequency-hop">Mid-run hop</option><option value="popup-threat">Added emitter</option></select></div>
+        </div>
+        <details class="receiver-settings">
+          <summary>Receiver settings</summary>
+          <div class="range-heading"><label for="slider-sens">Sensitivity</label><output id="val-sens" for="slider-sens">−90 dBm</output></div>
+          <input type="range" id="slider-sens" min="-110" max="-50" step="1" value="-90">
+          <div class="range-heading"><label for="slider-retune">Retune delay</label><output id="val-retune" for="slider-retune">1 tick</output></div>
+          <input type="range" id="slider-retune" min="0" max="4" step="1" value="1">
+          <p class="field-help">Changing these settings applies to the next run. Dwell is determined by the selected policy.</p>
+        </details>
+        <button id="btn-run-sim" class="btn-primary" type="submit" disabled>Run comparison</button>
+        <p class="field-help setup-note">Both policies observe the same seeded environment, one band at a time.</p>
+      </form>
+    </aside>
+
+    <div class="main-area">
+      <div class="run-heading">
+        <div><h2 id="run-title">Spectrum scan</h2><p id="run-meta" class="muted">Preparing the demonstration…</p></div>
+        <div class="run-actions"><span id="run-status" role="status" aria-live="polite">Loading</span><button id="btn-export" disabled>Export run</button></div>
+      </div>
+      <div id="error-banner" class="error-banner" role="alert" hidden></div>
+      <div id="run-diagnostics" class="run-diagnostics" role="status" hidden></div>
+      <p id="pending-note" class="pending-note" hidden>Setup changed. Run comparison to apply these settings.</p>
+
+      <main id="tab-cockpit" class="tab-content active">
+        <section class="panel scan-panel" aria-label="Frequency-time scan">
+          <div class="chart-toolbar">
+            <div class="waterfall-view-modes" aria-label="Receiver traces">
+              <button class="view-mode-pill active" data-view="active" aria-pressed="true">Comparison</button>
+              <button class="view-mode-pill" data-view="baseline" aria-pressed="false">Reference</button>
+              <button class="view-mode-pill" data-view="dual" aria-pressed="false">Both</button>
+            </div>
+            <label class="check-label" for="fog-toggle"><input type="checkbox" id="fog-toggle" checked> Show simulation truth</label>
+          </div>
+          <div class="waterfall-stage-wrapper">
+            <div id="waterfall-axis-y" class="waterfall-axis-y" aria-label="Frequency bands"></div>
+            <div class="canvas-layers-container">
+              <canvas id="waterfall-raster" class="canvas-layer" aria-hidden="true"></canvas>
+              <canvas id="waterfall-hud" class="canvas-layer" aria-label="Receiver observations across frequency bands and simulation ticks"></canvas>
+              <div id="waterfall-tooltip" class="waterfall-tooltip"></div>
+              <div id="chart-empty" class="chart-empty">Preparing the scan…</div>
+            </div>
+          </div>
+          <div class="time-axis"><span id="time-start">0</span><span>Simulation tick</span><span id="time-end">119</span></div>
+          <div class="chart-legend">
+            <span><i class="key comparison-key"></i>Comparison detection</span>
+            <span><i class="key reference-key"></i>Reference detection</span>
+            <span><i class="key retune-key"></i>Retuning</span>
+            <span><i class="key alarm-key"></i>False alarm</span>
+            <span id="truth-legend"><i class="key truth-key"></i>Simulated signal power</span>
+          </div>
+          <div class="waterfall-playback-deck">
+            <div class="scrubber-ribbon-wrapper">
+              <canvas id="scrubber-ribbon" height="22" aria-hidden="true"></canvas>
+              <div id="scrubber-playhead" class="scrubber-playhead-line"></div>
+              <input id="timeline" type="range" min="0" max="0" value="0" aria-label="Seek to simulation tick" disabled>
+            </div>
+            <div class="playback-controls-row">
+              <div class="playback-buttons">
+                <button id="btn-prev" title="Previous tick (left arrow)" aria-label="Previous tick" disabled>‹</button>
+                <button id="btn-play" class="play-button" title="Play or pause (space)" disabled>Play</button>
+                <button id="btn-next" title="Next tick (right arrow)" aria-label="Next tick" disabled>›</button>
+                <label class="speed-label" for="select-speed">Speed <select id="select-speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="5">5×</option></select></label>
+              </div>
+              <span id="tick-counter-val" class="tick-readout">Tick 0 / 0</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="observation-strip panel"><span id="current-observation">No observation loaded.</span><span id="current-reference" class="muted"></span></div>
+        <p id="demo-outcome" class="demo-outcome" role="status"></p>
+        <div class="section-heading"><h3>Receiver progress</h3><span id="progress-caption" class="muted">Through the current playback tick</span></div>
+        <div id="summary-grid" class="summary-grid"></div>
+        <details class="panel policy-details">
+          <summary>Policy state at the current tick</summary>
+          <div class="policy-state"><div><h3 id="belief-title">Band beliefs</h3><div id="belief-bars-container"></div></div><div><h3 id="ucb-title">Exploration scores</h3><div id="ucb-stack-container"></div></div></div>
+          <p id="detector-alert-banner" class="field-help"></p>
+        </details>
+      </main>
+
+      <main id="tab-fom" class="tab-content">
+        <section class="panel results-panel">
+          <div class="panel-heading"><h3>Measured results</h3><span class="muted">Complete run · independent of playback position</span></div>
+          <div class="table-wrapper"><table class="results-table"><thead><tr><th scope="col">Metric</th><th scope="col" id="results-reference">Reference</th><th scope="col" id="results-comparison">Comparison</th></tr></thead><tbody id="fom-grid-container"></tbody></table></div>
+          <div id="results-capabilities" class="results-note"></div>
+          <details class="metric-notes"><summary>How these measurements are evaluated</summary><p>Detection probability is conditional on detectable signals on the listening band. Interception ratio uses all simulated signals, including other bands. First detection and reacquisition delays use the run horizon for unresolved emitters or changes; those bounds are marked in the table. These are single-run simulator measurements, not benchmark averages.</p></details>
+        </section>
+      </main>
+
+      <main id="tab-feature-space" class="tab-content">
+        <div class="section-heading"><h3>Anonymous signal tracks</h3><span class="muted">Comparison policy · end of run</span></div>
+        <p class="field-help">Tracks use measured power and pulse width. Green circles: confirmed (3+ observations); amber: tentative; outlines: archived.</p>
+        <section class="panel plot-canvas-wrapper"><canvas id="feature-space-canvas" aria-label="Signal tracks by pulse width and measured power"></canvas></section>
+        <section class="panel track-panel"><div class="table-wrapper"><table class="track-table"><thead><tr><th scope="col">Track</th><th scope="col">Band</th><th scope="col">Power (dBm)</th><th scope="col">Pulse width (µs)</th><th scope="col">Observations</th><th scope="col">State</th></tr></thead><tbody id="track-table-body"><tr><td colspan="6">No run loaded.</td></tr></tbody></table></div></section>
+      </main>
+      <footer class="app-footer"><span>Simulation playback · truth is used for evaluation, never for policy decisions.</span><span>Space: play / pause · ← →: step</span></footer>
+    </div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

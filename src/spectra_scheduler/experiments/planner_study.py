@@ -26,7 +26,8 @@ from .timing_report import BatchedEpisode, reporting_world
 
 @torch.inference_mode()
 def batched_planned_results(model, config, jobs, batch_size, *, coverage=True,
-                            world_factory=reporting_world):
+                            world_factory=reporting_world,
+                            scheduler_factory=CalibratedTimingPlannerPolicy):
     if not jobs or batch_size < 1:
         raise ValueError("nonempty jobs and a positive inference batch are required")
     first_world, first_seed = world_factory(*jobs[0])
@@ -45,7 +46,7 @@ def batched_planned_results(model, config, jobs, batch_size, *, coverage=True,
                                  else world_factory(scenario, seed))
             if world.num_bands != bands:
                 raise ValueError("batched timing worlds must share their band count")
-            scheduler = CalibratedTimingPlannerPolicy(model, config, coverage=coverage)
+            scheduler = scheduler_factory(model, config, coverage=coverage)
             active.append((scenario, seed, world_seed, BatchedEpisode(world, scheduler)))
         workspace = None
         while active:
@@ -65,7 +66,7 @@ def batched_planned_results(model, config, jobs, batch_size, *, coverage=True,
                 workspace = ForecastPlannerWorkspace(
                     len(active), prediction.shape[1], prediction.shape[2], config.dwells
                 )
-            bands, dwells = first_actions(
+            chosen_bands, dwells = first_actions(
                 prediction, current, retune, remaining, dwells=config.dwells, workspace=workspace
             )
             for i, ((_, _, _, state), predicted) in enumerate(zip(active, prediction, strict=True)):
@@ -73,8 +74,8 @@ def batched_planned_results(model, config, jobs, batch_size, *, coverage=True,
                 if coverage:
                     forced = state.scheduler.coverage_action(step)
                     if forced is not None:
-                        bands[i], dwells[i] = forced.band, forced.dwell_steps
-                action = SyntheticAction(int(bands[i]), int(dwells[i]))
+                        chosen_bands[i], dwells[i] = forced.band, forced.dwell_steps
+                action = SyntheticAction(int(chosen_bands[i]), int(dwells[i]))
                 state.scheduler.accept_action(step, predicted, action)
                 state.advance(action, state.scheduler.forecast(step, action))
             planning_seconds += time.perf_counter() - before

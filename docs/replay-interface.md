@@ -47,7 +47,7 @@ continuous-time objective), not silently substitute one fixed gamma per action.
 settings. Save this alongside strategy checkpoints and call
 `validate_specification(saved, current)` in the strategy adapter. The comparison
 allows a different episode seed but otherwise requires the same contract, including
-reward and receiver settings. Receiver-shift studies need an explicitly approved
+reward and receiver settings. Receiver-shift studies need an explicitly declared
 alternate specification. Old MPC checkpoints are **not** compatible with the new
 74-feature/24-action interface simply because both use a recurrent network.
 

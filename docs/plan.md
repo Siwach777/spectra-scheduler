@@ -1,5 +1,12 @@
 # Working plan
 
+The sections below record the prototype's development sequence. Many listed
+steps are already implemented; use [project-status.md](project-status.md) for
+current capabilities and remaining validation, and [runbook.md](runbook.md) for
+commands. The current timing checkpoint is described in
+[timing-model-findings.md](timing-model-findings.md). Requirements are defined
+exclusively by [project_scope.md](project_scope.md).
+
 ## Goal
 
 The receiver has less instantaneous bandwidth than the spectrum it must monitor.

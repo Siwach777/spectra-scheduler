@@ -27,6 +27,9 @@ remain in [experiments.md](experiments.md).
 | Performance | Shared scenario truth and parallel independent runs | Support larger experiments before considering native code |
 | Experiment reports | Versioned JSON/CSV files combine scheduler and association summaries without timestamps | Make results reproducible and easy to compare outside the terminal |
 | Command interface | Package command, module entry point, and compatibility script share one argument parser | Keep one tested path for running and exporting experiments |
+| Trained timing planner | Causal CUDA forecasts, receding-horizon planning and `--timing-model` CLI integration | Compare actual captures and discovery against round-robin, phase planning and saved MPC |
+| Browser interface | Shared-truth comparisons, receiver playback, trained timing adapter and JSON HTTP API in `web/` | Inspect matched runs and export measured results for demonstrations |
+| Scan-strategy controls | `whittle_policy.py`, `scan_handover.py` and `experiments/scan_strategy_study.py` | Screen signed Markov dynamics and causal acquisition handover without replacing the selected model |
 | Scenario files | Strict JSON definitions support all emitter models, seed offsets, nested modes, and self-contained reports | Run new experiments without editing package code |
 | Dataset download | Resumable scan/stare download script with configurable workers, high-performance mode, and a duplicate-run lock | Fetch current splits without archived copies or committing dataset files |
 
@@ -53,11 +56,11 @@ measured results and limitations are in [learning-workflow.md](learning-workflow
 Direct-action reinforcement learning adds a neural Double-DQN reference, randomized
 train/validation/test worlds and paired benchmarks with untrained-model controls.
 Three reference training seeds show gains on randomized layouts but poor coverage
-and uneven legacy performance. The main training path now uses SB3-Contrib recurrent
+and uneven legacy performance. A separate training path uses SB3-Contrib recurrent
 PPO, a Gymnasium adapter over the shared receiver step engine, CUDA optimization,
 parallel rollout workers and resumable checkpoints. Larger-model results remain
 unproven until benchmarked. See [rl-training.md](rl-training.md) and
-[rl-benchmark.md](rl-benchmark.md). The organic-development restriction no longer applies.
+[rl-benchmark.md](rl-benchmark.md).
 
 Search-driven Neural-MPC adds batched tree inference, parallel actors, observation-only
 replay, search policy targets, n-step returns, EMA latent consistency, GPU-capable
@@ -104,5 +107,5 @@ Added shared replay features, a model-independent reset/step environment and an
 inference policy contract. Rewards use delivered observations only; variable-duration
 actions return physical-time discounts. The evaluation runner supports paired
 recording-level reference checks, bounded per-worker replay and latency reporting.
-Existing MPC and presentation edits were left untouched. This adds reusable
-infrastructure, not a newly trained model or learned emitter association.
+This provides reusable infrastructure; trained models and learned emitter
+association require separate evaluation.

@@ -1,6 +1,9 @@
 # Recurrent scheduler training
 
-The main learned scheduler uses SB3-Contrib recurrent PPO with separate 256-unit
+This document covers the recurrent PPO experiments. The current selected timing
+planner and its console command are described in [timing-model-findings.md](timing-model-findings.md).
+
+The recurrent scheduler uses SB3-Contrib recurrent PPO with separate 256-unit
 actor and critic LSTMs. A local duration-aware rollout buffer discounts rewards
 and generalized advantages by elapsed **physical receiver ticks**, while the
 maintained PPO optimizer handles clipped policy updates. The older NumPy
