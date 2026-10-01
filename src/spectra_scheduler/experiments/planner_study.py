@@ -73,6 +73,10 @@ def batched_planned_results(model, config, jobs, batch_size, *, coverage=True,
                 step = state.episode.time_step
                 if coverage:
                     forced = state.scheduler.coverage_action(step)
+                    if hasattr(state.scheduler, "filter_coverage_action"):
+                        forced = state.scheduler.filter_coverage_action(
+                            forced, workspace.action_values[i]
+                        )
                     if forced is not None:
                         chosen_bands[i], dwells[i] = forced.band, forced.dwell_steps
                 action = SyntheticAction(int(chosen_bands[i]), int(dwells[i]))

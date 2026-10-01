@@ -14,6 +14,7 @@ This manual covers the backend console and experiment commands. The
 | Compare trained timing with round-robin and saved MPC | `.venv-rl/bin/python -m spectra_scheduler --timing-model PATH` |
 | Open the browser comparison interface | `.venv-rl/bin/python web/server.py --timing-model PATH` |
 | Screen Whittle and scan handover controls | `.venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study` |
+| Select coverage without retraining | `.venv-rl/bin/python -m spectra_scheduler.experiments.coverage_study` |
 | Run the older comparison script | `.venv/bin/python scripts/run_comparison.py` |
 | Check downloaded HDF5 files | `.venv/bin/python -m spectra_scheduler.dataset_cli inspect` |
 | Benchmark offline pulse clustering | `.venv/bin/python -m spectra_scheduler.dataset_cli evaluate` |

@@ -18,6 +18,28 @@ was stopped after epoch 14. The main simulator CLI loads this checkpoint with
 
 ## Scan-strategy screening
 
+### Coverage selection
+
+A 32-world-per-scenario coverage study retained the incumbent. Uniform 128-tick
+revisits raised spatial discovery from 85.94% to 92.19%, while spatial capture
+fell from 52.78% to 33.92% and periodic capture from 68.75% to 43.42%.
+Targeted recovery probes used public hit history, a physical-time budget including
+retuning, and a forecast opportunity-cost gate. None increased discovery while
+retaining at least 90% of incumbent capture and avoiding discovery loss in every
+scenario. The experimental recovery policy is not enabled in the CLI or GUI.
+The completed selection is `artifacts/coverage-opportunity-v2/selection.json`.
+Short probes and band coverage do not guarantee interception of brief windows.
+
+Run a new selection without retraining:
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.coverage_study \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --run-dir artifacts/coverage-selection-new --runs 32 --batch-size 20
+```
+
+### Matched scan controls
+
 The audited screening run reused the current checkpoint without changing its
 weights. Two selection seeds per scenario chose control settings; reporting used
 three separate seeds, 28000–28002, for each required scenario. All policies shared
