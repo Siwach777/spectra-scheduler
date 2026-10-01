@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("torch")
+torch = pytest.importorskip("torch")
 
 from spectra_scheduler import mpc_training, neural_mpc  # noqa: E402
 from spectra_scheduler.mpc import (  # noqa: E402
@@ -46,6 +46,7 @@ def test_provenance_covers_all_implementation_modules():
     assert all(len(value) == 64 for value in hashes.values())
 
 
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="Neural MPC training requires CUDA")
 def test_legacy_pretraining_command_still_saves_loadable_model(tmp_path):
     output = tmp_path / "demo.pt"
     neural_mpc.main(["train", "--episodes", "1", "--epochs", "1", "--output", str(output)])
