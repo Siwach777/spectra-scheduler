@@ -220,6 +220,50 @@ seeds per scenario check execution and obvious regressions; they do not establis
 general superiority. Larger studies default to 32 selection and 100 reporting seeds
 per scenario. Findings and assumptions are in [timing-model-findings.md](timing-model-findings.md).
 
+### Accelerated runtime and serial latency
+
+The optional C++17 planner preserves the NumPy planning calculation; CUDA graph
+capture reuses frozen model launches. Build the library locally, then add both
+flags to either the timing CLI or `web/server.py`:
+
+```bash
+.venv/bin/python -m spectra_scheduler.planner_native --output build/timing_planner.so
+.venv-rl/bin/python web/server.py \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --planner-library build/timing_planner.so --cuda-graph
+```
+
+These options are explicit; the Python planner remains available. Reports record
+the planner library hash and capture setting. Runtime capture uses bounded fixed
+band/batch shapes and recaptures when the GUI scenario band count changes.
+
+Measure batch-one feedback ingestion, encoding, inference, planning and forecast
+creation on six fresh worlds per scenario:
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.timing_latency \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --planner-library build/timing_planner.so --cuda-graph \
+  --runs 6 --deadline-ms 1 --output artifacts/serial-latency.json
+```
+
+The 1-ms budget is a declared software target corresponding to minimum listening
+dwell. Model loading, graph capture, warmup worlds, simulator truth and receiver
+I/O are excluded. This measures the warmed host scheduler, not a hardware deadline.
+The [published measurements](../reports/timing-latency-summary.json) include
+unaccelerated and native-only controls.
+
+To check the accelerated path against an existing frozen benchmark, without
+rerunning control policies:
+
+```bash
+.venv-rl/bin/python -m spectra_scheduler.experiments.timing_runtime_verify \
+  --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \
+  --reference-report artifacts/scan-comprehensive-report-v1/comparison.json \
+  --planner-library build/timing_planner.so --batch-size 20 \
+  --output artifacts/runtime-parity.json
+```
+
 ### Python timing-policy interface
 
 The selected individual checkpoint can also be evaluated through the Python API:

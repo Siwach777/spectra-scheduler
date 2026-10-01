@@ -67,11 +67,19 @@ def parse_args(arguments: Sequence[str] | None = None) -> argparse.Namespace:
         "--inference-batch-size", type=int, default=20,
         help="maximum simultaneous timing-model episodes",
     )
+    parser.add_argument("--planner-library", type=Path,
+                        help="optional compiled planning library for timing comparisons")
+    parser.add_argument("--cuda-graph", action="store_true",
+                        help="reuse CUDA launches for the frozen timing predictor")
     args = parser.parse_args(arguments)
     if min(args.runs, args.workers, args.inference_batch_size) < 1:
         parser.error("runs, workers and inference batch size must be positive")
     if args.mpc_checkpoints and not args.timing_checkpoint:
         parser.error("--mpc-model requires --timing-model")
+    if args.planner_library and not args.timing_checkpoint:
+        parser.error("--planner-library requires --timing-model")
+    if args.cuda_graph and not args.timing_checkpoint:
+        parser.error("--cuda-graph requires --timing-model")
     if args.timing_checkpoint and args.association:
         parser.error("--association is available through the comparison without --timing-model")
     return args
@@ -83,6 +91,8 @@ def main(arguments: Sequence[str] | None = None) -> int:
         import os
         for name in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
             os.environ[name] = "1"
+        if args.planner_library:
+            os.environ["SPECTRA_PLANNER_LIBRARY"] = str(args.planner_library.resolve())
         from spectra_scheduler.timing_cli import run_timing_comparison
         return run_timing_comparison(args)
     if args.output:

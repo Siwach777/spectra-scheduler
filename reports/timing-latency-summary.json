@@ -1,0 +1,480 @@
+{
+  "schema_version": 1,
+  "measurements": {
+    "ordinary": {
+      "schema_version": 1,
+      "checkpoint_sha256": "f821a7672b5b378154caa89d981893b77a62ddc0119ea74053483aa611ca744f",
+      "gpu": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "platform": "Linux-7.2.3-1-cachyos-x86_64-with-glibc2.44",
+      "torch_threads": 1,
+      "inference_batch": 1,
+      "budget_ms": 1.0,
+      "minimum_listening_dwell_ms": 1,
+      "seeds": [
+        52000,
+        52001,
+        52002,
+        52003,
+        52004,
+        52005
+      ],
+      "results": {
+        "cuda-timing": {
+          "frequency-agile": {
+            "full_path": {
+              "decisions": 1687,
+              "p50_ms": 1.9210240006941603,
+              "p95_ms": 2.1776552995106613,
+              "p99_ms": 3.245920919616763,
+              "maximum_ms": 3.9069440008461243,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 1687,
+              "p50_ms": 1.9142150003972347,
+              "p95_ms": 2.172148799581919,
+              "p99_ms": 3.239283519706076,
+              "maximum_ms": 3.8842680005473085,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 250.5178599994906
+          },
+          "spatial-scan": {
+            "full_path": {
+              "decisions": 2134,
+              "p50_ms": 1.8736160000116797,
+              "p95_ms": 1.9234019501254807,
+              "p99_ms": 1.9506514499698824,
+              "maximum_ms": 2.2065019993533497,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2134,
+              "p50_ms": 1.8683230000533513,
+              "p95_ms": 1.9180130995664513,
+              "p99_ms": 1.9452127500699137,
+              "maximum_ms": 2.2028799994586734,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.1781590001191944
+          },
+          "periodic-scan": {
+            "full_path": {
+              "decisions": 2165,
+              "p50_ms": 1.8942199994853581,
+              "p95_ms": 2.1372352004618733,
+              "p99_ms": 3.0426122811331884,
+              "maximum_ms": 3.8531609998244676,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2165,
+              "p50_ms": 1.8903430000136723,
+              "p95_ms": 2.1329733994207345,
+              "p99_ms": 3.028586039617951,
+              "maximum_ms": 3.845487000035064,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.1441859996921266
+          }
+        },
+        "cpu-phase": {
+          "frequency-agile": {
+            "full_path": {
+              "decisions": 1934,
+              "p50_ms": 2.7720275002138806,
+              "p95_ms": 2.830242500112945,
+              "p99_ms": 2.9698253097376437,
+              "maximum_ms": 3.0758909988435335,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 1934,
+              "p50_ms": 2.7675229998749273,
+              "p95_ms": 2.8253708001102495,
+              "p99_ms": 2.9658467899753305,
+              "maximum_ms": 3.064153999730479,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 3.1604810001226724
+          },
+          "spatial-scan": {
+            "full_path": {
+              "decisions": 2297,
+              "p50_ms": 2.7663809996738564,
+              "p95_ms": 2.841175800676865,
+              "p99_ms": 3.080691840368672,
+              "maximum_ms": 4.576704000101017,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2297,
+              "p50_ms": 2.76233200020215,
+              "p95_ms": 2.8367247999995016,
+              "p99_ms": 3.068018760168342,
+              "maximum_ms": 4.570052999952168,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.9983889997092774
+          },
+          "periodic-scan": {
+            "full_path": {
+              "decisions": 2005,
+              "p50_ms": 2.7605209998000646,
+              "p95_ms": 2.820326600885892,
+              "p99_ms": 2.8356435203022556,
+              "maximum_ms": 3.0006560000401805,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2005,
+              "p50_ms": 2.7566359995034873,
+              "p95_ms": 2.8161852000266663,
+              "p99_ms": 2.8314586402484565,
+              "maximum_ms": 2.997507999680238,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.9964149996667402
+          }
+        }
+      },
+      "scope": "host serial measurement; declared software budget, not hardware certification",
+      "path": "feedback ingestion + history encoding + inference + planning + forecast creation",
+      "excluded": "checkpoint loading, simulator truth generation and receiver I/O"
+    },
+    "native": {
+      "schema_version": 1,
+      "checkpoint_sha256": "f821a7672b5b378154caa89d981893b77a62ddc0119ea74053483aa611ca744f",
+      "gpu": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "platform": "Linux-7.2.3-1-cachyos-x86_64-with-glibc2.44",
+      "torch_threads": 1,
+      "inference_batch": 1,
+      "budget_ms": 1.0,
+      "minimum_listening_dwell_ms": 1,
+      "planner_library_sha256": "90f217aadc558664921ad1a70189ce6c8173e2c411e4389d0cc3c2f42fc82e1e",
+      "seeds": [
+        52000,
+        52001,
+        52002,
+        52003,
+        52004,
+        52005
+      ],
+      "results": {
+        "cuda-timing": {
+          "frequency-agile": {
+            "full_path": {
+              "decisions": 1687,
+              "p50_ms": 1.2636419996852055,
+              "p95_ms": 1.5888184999312183,
+              "p99_ms": 1.9031956002618242,
+              "maximum_ms": 3.0008980002094177,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 1687,
+              "p50_ms": 1.2560969998958171,
+              "p95_ms": 1.584618900142228,
+              "p99_ms": 1.8922098996517882,
+              "maximum_ms": 2.987611999742512,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 255.36116799958108
+          },
+          "spatial-scan": {
+            "full_path": {
+              "decisions": 2134,
+              "p50_ms": 1.1967929999627813,
+              "p95_ms": 1.4534388998526993,
+              "p99_ms": 1.5093672494731436,
+              "maximum_ms": 3.044953000426176,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2134,
+              "p50_ms": 1.1919184998987475,
+              "p95_ms": 1.4491126500615792,
+              "p99_ms": 1.5035095494295092,
+              "maximum_ms": 3.0412539999815635,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.283318999412586
+          },
+          "periodic-scan": {
+            "full_path": {
+              "decisions": 2165,
+              "p50_ms": 1.1408359996494255,
+              "p95_ms": 1.2427494000803563,
+              "p99_ms": 1.6318812801910108,
+              "maximum_ms": 28.36978700088366,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2165,
+              "p50_ms": 1.1368309997124015,
+              "p95_ms": 1.2391277999995507,
+              "p99_ms": 1.6277914402598987,
+              "maximum_ms": 28.366191000714025,
+              "fraction_over_budget": 0.9995381062355658
+            },
+            "first_warmup_decision_ms": 1.0837019999598851
+          }
+        },
+        "cpu-phase": {
+          "frequency-agile": {
+            "full_path": {
+              "decisions": 1934,
+              "p50_ms": 2.1539934996326338,
+              "p95_ms": 2.5373101995228353,
+              "p99_ms": 3.055071550161304,
+              "maximum_ms": 4.232916000546538,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 1934,
+              "p50_ms": 2.1493074996215,
+              "p95_ms": 2.52959584945529,
+              "p99_ms": 3.051251979941301,
+              "maximum_ms": 4.229565000059665,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 2.7533140000741696
+          },
+          "spatial-scan": {
+            "full_path": {
+              "decisions": 2297,
+              "p50_ms": 2.1276399993439554,
+              "p95_ms": 2.4222094003562233,
+              "p99_ms": 2.5621528805277194,
+              "maximum_ms": 4.063019999193784,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2297,
+              "p50_ms": 2.1241459999146173,
+              "p95_ms": 2.418150199810043,
+              "p99_ms": 2.5582806006786996,
+              "maximum_ms": 4.049739000038244,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 2.204442000220297
+          },
+          "periodic-scan": {
+            "full_path": {
+              "decisions": 2005,
+              "p50_ms": 2.0412339999893447,
+              "p95_ms": 2.5173907999487706,
+              "p99_ms": 3.2949425611514025,
+              "maximum_ms": 4.054160999658052,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2005,
+              "p50_ms": 2.037240999925416,
+              "p95_ms": 2.5136285996268266,
+              "p99_ms": 3.2905528007177063,
+              "maximum_ms": 4.051089999848045,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 2.0074670001122286
+          }
+        }
+      },
+      "scope": "host serial measurement; declared software budget, not hardware certification",
+      "path": "feedback ingestion + history encoding + inference + planning + forecast creation",
+      "excluded": "checkpoint loading, simulator truth generation and receiver I/O"
+    },
+    "native-captured": {
+      "schema_version": 1,
+      "checkpoint_sha256": "f821a7672b5b378154caa89d981893b77a62ddc0119ea74053483aa611ca744f",
+      "gpu": "NVIDIA GeForce RTX 5070 Laptop GPU",
+      "platform": "Linux-7.2.3-1-cachyos-x86_64-with-glibc2.44",
+      "torch_threads": 1,
+      "inference_batch": 1,
+      "cuda_graph": true,
+      "budget_ms": 1.0,
+      "minimum_listening_dwell_ms": 1,
+      "planner_library_sha256": "90f217aadc558664921ad1a70189ce6c8173e2c411e4389d0cc3c2f42fc82e1e",
+      "seeds": [
+        52000,
+        52001,
+        52002,
+        52003,
+        52004,
+        52005
+      ],
+      "results": {
+        "cuda-timing": {
+          "frequency-agile": {
+            "full_path": {
+              "decisions": 1687,
+              "p50_ms": 0.4248729992468725,
+              "p95_ms": 0.4640385003767733,
+              "p99_ms": 0.5322644794250664,
+              "maximum_ms": 0.5861350000486709,
+              "fraction_over_budget": 0.0
+            },
+            "decision_compute": {
+              "decisions": 1687,
+              "p50_ms": 0.4211589994156384,
+              "p95_ms": 0.4609295003319857,
+              "p99_ms": 0.5270571396613377,
+              "maximum_ms": 0.5835410001964192,
+              "fraction_over_budget": 0.0
+            },
+            "first_warmup_decision_ms": 1.5667919997213176
+          },
+          "spatial-scan": {
+            "full_path": {
+              "decisions": 2134,
+              "p50_ms": 0.4233740000927355,
+              "p95_ms": 0.4361813506420731,
+              "p99_ms": 0.4716410794480908,
+              "maximum_ms": 0.5126719997861073,
+              "fraction_over_budget": 0.0
+            },
+            "decision_compute": {
+              "decisions": 2134,
+              "p50_ms": 0.4203309999866178,
+              "p95_ms": 0.42962005027220584,
+              "p99_ms": 0.46514019935784745,
+              "maximum_ms": 0.5098980000184383,
+              "fraction_over_budget": 0.0
+            },
+            "first_warmup_decision_ms": 0.4478840000956552
+          },
+          "periodic-scan": {
+            "full_path": {
+              "decisions": 2165,
+              "p50_ms": 0.4210250008327421,
+              "p95_ms": 0.43257219967927085,
+              "p99_ms": 0.4638685198369785,
+              "maximum_ms": 0.526353999703133,
+              "fraction_over_budget": 0.0
+            },
+            "decision_compute": {
+              "decisions": 2165,
+              "p50_ms": 0.41817199962679297,
+              "p95_ms": 0.4277225994883338,
+              "p99_ms": 0.46130108028592076,
+              "maximum_ms": 0.5172370001673698,
+              "fraction_over_budget": 0.0
+            },
+            "first_warmup_decision_ms": 0.40143399928638246
+          }
+        },
+        "cpu-phase": {
+          "frequency-agile": {
+            "full_path": {
+              "decisions": 1934,
+              "p50_ms": 1.9931384999836155,
+              "p95_ms": 2.025908499990692,
+              "p99_ms": 2.060495100367916,
+              "maximum_ms": 2.2702770002069883,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 1934,
+              "p50_ms": 1.9893515004696383,
+              "p95_ms": 2.0203959996706544,
+              "p99_ms": 2.055729579678882,
+              "maximum_ms": 2.267206000396982,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 2.80248000035499
+          },
+          "spatial-scan": {
+            "full_path": {
+              "decisions": 2297,
+              "p50_ms": 1.988349999919592,
+              "p95_ms": 2.0328026002971455,
+              "p99_ms": 2.1133621205808595,
+              "maximum_ms": 2.33718100025726,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2297,
+              "p50_ms": 1.984843999707664,
+              "p95_ms": 2.0273485997677194,
+              "p99_ms": 2.1095468808198348,
+              "maximum_ms": 2.3331879992838367,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.9922080000469577
+          },
+          "periodic-scan": {
+            "full_path": {
+              "decisions": 2005,
+              "p50_ms": 2.016014999753679,
+              "p95_ms": 2.159042200582917,
+              "p99_ms": 2.515559200401185,
+              "maximum_ms": 3.023605999260326,
+              "fraction_over_budget": 1.0
+            },
+            "decision_compute": {
+              "decisions": 2005,
+              "p50_ms": 2.0123300000705058,
+              "p95_ms": 2.1538636003242573,
+              "p99_ms": 2.5113048399725812,
+              "maximum_ms": 3.0190469997251057,
+              "fraction_over_budget": 1.0
+            },
+            "first_warmup_decision_ms": 1.9629419994089403
+          }
+        }
+      },
+      "scope": "host serial measurement; declared software budget, not hardware certification",
+      "path": "feedback ingestion + history encoding + inference + planning + forecast creation",
+      "excluded": "checkpoint loading, simulator truth generation and receiver I/O"
+    }
+  },
+  "measurement_sha256": {
+    "ordinary": "7bfb6fe7ba6d22a6f9edc05902c39332527a6a3923a7156fa9c230f1c583787e",
+    "native": "0239e585b193e514909bc3ae75a3e274e734574bbcde16ba283fd3baae77271a",
+    "native-captured": "e7660729cbb9e086d434777ef3b9dee18c0726aef9a5c523d1e1c04f2330a21f"
+  },
+  "runtime_verification": {
+    "schema_version": 1,
+    "inputs_sha256": {
+      "artifacts/timing-refine-v1/seed-0/best.pt": "f821a7672b5b378154caa89d981893b77a62ddc0119ea74053483aa611ca744f",
+      "artifacts/scan-comprehensive-report-v1/comparison.json": "723700aa257d80d48f1cdda0740980ef4822ffd54a665bf480e3be5e76413f49",
+      "build/timing_planner.so": "90f217aadc558664921ad1a70189ce6c8173e2c411e4389d0cc3c2f42fc82e1e"
+    },
+    "source_sha256": {
+      "timing_runtime.py": "b3ea4a32fa67f1047627bb0c8b157f817ddad89ba0683e59027a69828eac2d89",
+      "planner_native.py": "4afebc93d2b82ec9b244ddd073f21162bc9f276eacf17cb79964d936e3b66264",
+      "_planner.cpp": "d0d61b3b2b315a45096cfc0510e2960e27b17ee584ecba8cea365fab7405da2b",
+      "timing_planner.py": "dbc12ec2d1680d113bbf66be27a93b9b1d06f5f5b7395cc6b98a104264cc8566"
+    },
+    "batched_worlds": 300,
+    "serial_worlds": [
+      "frequency-agile:48000",
+      "frequency-agile:48001",
+      "spatial-scan:48000",
+      "spatial-scan:48001",
+      "periodic-scan:48000",
+      "periodic-scan:48001"
+    ],
+    "exact_counts_and_report_parity": true,
+    "continuous_rtol": 5e-05,
+    "continuous_atol": 1e-05,
+    "profile": {
+      "batch_size": 20,
+      "decision_count": 99074,
+      "neural_seconds": 17.71721858701494,
+      "planning_and_simulation_seconds": 5.71398605905415,
+      "elapsed_seconds": 23.580505674999586
+    },
+    "scope": "same frozen checkpoint and policy; runtime changes only"
+  },
+  "runtime_verification_sha256": "cf1741804c6a0e7f1dd6daa8eb346fcbf1734f4a7b7ef7cf4b407a9235fbbec0",
+  "scope": "warmed batch-one software decision path on the development host; no receiver hardware certification",
+  "excluded": [
+    "model loading",
+    "CUDA graph capture",
+    "warmup worlds",
+    "simulator truth generation",
+    "receiver I/O",
+    "GUI serialization and HTTP"
+  ]
+}

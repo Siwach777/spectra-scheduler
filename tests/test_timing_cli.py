@@ -56,3 +56,15 @@ def test_output_cannot_overwrite_checkpoint(tmp_path):
     with pytest.raises(ValueError, match="overwrite"):
         run_timing_comparison(args)
     assert checkpoint.read_bytes() == b"preserve"
+
+
+def test_output_cannot_overwrite_planner_library(tmp_path):
+    import pytest
+    checkpoint, library = tmp_path / "best.pt", tmp_path / "planner.so"
+    checkpoint.write_bytes(b"weights")
+    library.write_bytes(b"preserve")
+    args = parse_args(["--timing-model", str(checkpoint), "--planner-library", str(library),
+                       "--output", str(library), "--format", "json"])
+    with pytest.raises(ValueError, match="overwrite"):
+        run_timing_comparison(args)
+    assert library.read_bytes() == b"preserve"

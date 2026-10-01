@@ -11,6 +11,7 @@ import numpy as np
 
 from .evaluation_contract import Forecast
 from .experiments.calibrated_timing import CalibratedBeliefPolicy
+from .planner_native import kernel
 from .simulation import SyntheticAction
 from .timing_belief import TimingBeliefPolicy
 
@@ -109,7 +110,11 @@ def first_actions(
     np.cumsum(predicted, axis=-1, dtype=np.float64, out=workspace.prefix[..., 1:])
     workspace.state_values.fill(0)
     workspace.delays[:, :bands, :, 0] = tables
-    for tick in range(future - 1, -1, -1):
+    native = kernel()
+    if native is not None:
+        native(batch, bands, future, len(dwells), workspace.prefix, workspace.delays,
+               workspace.dwell_array, terminal, workspace.state_values, workspace.q_values)
+    for tick in (() if native is not None else range(future - 1, -1, -1)):
         np.add(workspace.delays, tick, out=workspace.starts)
         np.minimum(workspace.starts, terminal, out=workspace.starts)
         np.add(workspace.starts, workspace.dwell_array, out=workspace.ends)

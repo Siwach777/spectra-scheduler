@@ -19,6 +19,7 @@ from .experiments.storage import fingerprint, write_json
 from .experiments.timing_mpc_compare import batched_mpc, load_mpc
 from .experiments.timing_report import reporting_world, reward
 from .policy_benchmark import PolicySpec, _run_jobs, summarize
+from .planner_native import runtime_details
 from .scenario_io import build_scenario_from_definition, load_scenario_definition, scenario_name
 from .scenarios import REQUIREMENT_SCENARIOS
 from .simulation import SyntheticAction
@@ -121,6 +122,11 @@ def run_timing_comparison(args):
             raise ValueError(f"checkpoint does not exist: {path}")
         if args.output and Path(args.output).resolve() == path.resolve():
             raise ValueError("report cannot overwrite an input checkpoint")
+    if args.planner_library:
+        if not args.planner_library.is_file():
+            raise ValueError(f"planner library does not exist: {args.planner_library}")
+        if args.output and Path(args.output).resolve() == args.planner_library.resolve():
+            raise ValueError("report cannot overwrite the planner library")
     if args.output and (args.output_format or Path(args.output).suffix.lstrip(".").lower()) not in (
         "json", "csv"
     ):
@@ -135,6 +141,10 @@ def run_timing_comparison(args):
     torch.cuda.reset_peak_memory_stats()
     digests = {str(path): fingerprint(path) for path in paths}
     model, metadata = load_predictor(args.timing_checkpoint)
+    if args.cuda_graph:
+        from .timing_runtime import CapturedTimingPredictor
+        first_world, _ = console_world(scenario, args.seed, definition)
+        model = CapturedTimingPredictor(model, args.inference_batch_size, first_world.num_bands)
     settings = dict(metadata.get("policy") or metadata.get("semantic", {}).get("policy") or {})
     if not settings:
         raise ValueError("timing checkpoint does not include its scheduling policy")
@@ -174,6 +184,7 @@ def run_timing_comparison(args):
         "schema_version": 2, "backend": "synthetic_timing", "scenario": scenario,
         "scenario_definition": definition, "start_seed": args.seed, "runs": args.runs,
         "checkpoint_sha256": digests, "policy": asdict(config), "baseline": baseline,
+        "inference_runtime": {"cuda_graph": args.cuda_graph, **runtime_details()},
         "summary": summarize(results, policies, baseline), "results": results,
         "resources": {"elapsed_seconds": time.perf_counter() - started, "profiles": profiles,
                       "peak_cuda_bytes": torch.cuda.max_memory_allocated(),

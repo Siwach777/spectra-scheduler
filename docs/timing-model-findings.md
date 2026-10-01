@@ -332,6 +332,33 @@ at 39.0 MB of CUDA allocation. Seed-1 `choose_band` calls averaged
 These serial figures differ from batched decision costs; they do not establish
 a hardware latency deadline.
 
+## Full serial decision latency
+
+Batch-one measurements on the RTX 5070 Laptop GPU include receiver-feedback
+ingestion since the previous decision, history encoding, CUDA prediction,
+retune-aware planning and forecast creation. Six fresh worlds per scenario use
+seeds 52000–52005; warmup worlds are excluded. Costs are measured per new
+band/dwell decision, rather than diluted across dwell-holding ticks.
+
+| Runtime | Agile p99 | Spatial p99 | Periodic p99 |
+| --- | ---: | ---: | ---: |
+| Python planner, ordinary CUDA inference | 3.246 ms | 1.951 ms | 3.043 ms |
+| Compiled planner, ordinary CUDA inference | 1.903 ms | 1.509 ms | 1.632 ms |
+| Compiled planner, captured CUDA inference | **0.532 ms** | **0.472 ms** | **0.464 ms** |
+
+The accelerated path had no violations of the declared 1-ms software budget over
+5,986 decisions; medians were 0.421–0.425 ms. Counts and report metrics match the
+original 300-world benchmark, with six additional serial checks. Unit checks
+also cover native planning values, horizon clipping and ties.
+
+These are warmed scheduler measurements, excluding checkpoint loading, CUDA
+capture, simulator truth and receiver I/O. The first warmup decision reached
+1.567 ms. This supports software feasibility on this host, not a certified
+receiver deadline or a measured neural CPU deployment. Both acceleration options
+are explicit in the CLI and GUI. See the
+[measurement summary](../reports/timing-latency-summary.json) and
+[reproduction commands](runbook.md#accelerated-runtime-and-serial-latency).
+
 ## Additional experiments
 
 The original 1/4/8/16/32-tick menu was assessed independently on reporting seeds

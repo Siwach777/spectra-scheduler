@@ -49,8 +49,12 @@ policies under instantaneous bandwidth constraints in simulation and pulse repla
   [timing findings](timing-model-findings.md) and [runbook](runbook.md).
 - Experimental Whittle, golden sweep and observation-driven scan handover controls.
   Markov belief updates account for receiver errors and elapsed retuning ticks.
-  A nine-world screening run retained the current timing model; these controls
+  A frozen 300-world comparison includes UCB, sliding UCB, Bayesian occupancy,
+  Thompson sampling, Whittle, golden sweep and phase planning; these controls
   remain in `experiments.scan_strategy_study`, outside the main CLI defaults.
+- Optional compiled planning and captured CUDA inference preserve the original
+  300-world reports. Full serial p99 was 0.464–0.532 ms on the development GPU,
+  below the declared 1-ms software target; receiver I/O and cold startup are excluded.
 - A browser interface with synchronized head-to-head comparisons, causal receiver
   traces, playback, model availability and JSON exports. The trained timing policy
   runs on CUDA through the same planner; the [GUI guide](../web/README.md) documents
