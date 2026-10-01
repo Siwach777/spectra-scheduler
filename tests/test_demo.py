@@ -69,7 +69,8 @@ class DemoTests(unittest.TestCase):
         scanner_bands = [event.band for event in scanner_events]
         self.assertTrue(scanner_bands)
         self.assertTrue(
-            all(abs(first - second) == 1 for first, second in zip(scanner_bands, scanner_bands[1:]))
+            all(abs(first - second) == 1
+                for first, second in zip(scanner_bands, scanner_bands[1:], strict=False))
         )
         self.assertEqual(scenario.receiver.sensitivity_dbm, -90.0)
         self.assertGreater(scenario.receiver.noise_std_db, 0.0)
@@ -152,7 +153,7 @@ class DemoTests(unittest.TestCase):
         self.assertTrue(
             all(
                 abs(first - second) == 1
-                for first, second in zip(tracking_bands, tracking_bands[1:])
+                for first, second in zip(tracking_bands, tracking_bands[1:], strict=False)
             )
         )
         self.assertEqual(len(change.generate_emitter_changes()), 1)

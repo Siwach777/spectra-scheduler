@@ -130,7 +130,8 @@ class JitteredPeriodicEmitterTests(unittest.TestCase):
         first = emitter.transmissions(duration=30, num_bands=3)
         second = emitter.transmissions(duration=30, num_bands=3)
         intervals = [
-            later.time_step - earlier.time_step for earlier, later in zip(first, first[1:])
+            later.time_step - earlier.time_step
+            for earlier, later in zip(first, first[1:], strict=False)
         ]
 
         self.assertEqual(first, second)

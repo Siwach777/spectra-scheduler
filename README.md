@@ -1,211 +1,134 @@
-# Spectra Scheduler
+# Spectra Scheduler — Predictive Frequency-Time Allocation
 
-For task-by-task commands, setup and troubleshooting, see the
-[running manual](docs/runbook.md).
+[![CI](https://github.com/Siwach777/spectra-scheduler/actions/workflows/ci.yml/badge.svg)](https://github.com/Siwach777/spectra-scheduler/actions/workflows/ci.yml)
 
-A passive, receive-only prototype for SIH26055: scheduling a narrow-band receiver
-across a wider spectrum. [Project scope](docs/project_scope.md) defines the requirements.
+A passive, receive-only scheduling prototype for SIH26055. A receiver can listen
+to only a small part of the spectrum at once; changing bands costs observation
+time. The scheduler learns temporal opportunities from received detections and
+chooses **both the next band and its listening dwell**.
+[Project scope](docs/project_scope.md) defines the requirements.
 
-The Python implementation includes a dynamic emitter simulator, a narrow-band
-receiver, adaptive scan strategies and repeatable evaluation. A separate dataset
-pipeline streams TSRD HDF5 files and benchmarks offline pulse association.
-A supervised hit-prediction baseline now supports bounded training, portable JSON
-models and held-out comparison; it is experimental, not the default strategy.
-See [the learning workflow](docs/learning-workflow.md) for commands and measured results.
+## Approach
 
-## Current capabilities
+The selected model uses a causal temporal convolutional forecaster and a
+retune-aware receding-horizon planner. The forecaster is the main learned
+component; RL experiments are documented separately.
 
-- Seeded frequency-agile, spatial-scan and periodic-scan simulation with receiver errors.
-- Causal learned timing forecasts and action planning that accounts for retuning.
-- Console comparisons against round-robin, non-neural phase planning and saved MPC models.
-- Browser comparisons with synchronized receiver traces, playback and JSON exports.
-- Observation-based tracking, adaptive dwell, stale-belief forgetting and change detection.
-- Streamed pulse-data ingestion, offline association and physical-time receive-only replay.
-- Paired capture/discovery reports, forecast metrics and bounded CUDA neural evaluation.
-
-See [docs/plan.md](docs/plan.md) for the working plan and
-[docs/implementation-notes.md](docs/implementation-notes.md) for a brief explanation of
-what each part is for. The implementation-facing literature review is in
-[docs/related-work.md](docs/related-work.md).
-
-## Architecture
-
-![Spectra Scheduler architecture: independent CLI and GUI, causal receiver scheduling, separate evaluation and offline workflows](docs/assets/architecture.svg)
-
-Receiver observations feed a bounded history, learned temporal forecasts and a
-planner that selects the next band and listening dwell. Simulator truth stays
-separate from scheduling and supports evaluation. The CLI and browser independently
-use the Python core; CUDA training and recorded-pulse processing run as separate
-workflows. See the [architecture guide](docs/architecture.md) for module links and
-the observation boundary.
-
-## Run the trained timing scheduler
-
-The current selected checkpoint is `artifacts/timing-refine-v1/seed-0/best.pt`
-(epoch 24). Supply an existing local checkpoint; weights and reports in `artifacts/`
-are not included in Git. The command requires the CUDA-enabled `.venv-rl` environment.
-See the [environment setup](docs/runbook.md#1-set-up-the-environment) before running it.
-
-```bash
-.venv-rl/bin/python -m spectra_scheduler \
-  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
-  --mpc-model artifacts/mpc-physical-fresh-control/best.pt \
-  --mpc-model artifacts/mpc-physical-gumbel-fresh/best.pt \
-  --scenario periodic-scan --runs 30 --seed 28000 --workers 20 \
-  --output reports/generated/timing-periodic.json
+```mermaid
+flowchart LR
+    R[Receiver observations / PDWs] --> H[Causal memory: previous 288 ms]
+    H --> F[Temporal opportunities: next 80 ms across bands]
+    F --> P[Policy: band + listening dwell]
+    P --> R
 ```
 
-Use `frequency-agile` or `spatial-scan` for the other required behaviors. The
-console prints capture and discovery together; JSON retains per-world results
-and paired intervals. The [timing findings](docs/timing-model-findings.md) distinguish
-checkpoint selection, larger historical comparisons and recent smoke checks.
-Experimental Whittle and scan-handover controls did not replace this checkpoint.
+Runtime inputs contain **no emitter identity, true period/phase or future
+observations**. Simulator truth and recording labels are used only for evaluation
+and offline training targets. See the [architecture guide](docs/architecture.md)
+and [editable architecture diagram](docs/assets/architecture.svg) for module boundaries.
 
-## Run the browser interface
+## Results
+
+The frozen selected policy was compared on **300 fresh simulated worlds**: 100
+per behavior, with identical receiver settings and physical-time budgets for
+every policy. Control dwell settings were selected on separate worlds. Capture
+means exclude worlds with no emitted pulses.
+
+| Scheduler | Agile capture | Spatial capture | Periodic capture |
+| --- | ---: | ---: | ---: |
+| Fixed sweep, 50-ms listening dwell | 11.10% | 11.17% | 10.87% |
+| UCB | 11.17% | 17.59% | 18.91% |
+| Thompson sampling | 9.80% | 23.62% | 30.07% |
+| Markov Whittle | 9.62% | 25.24% | 32.86% |
+| Non-neural phase planner | 27.57% | 45.85% | 64.15% |
+| PUCT MPC | 11.14% | 11.17% | 8.26% |
+| Gumbel MPC | 10.54% | 10.12% | 9.84% |
+| **Selected timing scheduler** | **34.37%** | **51.56%** | **67.66%** |
+
+All paired capture intervals against fixed sweep and both MPC controls are
+positive. The periodic advantage over the phase planner is not established.
+Spatial emitter discovery remains a weakness: **86.0% versus fixed sweep's
+97.5%**. Coverage recovery experiments did not justify replacing the incumbent.
+The [findings](docs/timing-model-findings.md) and
+[public benchmark summary](reports/timing-selected-summary.json) include paired
+intervals, discovery, selection rules and artifact provenance.
+
+External TSRD PDW replay now exercises the same frozen scheduler end to end.
+On ten validation recordings, capture was 10.19%, versus 10.91% for fixed sweep
+and 43.97% for a rate-probe control. This exposes a transfer gap; TSRD is synthetic
+radar data, not real RF or hardware validation. See the
+[replay interface and results](docs/replay-interface.md#frozen-timing-scheduler-on-external-recordings).
+
+With optional compiled planning and captured CUDA inference, warmed serial p99
+was **0.464–0.532 ms** on the RTX 5070 Laptop GPU, with no 1-ms budget violations
+over 5,986 decisions. This includes feedback processing, prediction, planning and
+forecast creation; loading, warmup and receiver I/O are excluded. The accelerated
+path preserves the original 300-world reports. See
+[latency measurements](reports/timing-latency-summary.json).
+
+## Demo
+
+Set up the [CUDA environment](docs/runbook.md#1-set-up-the-environment), then run:
 
 ```bash
 .venv-rl/bin/python web/server.py \
   --timing-model artifacts/timing-refine-v1/seed-0/best.pt
 ```
 
-Open `http://127.0.0.1:8080` and choose the trained timing comparison. Both policies
-receive the same simulated signals and receiver settings. See the
-[GUI and HTTP API guide](web/README.md) for available policies, controls and endpoints,
-and the [video instructions](web/video/README.md) for the selected demonstration.
-The checkpoint is local and requires CUDA; statistical policies also work without it.
+Open `http://127.0.0.1:8080/?preset=periodic-timing-video&view=dual`.
+The browser shows both receivers, signal activity, historical detections,
+pre-action opportunity forecasts, selected band/dwell and playback counters.
+The selected seed-42 example captures 62/86 signals versus 13/86 for fixed sweep;
+its 4.77× ratio describes that example. Results and JSON exports retain the full
+run and model provenance. See the [GUI/API guide](web/README.md) and
+[video instructions](web/video/README.md).
 
-## Run the prototype
+![Receiver comparison and causal opportunity forecasts at playback tick 300](docs/assets/live-demo.png)
 
-The current comparison uses seeded emitter timing, missed detections, and false alarms.
+The selected local checkpoint is epoch 24, SHA-256
+`f821a7672b5b378154caa89d981893b77a62ddc0119ea74053483aa611ca744f`.
+Weights and downloaded recordings are not shipped in Git. Without installed
+weights, the browser offers statistical demonstrations and marks learned policies
+unavailable.
+
+## Reproduce
+
+Compare the timing policy with fixed sweeps, phase planning and saved MPC models:
 
 ```bash
-PYTHONPATH=src python3 scripts/run_comparison.py
+.venv-rl/bin/python -m spectra_scheduler \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --mpc-model artifacts/mpc-physical-fresh-control/best.pt \
+  --mpc-model artifacts/mpc-physical-gumbel-fresh/best.pt \
+  --scenario periodic-scan --runs 100 --seed 48000 --workers 20 \
+  --output reports/generated/timing-periodic.json
 ```
 
-Use several seeds for a more useful comparison:
+Use `frequency-agile` or `spatial-scan` for the other behaviors. Capture and
+discovery are printed together. The [running manual](docs/runbook.md) covers
+training, frozen control selection, external replay, native runtime builds,
+serial latency and every CLI workflow. The command above compares existing models;
+the full control-family table uses the frozen two-stage scan study in that manual.
+
+For a reproducible statistical comparison without weights or CUDA:
 
 ```bash
-PYTHONPATH=src python3 scripts/run_comparison.py --runs 30
-```
-
-Larger comparisons can use multiple CPU cores because each seeded run is independent:
-
-```bash
-PYTHONPATH=src python3 scripts/run_comparison.py --runs 2000 --workers 4
-```
-
-Use a focused scenario to inspect one scheduler behavior at a time:
-
-```bash
-PYTHONPATH=src python3 scripts/run_comparison.py --scenario change --runs 100
-```
-
-Available scenarios are `mixed`, `acquisition`, `tracking`, `change`, `crowded`,
-`frequency-agile`, `spatial-scan` and `periodic-scan`.
-The crowded case is longer and deliberately contains emitters with similar measured
-signatures, so it is mainly useful for checking track association.
-
-Include track-association quality in the terminal output:
-
-```bash
-PYTHONPATH=src python3 -m spectra_scheduler --scenario crowded --runs 100 --association
-```
-
-Save a complete, repeatable experiment report for later analysis:
-
-```bash
-PYTHONPATH=src python3 -m spectra_scheduler \
-  --scenario crowded --runs 100 --workers 4 \
-  --output reports/crowded.json
-```
-
-The output format is inferred from `.json` or `.csv`, or can be selected with
-`--format`. Reports include the scenario, seed range, scheduler summaries, association
-summary, and a schema version. They do not contain timestamps. The older
-`scripts/run_comparison.py` command remains available as a wrapper.
-
-See [docs/report-format.md](docs/report-format.md) for the stable fields.
-
-Run an experiment without editing Python by supplying a JSON scenario:
-
-```bash
-PYTHONPATH=src python3 -m spectra_scheduler \
-  --scenario-file examples/custom-scenario.json --runs 100 \
-  --output reports/custom.json
-```
-
-The format is described in [docs/scenario-format.md](docs/scenario-format.md).
-
-Download the current reference pulse dataset (TSRD) after obtaining Hugging Face access and running
-`uvx hf auth login`:
-
-```bash
-bash scripts/download_dataset.sh
-```
-
-This uses 32 workers and high-performance transfers, keeps all current scan/stare
-splits, and excludes the older archive. Files stay in the Git-ignored `data/tsrd/`.
-Rerun to resume; optionally supply a worker count. Stop any older manually started
-download first. For a detached download with output saved locally:
-
-```bash
-mkdir -p data/tsrd
-nohup bash scripts/download_dataset.sh > data/tsrd/download.log 2>&1 < /dev/null &
-tail -f data/tsrd/download.log
-```
-
-Interactive runs show the downloader's progress; redirected logs may update less
-frequently. The script prevents duplicate script instances, not manually launched
-`hf download` commands.
-
-Run the tests with:
-
-```bash
+uv sync --locked --extra dataset --extra learning --extra dev
+.venv/bin/python -m spectra_scheduler --scenario mixed --runs 30 --seed 7
 .venv/bin/python -m pytest -q
+node web/check_frontend.mjs
 ```
 
-## Work with downloaded pulse data
+CI runs correctness lint, CPU unit/HTTP checks, frontend regressions and a
+deterministic smoke comparison. Neural experiments and their validation require
+CUDA and run separately from CI.
 
-Install the optional dataset dependencies, then inspect completed files or run a
-bounded HDBSCAN association baseline while the remaining files download:
+## Documentation
 
-```bash
-uv sync --extra dataset --extra dev
-.venv/bin/spectra-dataset inspect --max-files 10
-.venv/bin/spectra-dataset evaluate --max-files 10 --sample-rows 10000 \
-  --workers 2 --output reports/generated/association.json
-```
-
-The pipeline streams HDF5 validation/statistics and clusters a reproducible sample
-per file. Reports include association scores, noise coverage, sample fingerprints
-and explicit file failures. It does not reinterpret recordings as simulator events
-or use emitter labels as model inputs. See [dataset-workflow.md](docs/dataset-workflow.md)
-for feature transforms, split boundaries, profiling and measured integration results.
-
-For interactive physical-time receiver simulation on full-spectrum stare recordings,
-see [pulse replay](docs/pulse-replay.md). It adds frequency/bandwidth, dwell/retune,
-sensitivity, deterministic detection and bounded PDW observations without changing
-the existing synthetic simulator or ML training interface.
-
-The [reusable learning and inference interface](docs/replay-interface.md) adds
-band/dwell actions, causal PDW features, physical-time rewards/discounts and a
-strategy-independent evaluation runner. It can be exercised without training.
-
-Dedicated spatial/periodic/frequency-agile scenarios, frozen multi-policy benchmarks,
-and bounded predictor/training adapters are described in
-[scenarios, benchmarks and predictors](docs/scenarios-benchmarks-predictors.md).
-The shared [evaluation contract](docs/evaluation-contract.md) defines metric units,
-prediction targets, missing-data behavior and censoring.
-
-The [trained timing scheduler results](docs/timing-model-findings.md) compare
-causal timing forecasts and trajectory-trained policies with native MPC and
-round-robin on paired development worlds. The
-[trajectory policy research](docs/trajectory-policy-research.md) explains the
-implemented objectives and their limitations.
-[Joint timing and student-state training](docs/mimo-joint-research.md) and
-[multi-teacher policy distillation](docs/mopd-scheduling.md) document further
-experiments; their implementation does not imply a demonstrated performance gain.
-
-The [shared experiment workflow](docs/experiment-workflow.md) adds resumable runs,
-validation-based checkpoint selection and common artifact management, with a
-reference predictor adapter and an explicit pilot configuration.
+- [Running manual](docs/runbook.md): environment, commands and troubleshooting.
+- [Project status](docs/project-status.md): implemented features and remaining gaps.
+- [Architecture](docs/architecture.md): interfaces and causal observation boundaries.
+- [Evaluation contract](docs/evaluation-contract.md) and [report format](docs/report-format.md).
+- [Timing findings](docs/timing-model-findings.md): selected model, controls and measured limitations.
+- [Dataset workflow](docs/dataset-workflow.md), [pulse replay](docs/pulse-replay.md) and [replay policy interface](docs/replay-interface.md).
+- [Related work](docs/related-work.md) and [implementation notes](docs/implementation-notes.md).

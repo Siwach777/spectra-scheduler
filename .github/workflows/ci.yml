@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install locked dependencies and CPU unit-check framework
+        run: |
+          uv sync --locked --extra dataset --extra learning --extra dev
+          uv pip install --python .venv/bin/python torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
+      - name: Check correctness lint
+        run: .venv/bin/ruff check --select F,B,UP src tests web
+      - name: Test contracts and console
+        run: .venv/bin/python -m pytest -q
+      - name: Test browser adapter
+        run: .venv/bin/python -m pytest web/test_server.py -q -k 'not neural_mlp'
+      - name: Check frontend playback
+        run: node web/check_frontend.mjs
+      - name: Verify deterministic smoke comparison
+        run: |
+          .venv/bin/python -m spectra_scheduler --scenario mixed --runs 3 --seed 7 --output reports/generated/ci-first.json
+          .venv/bin/python -m spectra_scheduler --scenario mixed --runs 3 --seed 7 --output reports/generated/ci-repeated.json
+          cmp reports/generated/ci-first.json reports/generated/ci-repeated.json
