@@ -43,15 +43,19 @@ export class FeatureSpacePlot {
     const {width: w, height: h} = this.canvas.getBoundingClientRect();
     if (!w || !h) return;
     const ctx = this.ctx;
+    const style = getComputedStyle(document.documentElement);
+    const muted = style.getPropertyValue('--muted').trim();
+    const ink = style.getPropertyValue('--ink').trim();
+    const line = style.getPropertyValue('--line').trim();
     ctx.clearRect(0, 0, w, h);
     const m = {left: 65, right: 40, top: 26, bottom: 50};
     const pw = w - m.left - m.right, ph = h - m.top - m.bottom;
     if (pw <= 0 || ph <= 0) return;
     const xOf = value => m.left + pw * (value - this.minPw) / (this.maxPw - this.minPw);
     const yOf = value => m.top + ph * (1 - (value - this.minPwr) / (this.maxPwr - this.minPwr));
-    ctx.strokeStyle = '#e4e8ed';
+    ctx.strokeStyle = line;
     ctx.lineWidth = 1;
-    ctx.fillStyle = '#657080';
+    ctx.fillStyle = muted;
     ctx.font = '11px sans-serif';
     for (let i = 0; i <= 4; i++) {
       const power = this.minPwr + (this.maxPwr - this.minPwr) * i / 4;
@@ -77,12 +81,12 @@ export class FeatureSpacePlot {
       ctx.fillStyle = track.confirmed ? '#e1f0eb' : '#f7eddc';
       ctx.strokeStyle = track.confirmed ? '#3b8677' : '#b48641'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = '#34404e'; ctx.textAlign = x > w - 110 ? 'right' : 'left';
+      ctx.fillStyle = ink; ctx.textAlign = x > w - 110 ? 'right' : 'left';
       ctx.fillText(`#${track.track_id}`, x > w - 110 ? x - r - 5 : x + r + 5, y + 4);
     }
     ctx.restore();
     if (!this.activeTracks.length && !this.archivedTracks.length) {
-      ctx.fillStyle = '#657080'; ctx.textAlign = 'center';
+      ctx.fillStyle = muted; ctx.textAlign = 'center';
       ctx.fillText('No measured tracks in this run.', m.left + pw / 2, m.top + ph / 2);
     }
   }

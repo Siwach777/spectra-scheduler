@@ -60,7 +60,7 @@ def model_status(artifacts):
             "sha256": digest, "device": "cuda",
         }
         with _model_lock:
-            if _cached.get("identity") == (str(path), digest):
+            if _cached.get("identity", ())[:2] == (str(path), digest):
                 details.update(_cached["provenance"])
         return {"available": True, **details}
     except (ValueError, OSError, RuntimeError) as error:
@@ -80,20 +80,26 @@ def timing_run_slot(required):
 
 def create_scheduler(artifacts):
     path, digest = _snapshot(artifacts)
+    captured = os.environ.get("SPECTRA_CUDA_GRAPH") == "1"
+    identity = (str(path), digest, captured)
     with _model_lock:
-        if _cached.get("identity") != (str(path), digest):
+        if _cached.get("identity") != identity:
             import torch
             from spectra_scheduler.timing_belief import BeliefPolicyConfig
             from spectra_scheduler.timing_ensemble import load_predictor
 
             torch.set_num_threads(1)
             model, metadata = load_predictor(path)
+            model_kind = "count ensemble" if hasattr(model, "models") else "timing forecaster"
             raw_policy = dict(metadata.get("policy", {
                 "dwells": (1, 10, 50), "revisit": 512, "probe": 10,
                 "exploration": 0.0, "retune_cost": 0.0, "switch_margin": 0.0,
             }))
             raw_policy["dwells"] = tuple(raw_policy["dwells"])
             config = BeliefPolicyConfig(**raw_policy)
+            if captured:
+                from spectra_scheduler.timing_runtime import CapturedTimingPredictor
+                model = CapturedTimingPredictor(model)
             if config.dwells != (1, 10, 50):
                 raise TimingUnavailableError("The selected timing checkpoint uses a different scan menu.")
             provenance = {
@@ -101,10 +107,11 @@ def create_scheduler(artifacts):
                 "sha256": digest, "device": "cuda", "selected_epoch": metadata.get("epoch"),
                 "training_seed": metadata.get("seed"), "policy": raw_policy,
                 "training_epochs": metadata.get("arguments", {}).get("epochs"),
-                "model_kind": "count ensemble" if hasattr(model, "models") else "timing forecaster",
+                "cuda_graph": captured,
+                "model_kind": model_kind,
             }
             _cached.clear()
-            _cached.update(identity=(str(path), digest), model=model, config=config,
+            _cached.update(identity=identity, model=model, config=config,
                            provenance=provenance)
         model, config, provenance = _cached["model"], _cached["config"], dict(_cached["provenance"])
 
@@ -112,6 +119,9 @@ def create_scheduler(artifacts):
 
     class ConsoleTimingPolicy(CalibratedTimingPlannerPolicy):
         def reset(self, bands):
+            if captured and self.model.bands != bands:
+                from spectra_scheduler.timing_runtime import CapturedTimingPredictor
+                self.model = CapturedTimingPredictor(self.model.model, bands=bands)
             super().reset(bands)
             self.console_state = {}
             self.inference_seconds = 0.0
@@ -125,7 +135,7 @@ def create_scheduler(artifacts):
         def select(self, step, predicted):
             coverage = self.coverage_action(step) is not None
             action = super().select(step, predicted)
-            horizon = min(10, self.horizon - step)
+            horizon = min(predicted.shape[1], self.horizon - step)
             self.console_state = {
                 "decision_tick": step,
                 "dwell_ticks": action.dwell_steps,
@@ -138,5 +148,7 @@ def create_scheduler(artifacts):
             return action
 
     scheduler = ConsoleTimingPolicy(model, config, coverage=True)
+    from spectra_scheduler.planner_native import runtime_details
+    provenance.update(runtime_details())
     scheduler.model_provenance = provenance
     return scheduler

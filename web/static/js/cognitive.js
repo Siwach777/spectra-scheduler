@@ -9,7 +9,7 @@ export class CognitiveDashboard {
   updateRunData(run) {
     this.run = run;
     this.progress = buildProgress(run);
-    this.summary.innerHTML = ['Detected signals', 'Interception ratio', 'Listening time', 'Retuning time'].map((label, i) => `
+    this.summary.innerHTML = ['Detected signals', 'Capture rate', 'Listening time', 'Retuning time'].map((label, i) => `
       <div class="summary-card panel"><div class="stat-label">${label}</div>
       <div class="stat-policy-row"><span title="${run.baseline.name}">${run.baseline.name}</span><strong data-stat="${i}-baseline">—</strong></div>
       <div class="stat-policy-row comparison"><span title="${run.active.name}">${run.active.name}</span><strong data-stat="${i}-active">—</strong></div>
@@ -18,7 +18,11 @@ export class CognitiveDashboard {
     this.detailNodes = Array.from(this.summary.querySelectorAll('[data-detail]'));
     document.getElementById('results-reference').textContent = `Reference · ${run.baseline.name}`;
     document.getElementById('results-comparison').textContent = `Comparison · ${run.active.name}`;
+    document.getElementById('details-reference').textContent = run.baseline.name;
+    document.getElementById('details-comparison').textContent = run.active.name;
     this._renderResults(run);
+    document.querySelector('.policy-details').open = run.active.id === 'timing-trained';
+    document.querySelector('.workspace').classList.toggle('timing-demo', run.active.id === 'timing-trained');
   }
 
   updateProgress(tick) {
@@ -43,18 +47,25 @@ export class CognitiveDashboard {
     const complete = tick === this.run.scenario.duration - 1;
     const b = this.run.baseline.data.metrics, a = this.run.active.data.metrics;
     const gain = b.detected_transmissions ? (a.detected_transmissions / b.detected_transmissions - 1) * 100 : null;
+    const comparison = gain == null ? '' : gain > 0 ? ` ${(a.detected_transmissions / b.detected_transmissions).toFixed(2)}× as many captures in this seeded run.` : gain < 0 ? ` ${Math.abs(gain).toFixed(1)}% fewer captures in this seeded run.` : ' Both captured the same number.';
     document.getElementById('demo-outcome').textContent = complete
-      ? `Run complete: ${this.run.active.name} detected ${a.detected_transmissions} signals; ${this.run.baseline.name} detected ${b.detected_transmissions}.${gain == null ? '' : ` ${Math.abs(gain).toFixed(1)}% ${gain >= 0 ? 'more' : 'fewer'} detections in this seeded run.`}`
+      ? `Run complete: ${this.run.active.name} detected ${a.detected_transmissions} signals; ${this.run.baseline.name} detected ${b.detected_transmissions}.${comparison}`
       : 'Watch the receiver decisions and detection counts evolve. Results describe this seeded example.';
   }
 
   updateTick(tick) {
     if (!this.run) return;
-    const state = this.run.active.data.steps[tick].cognitive_state || {};
+    const step = this.run.active.data.steps[tick];
+    const state = step.cognitive_state || {};
     const q = state.q_values || [];
     const beliefs = state.beliefs || [];
     const forecasts = state.timing_forecasts || [];
-    this.beliefTitle.textContent = forecasts.length ? `Expected detections · next ${state.forecast_ticks} ticks` : q.length ? 'Action values (Q)' : 'Estimated band hit probability';
+    const decisionTick = state.decision_tick ?? step.decision_tick ?? tick;
+    const forecastTicks = Math.min(state.forecast_ticks ?? 10, this.run.scenario.duration - decisionTick);
+    this.beliefTitle.textContent = forecasts.length ? `Expected detections · ticks ${decisionTick}–${decisionTick + forecastTicks - 1}` : q.length ? 'Action values (Q)' : 'Estimated band hit probability';
+    document.getElementById('policy-state-caption').textContent = forecasts.length
+      ? `${this.run.active.name} · forecast made at tick ${decisionTick}, before receiver feedback. Selected band ${step.rx_band}; dwell ${state.dwell_ticks ?? step.dwell_ticks} listening ticks.`
+      : `${this.run.active.name} · observed policy state at tick ${tick}.`;
     if (forecasts.length) {
       const maximum = Math.max(...forecasts.map(f => f.expected_detections), .001);
       this.beliefContainer.innerHTML = forecasts.map(f => this._bar(f.band, f.expected_detections / maximum * 100, f.expected_detections.toFixed(2))).join('');
@@ -67,6 +78,8 @@ export class CognitiveDashboard {
       this.beliefContainer.innerHTML = '<p class="field-help">This policy does not expose band probabilities.</p>';
     }
     const scores = state.ucb_scores || [];
+    this.ucbContainer.parentElement.hidden = !scores.length;
+    this.beliefContainer.parentElement.parentElement.classList.toggle('single-state', !scores.length);
     this.ucbContainer.innerHTML = scores.length ? scores.map(s => {
       const total = Math.max(s.total_score, .001);
       return `<div class="ucb-row"><span class="belief-band-tag">Band ${s.band}</span><div class="ucb-bar-track" title="Mean hit: ${s.exploitation}; exploration bonus: ${s.exploration}"><div class="ucb-exploit-fill" style="width:${s.exploitation / total * 100}%"></div><div class="ucb-explore-fill" style="width:${s.exploration / total * 100}%"></div></div><span class="belief-pct">${s.total_score.toFixed(2)}</span></div>`;
@@ -93,6 +106,7 @@ export class CognitiveDashboard {
     const rows = [
       ['Detected signals', 'True captures, excluding false alarms.', p => cell(`${metric(p, 'detected_transmissions')} of ${metric(p, 'total_transmissions')}`)],
       ['Interception ratio', 'Captured / all simulated signals across all bands.', p => cell(percent(metric(p, 'interception_ratio')))],
+      ['Receiver sensitivity', 'Simulated detection threshold, applied equally to both receivers.', () => cell(`${run.scenario.sensitivity_dbm} dBm`)],
       ['Detection probability', 'Captured / detectable signals on the listening band.', p => {
         const m = p.data.metrics;
         return cell(m.detectable_transmissions ? percent(m.probability_of_detection) : 'Not measured', m.detectable_transmissions ? `${m.detected_transmissions} / ${m.detectable_transmissions} detectable signals` : 'No detectable signals observed.');
@@ -111,18 +125,24 @@ export class CognitiveDashboard {
       ['Average intercept rate', 'True captured transmissions per second; one tick is 1 ms.', p => cell(p.data.evaluation?.average_intercept_rate_per_second?.toFixed(1) ?? 'Not measured')],
       ['Scan reward per tick', 'Receiver hits minus 0.05 per retuning tick, averaged across physical ticks.', p => cell(p.data.evaluation == null ? 'Not measured' : (p.data.evaluation.reward_sum / run.scenario.duration).toFixed(3))],
       ['Prediction accuracy', 'Pre-action prediction of a true capture during the selected listening dwell.', p => cell(forecastMetric(p, 'percentage_correct') == null ? 'Not reported' : `${forecastMetric(p, 'percentage_correct').toFixed(1)}%`)],
-      ['Intercept-time prediction error', 'Mean absolute error when a predicted and actual intercept both occur.', p => cell(forecastMetric(p, 'average_intercept_time_error_seconds') == null ? 'Not measured' : `${(forecastMetric(p, 'average_intercept_time_error_seconds') * 1000).toFixed(2)} ms`)],
-      ['Forecast coverage', 'Decision windows with a forecast supplied before receiver feedback.', p => cell(forecastMetric(p, 'coverage') == null ? 'Not reported' : percent(forecastMetric(p, 'coverage')))],
+      ['Intercept-time prediction error', 'Mean absolute error when a predicted and actual intercept both occur.', p => cell(forecastMetric(p, 'average_intercept_time_error_seconds') == null ? 'Not measured' : `${(forecastMetric(p, 'average_intercept_time_error_seconds') * 1000).toFixed(2)} ms`, (forecastMetric(p, 'timing_pairs') || 0) ? `${forecastMetric(p, 'timing_pairs')} matched intercepts` : 'No matched predicted and actual intercepts.')],
+      ['Forecast coverage', 'Decision windows with a forecast supplied before receiver feedback.', p => cell(forecastMetric(p, 'coverage') == null ? 'Not reported' : percent(forecastMetric(p, 'coverage')), p.data.evaluation ? `${forecastMetric(p, 'forecast_windows') || 0} of ${p.data.evaluation.windows} decisions` : '')],
       ['Longest band gap', 'Longest period without listening on a band.', p => cell(`${metric(p, 'max_band_gap')} ticks`)],
       ['Track association purity', 'Correctly grouped anonymous measurements, evaluated against truth.', p => cell(p.data.track_metrics.assigned_measurements ? percent(p.data.track_metrics.association_purity) : 'Not measured', p.data.track_metrics.assigned_measurements ? '' : 'No track measurements.')],
       ['Track pairwise F1', 'Precision and recall of measurement pair associations.', p => cell(p.data.track_metrics.assigned_measurements ? percent(p.data.track_metrics.pairwise_f1) : 'Not measured', p.data.track_metrics.assigned_measurements ? '' : 'No track measurements.')],
     ];
     if (policies.some(p => metric(p, 'average_reward') != null)) rows.push(['Policy reward per tick', 'Each policy uses its own reward definition; unlike definitions are not comparable.', p => cell(metric(p, 'average_reward') == null ? 'Not defined' : metric(p, 'average_reward').toFixed(3))]);
-    this.fomContainer.innerHTML = rows.map(([label, description, render]) => `<tr><td>${label}<p class="metric-description">${description}</p></td>${policies.map(p => {
+    const predicted = policies.filter(p => (forecastMetric(p, 'forecast_windows') || 0) > 0);
+    const predictionLabels = new Set(['Prediction accuracy', 'Intercept-time prediction error', 'Forecast coverage']);
+    const extraLabels = new Set(['Listening time', 'Reacquisition delay', 'Sensitivity loss', 'Receiver hit rate', 'Longest band gap', 'Track association purity', 'Track pairwise F1', 'Policy reward per tick']);
+    const supported = rows.filter(([label]) => (!predictionLabels.has(label) || predicted.length) &&
+      (!label.startsWith('Track ') || policies.some(p => p.data.track_metrics.assigned_measurements)));
+    const renderRows = entries => entries.map(([label, description, render]) => `<tr><td>${label}<p class="metric-description">${description}</p></td>${policies.map(p => {
       const {value, reason} = render(p);
       return `<td>${value}${reason ? `<small class="metric-reason">${reason}</small>` : ''}</td>`;
     }).join('')}</tr>`).join('');
-    const predicted = policies.filter(p => (forecastMetric(p, 'forecast_windows') || 0) > 0);
+    this.fomContainer.innerHTML = renderRows(supported.filter(([label]) => !extraLabels.has(label)));
+    document.getElementById('details-grid-container').innerHTML = renderRows(supported.filter(([label]) => extraLabels.has(label)));
     document.getElementById('results-capabilities').textContent = `Receiver threshold: ${run.scenario.sensitivity_dbm} dBm for both policies. ${predicted.length ? `${predicted.map(p => p.name).join(' and ')} supplies forecasts before each scan decision; prediction measurements use the actual subsequent receiver outcome.` : 'These policies do not report intercept-time forecasts; prediction accuracy and timing error are not evaluated here.'}`;
   }
 }

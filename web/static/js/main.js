@@ -6,6 +6,7 @@ import { ScrubberRibbon } from './scrubber.js';
 import { PlaybackController } from './playback.js';
 import { CognitiveDashboard } from './cognitive.js';
 import { FeatureSpacePlot } from './feature_plot.js';
+import { validateRun } from './validate_run.js';
 
 const el = id => document.getElementById(id);
 const api = new ApiClient();
@@ -43,6 +44,8 @@ function updatePlaybackState() {
   const ended = runData && playback.currentTick === buffer.duration - 1;
   el('btn-play').textContent = playback.isPlaying ? 'Pause' : ended ? 'Replay' : 'Play';
   el('btn-play').setAttribute('aria-label', `${el('btn-play').textContent} simulation playback`);
+  el('btn-prev').disabled = busy || !runData || playback.currentTick === 0;
+  el('btn-next').disabled = busy || !runData || ended;
   if (!busy && runData) setStatus(playback.isPlaying ? 'Playing' : ended ? 'Complete' : 'Paused', playback.isPlaying ? 'playing' : '');
 }
 
@@ -83,11 +86,14 @@ function updateReceiverLabels() {
 function modelNote() {
   const selected = schedulers.filter(s => [baselineSelect.value, activeSelect.value].includes(s.id) && s.artifact);
   el('model-note').hidden = selected.length === 0;
-  el('model-note').textContent = selected.map(s => {
+  const models = selected.map(s => {
     const result = [runData?.active, runData?.baseline].find(r => r?.id === s.id);
     const model = result?.data.model || s;
-    return `${s.name}: ${model.artifact}${model.training_seed == null ? '' : ` · seed ${model.training_seed}`}${model.selected_epoch == null ? '' : ` · epoch ${model.selected_epoch}`}${model.sha256 ? ` · ${model.sha256.slice(0, 12)}` : ''}`;
-  }).join(' · ');
+    return {label: `${s.name}${model.training_seed == null ? '' : ` · seed ${model.training_seed}`}${model.selected_epoch == null ? ' · frozen checkpoint' : ` · epoch ${model.selected_epoch}`}${model.device === 'cuda' ? ' · CUDA' : ''}`,
+      provenance: `${model.artifact}${model.sha256 ? ` · SHA-256 ${model.sha256}` : ''}`};
+  });
+  el('model-note').textContent = models.map(m => m.label).join(' · ');
+  el('model-note').title = models.map(m => m.provenance).join('\n');
 }
 
 function markChanged() {
@@ -115,6 +121,7 @@ function applyPreset(key) {
 async function executeRun({autoplay = true} = {}) {
   if (busy || !ready || !form.reportValidity()) return;
   busy = true;
+  form.setAttribute('aria-busy', 'true');
   const wasPlaying = playback.isPlaying;
   let succeeded = false;
   playback.pause();
@@ -123,12 +130,14 @@ async function executeRun({autoplay = true} = {}) {
   for (const id of ['btn-prev', 'btn-play', 'btn-next', 'timeline', 'btn-export']) el(id).disabled = true;
   el('btn-run-sim').textContent = 'Running…';
   el('error-banner').hidden = true;
+  el('btn-retry').hidden = true;
   try {
     const data = await api.runSimulation({
       scenario: scenarioSelect.value, baseline: baselineSelect.value, active: activeSelect.value,
       seed: Number(el('input-seed').value), sensitivity_dbm: Number(el('slider-sens').value),
       retune_steps: Number(el('slider-retune').value), perturbation: el('select-variation').value || null,
     });
+    validateRun(data);
     // Load the buffer before making this run visible to playback callbacks.
     buffer.loadSimulationRun(data);
     playback.setDuration(data.scenario.duration, Math.max(60, 15000 / data.scenario.duration));
@@ -160,20 +169,28 @@ async function executeRun({autoplay = true} = {}) {
   } catch (error) {
     el('error-banner').textContent = `Could not run comparison. ${error.message}${runData ? ' The previous run is still displayed.' : ''}`;
     el('error-banner').hidden = false;
+    el('btn-retry').textContent = 'Retry comparison';
+    el('btn-retry').hidden = false;
     if (!runData) el('chart-empty').textContent = 'No run loaded. Adjust setup and try again.';
     setStatus('Run failed');
 
   } finally {
     busy = false;
+    form.setAttribute('aria-busy', 'false');
     form.querySelectorAll('button, input, select').forEach(input => { input.disabled = false; });
     for (const id of ['btn-prev', 'btn-play', 'btn-next', 'timeline', 'btn-export']) el(id).disabled = !runData;
     el('btn-run-sim').textContent = 'Run comparison';
     if ((succeeded && autoplay) || (!succeeded && runData && wasPlaying)) playback.play();
     if (succeeded) updatePlaybackState();
+    else {
+      el('btn-prev').disabled = !runData || playback.currentTick === 0;
+      el('btn-next').disabled = !runData || playback.currentTick === buffer.duration - 1;
+    }
   }
 }
 
 form.addEventListener('submit', event => { event.preventDefault(); executeRun(); });
+el('btn-retry').addEventListener('click', () => ready ? executeRun() : initialize());
 presetSelect.addEventListener('change', () => {
   if (presetSelect.value === 'custom') { markChanged(); return; }
   applyPreset(presetSelect.value);
@@ -241,26 +258,33 @@ resize.observe(document.querySelector('.canvas-layers-container'));
 resize.observe(document.querySelector('.plot-canvas-wrapper'));
 
 async function initialize() {
+  el('error-banner').hidden = true;
+  el('btn-retry').hidden = true;
+  setStatus('Connecting');
   try {
     [scenarios, schedulers, presets] = await Promise.all([api.getScenarios(), api.getSchedulers(), api.getPresets()]);
-    const option = (value, text, disabled = false) => { const opt = new Option(text, value); opt.disabled = disabled; return opt; };
+    const option = (value, text, disabled = false, reason = '') => { const opt = new Option(text, value); opt.disabled = disabled; opt.title = reason; return opt; };
     scenarioSelect.replaceChildren(...scenarios.map(s => option(s.id, s.name)));
-    for (const select of [baselineSelect, activeSelect]) select.replaceChildren(...schedulers.map(s => option(s.id, s.name + (s.available ? '' : ' (unavailable)'), !s.available)));
-    presetSelect.replaceChildren(...Object.entries(presets).map(([key, p]) => option(key, p.name, !schedulers.find(s => s.id === p.active)?.available)), option('custom', 'Custom comparison'));
+    for (const select of [baselineSelect, activeSelect]) select.replaceChildren(...schedulers.map(s => option(s.id, s.name + (s.available ? '' : ' (unavailable)'), !s.available, s.reason || '')));
+    const availablePreset = p => [p.baseline, p.active].every(id => schedulers.find(s => s.id === id)?.available);
+    presetSelect.replaceChildren(...Object.entries(presets).map(([key, p]) => option(key, p.name, !availablePreset(p))), option('custom', 'Custom comparison'));
     form.querySelectorAll('input, select, button').forEach(input => { input.disabled = false; });
-    ready = true;
     const params = new URLSearchParams(location.search);
     const requested = params.get('preset');
-    const preferred = schedulers.find(s => s.id === 'timing-trained')?.available ? 'trained-timing' : 'video-demo';
-    const preset = presets[requested] && !Array.from(presetSelect.options).find(o => o.value === requested).disabled ? requested : preferred;
+    const preferred = ['periodic-timing-video', 'video-demo', ...Object.keys(presets)].find(key => presets[key] && availablePreset(presets[key]));
+    if (!preferred) throw new Error('No installed policies can run a demonstration preset.');
+    ready = true;
+    const preset = presets[requested] && availablePreset(presets[requested]) ? requested : preferred;
     applyPreset(preset);
-    const view = ['active', 'baseline', 'dual'].includes(params.get('view')) ? params.get('view') : preset === 'video-demo' ? 'dual' : 'active';
+    const view = ['active', 'baseline', 'dual'].includes(params.get('view')) ? params.get('view') : 'dual';
     document.querySelector(`.view-mode-pill[data-view="${view}"]`).click();
     await executeRun({autoplay: params.get('autoplay') === '1'});
   } catch (error) {
     setStatus('Unavailable');
-    el('error-banner').textContent = `Could not connect to the demonstration server. ${error.message} Reload to try again.`;
+    el('error-banner').textContent = `Could not connect to the demonstration server. ${error.message}`;
     el('error-banner').hidden = false;
+    el('btn-retry').textContent = 'Retry connection';
+    el('btn-retry').hidden = false;
     el('chart-empty').textContent = 'The simulation server is unavailable.';
   }
 }

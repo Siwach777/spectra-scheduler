@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import { EpisodeBuffer } from './static/js/buffer.js';
 import { PlaybackController } from './static/js/playback.js';
+import { buildProgress } from './static/js/progress.js';
+import { validateRun } from './static/js/validate_run.js';
 
 const makeRun = bands => ({
   scenario: {num_bands: bands, duration: 3},
@@ -9,6 +11,16 @@ const makeRun = bands => ({
   baseline: {data: {steps: Array.from({length: 3}, () => ({rx_band: 0, listening: true, hit_count: 0, false_alarms: 0}))}},
   active: {data: {steps: Array.from({length: 3}, () => ({rx_band: bands - 1, listening: true, hit_count: 0, false_alarms: 0}))}},
 });
+const progressRun = makeRun(6);
+progressRun.active.data.steps[1].hit_count = 1;
+const progress = buildProgress(progressRun);
+assert.deepEqual(Array.from(progress.truth), [1, 1, 1]);
+assert.deepEqual(Array.from(progress.active.captured), [0, 1, 1], 'Counters must follow playback and rewind');
+for (const key of ['baseline', 'active']) progressRun[key].data.metrics = {detected_transmissions: key === 'active' ? 1 : 0};
+for (const key of ['baseline', 'active']) progressRun[key].data.steps.forEach((s, i) => {s.tick = i;});
+validateRun(progressRun);
+progressRun.active.data.steps.pop();
+assert.throws(() => validateRun(progressRun), /incomplete comparison receiver trace/);
 const buffer = new EpisodeBuffer(3, 6);
 for (const bands of [6, 8, 6]) {
   buffer.loadSimulationRun(makeRun(bands));

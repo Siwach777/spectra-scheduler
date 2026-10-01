@@ -43,7 +43,7 @@ from spectra_scheduler.schedulers import (
     TransitionBandScheduler,
     UcbScheduler,
 )
-from spectra_scheduler.simulation import Simulation, SimulationEpisode, SyntheticAction, configure_scheduler
+from spectra_scheduler.simulation import Simulation, SimulationEpisode, configure_scheduler
 from spectra_scheduler.tracking import SignalTracker
 from web.timing_backend import create_scheduler as create_timing_scheduler
 from web.timing_backend import model_status, timing_run_slot

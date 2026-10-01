@@ -139,7 +139,17 @@ class SpectraConsoleHandler(BaseHTTPRequestHandler):
                 scenario_id = str(params.get("scenario", "frequency-agile"))
                 baseline_id = str(params.get("baseline", "round-robin"))
                 active_id = str(params.get("active", "track-aware"))
-                seed = int(params.get("seed", 0))
+
+                def integer(value, name):
+                    if (
+                        isinstance(value, bool)
+                        or not isinstance(value, (int, float))
+                        or value != int(value)
+                    ):
+                        raise ValueError(f"{name} must be an integer")
+                    return int(value)
+
+                seed = integer(params.get("seed", 0), "Seed")
                 sensitivity_dbm = params.get("sensitivity_dbm")
                 if sensitivity_dbm is not None:
                     sensitivity_dbm = float(sensitivity_dbm)
@@ -151,7 +161,7 @@ class SpectraConsoleHandler(BaseHTTPRequestHandler):
                     false_alarm_prob = float(false_alarm_prob)
                 retune_steps = params.get("retune_steps")
                 if retune_steps is not None:
-                    retune_steps = int(retune_steps)
+                    retune_steps = integer(retune_steps, "Retune steps")
                 perturbation = params.get("perturbation")
                 if perturbation:
                     perturbation = str(perturbation)
@@ -282,10 +292,19 @@ def main() -> None:
     )
     parser.add_argument("--port", type=int, default=8080, help="Port to listen on (default: 8080)")
     parser.add_argument("--timing-model", type=Path, help="CUDA timing checkpoint or ensemble")
+    parser.add_argument("--planner-library", type=Path, help="Optional compiled timing planner")
+    parser.add_argument("--cuda-graph", action="store_true", help="Reuse CUDA model launches")
     args = parser.parse_args()
     if args.timing_model is not None:
         import os
+
         os.environ["SPECTRA_TIMING_CHECKPOINT"] = str(args.timing_model.resolve())
+    if args.planner_library is not None:
+        import os
+        os.environ["SPECTRA_PLANNER_LIBRARY"] = str(args.planner_library.resolve())
+    if args.cuda_graph:
+        import os
+        os.environ["SPECTRA_CUDA_GRAPH"] = "1"
     run_server(host=args.host, port=args.port)
 
 

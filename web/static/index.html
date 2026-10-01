@@ -58,6 +58,7 @@
         <div class="run-actions"><span id="run-status" role="status" aria-live="polite">Loading</span><button id="btn-export" disabled>Export run</button></div>
       </div>
       <div id="error-banner" class="error-banner" role="alert" hidden></div>
+      <button id="btn-retry" class="retry-button" hidden>Retry</button>
       <div id="run-diagnostics" class="run-diagnostics" role="status" hidden></div>
       <p id="pending-note" class="pending-note" hidden>Setup changed. Run comparison to apply these settings.</p>
 
@@ -108,19 +109,25 @@
 
         <div class="observation-strip panel"><span id="current-observation">No observation loaded.</span><span id="current-reference" class="muted"></span></div>
         <p id="demo-outcome" class="demo-outcome" role="status"></p>
-        <div class="section-heading"><h3>Receiver progress</h3><span id="progress-caption" class="muted">Through the current playback tick</span></div>
-        <div id="summary-grid" class="summary-grid"></div>
+        <div class="decision-panels">
+        <section class="progress-panel">
+          <div class="section-heading"><h3>Receiver progress</h3><span id="progress-caption" class="muted">Through the current playback tick</span></div>
+          <div id="summary-grid" class="summary-grid"></div>
+        </section>
         <details class="panel policy-details">
           <summary>Policy state at the current tick</summary>
+          <p id="policy-state-caption" class="field-help"></p>
           <div class="policy-state"><div><h3 id="belief-title">Band beliefs</h3><div id="belief-bars-container"></div></div><div><h3 id="ucb-title">Exploration scores</h3><div id="ucb-stack-container"></div></div></div>
           <p id="detector-alert-banner" class="field-help"></p>
         </details>
+        </div>
       </main>
 
       <main id="tab-fom" class="tab-content">
         <section class="panel results-panel">
           <div class="panel-heading"><h3>Measured results</h3><span class="muted">Complete run · independent of playback position</span></div>
           <div class="table-wrapper"><table class="results-table"><thead><tr><th scope="col">Metric</th><th scope="col" id="results-reference">Reference</th><th scope="col" id="results-comparison">Comparison</th></tr></thead><tbody id="fom-grid-container"></tbody></table></div>
+          <details class="results-extra"><summary>Receiver and tracking details</summary><div class="table-wrapper"><table class="results-table"><thead><tr><th scope="col">Metric</th><th scope="col" id="details-reference">Reference</th><th scope="col" id="details-comparison">Comparison</th></tr></thead><tbody id="details-grid-container"></tbody></table></div></details>
           <div id="results-capabilities" class="results-note"></div>
           <details class="metric-notes"><summary>How these measurements are evaluated</summary><p>Detection probability is conditional on detectable signals on the listening band. Interception ratio uses all simulated signals, including other bands. First detection and reacquisition delays use the run horizon for unresolved emitters or changes; those bounds are marked in the table. These are single-run simulator measurements, not benchmark averages.</p></details>
         </section>

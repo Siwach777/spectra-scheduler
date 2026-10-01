@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import threading
 from http.server import ThreadingHTTPServer
@@ -31,19 +32,20 @@ def check(browser_path: str | None, screenshots: Path | None) -> None:
             errors = []
             page.on("pageerror", lambda error: errors.append(str(error)))
             base = f"http://127.0.0.1:{server.server_port}"
-            page.goto(base)
+            page.goto(base + "/?preset=video-demo")
             page.wait_for_function("document.querySelector('#run-status').textContent === 'Paused'")
-            assert page.locator("#run-title").inner_text() == "Frequency agile"
-            assert page.locator("#waterfall-axis-y .band-label-cell").first.inner_text() == "Band 7"
+            assert page.locator("#run-title").inner_text() == "Behavior change"
+            assert page.locator("#waterfall-axis-y .band-label-cell").first.inner_text() == "Band 5"
+            assert page.locator("#btn-prev").is_disabled()
             page.locator("#btn-play").click()
             page.wait_for_function("Number(document.querySelector('#timeline').value) > 3")
             page.locator("#btn-play").click()
             assert page.locator("#btn-play").inner_text() == "Play"
             page.locator("#timeline").evaluate(
-                "e => {e.value = 90; e.dispatchEvent(new Event('input', {bubbles:true}));}"
+                "e => {e.value = 20; e.dispatchEvent(new Event('input', {bubbles:true}));}"
             )
             page.locator("#btn-next").click()
-            assert page.locator("#timeline").input_value() == "91"
+            assert page.locator("#timeline").input_value() == "21"
             for view in ["baseline", "dual", "active"]:
                 page.locator(f'[data-view="{view}"]').click()
                 assert page.locator(f'[data-view="{view}"]').get_attribute("aria-pressed") == "true"
@@ -57,29 +59,56 @@ def check(browser_path: str | None, screenshots: Path | None) -> None:
             page.locator("#fog-toggle").check()
             page.locator(".policy-details summary").click()
             page.wait_for_function(
-                "document.querySelector('#belief-bars-container').textContent"
-                ".includes('does not expose')"
+                "document.querySelectorAll('#belief-bars-container .belief-row').length === 6"
             )
-            assert "No UCB scores" in page.locator("#ucb-stack-container").inner_text()
+            assert page.locator("#belief-bars-container .belief-row").count() == 6
+            assert not page.locator("#ucb-stack-container").is_visible()
             page.locator(".policy-details summary").click()
             if screenshots:
                 screenshots.mkdir(parents=True, exist_ok=True)
                 page.mouse.move(0, 0)
                 page.screenshot(path=str(screenshots / "demonstration.png"), full_page=True)
             page.locator('[data-tab="tab-fom"]').click()
-            assert page.locator(".results-table tbody tr").count() >= 14
-            assert "Unavailable" in page.locator(".results-table").inner_text()
+            assert page.locator("#fom-grid-container tr").count() >= 8
+            assert "Prediction accuracy" not in page.locator("#fom-grid-container").inner_text()
+            assert "Unavailable" not in page.locator("#fom-grid-container").inner_text()
+            page.locator(".results-extra summary").click()
+            assert "Longest band gap" in page.locator("#details-grid-container").inner_text()
             if screenshots:
                 page.screenshot(path=str(screenshots / "results.png"), full_page=True)
             page.locator('[data-tab="tab-feature-space"]').click()
             assert page.locator("#feature-space-canvas").evaluate("e => e.width") > 0
             if screenshots:
                 page.screenshot(path=str(screenshots / "tracks.png"), full_page=True)
+            page.locator("#btn-theme").click()
+            assert page.locator("html").get_attribute("data-theme") == "dark"
+            if screenshots:
+                page.screenshot(path=str(screenshots / "tracks-dark.png"), full_page=True)
+            page.locator("#btn-theme").click()
             page.locator('[data-tab="tab-cockpit"]').click()
             with page.expect_download() as download:
                 page.locator("#btn-export").click()
             payload = json.loads(Path(download.value.path()).read_text())
-            assert payload["scenario"]["seed"] == 42
+            assert payload["scenario"]["seed"] == 7
+            maximum = int(page.locator("#timeline").get_attribute("max"))
+            page.locator("#timeline").evaluate(
+                "(e,t) => {e.value=t;e.dispatchEvent(new Event('input',{bubbles:true}));}", maximum
+            )
+            assert page.locator('[data-stat="0-baseline"]').inner_text() == "6 of 30"
+            assert page.locator('[data-stat="0-active"]').inner_text() == "8 of 30"
+            assert page.locator("#btn-next").is_disabled()
+            page.locator("#timeline").evaluate(
+                "e => {e.value=0;e.dispatchEvent(new Event('input',{bubbles:true}));}"
+            )
+            assert page.locator('[data-stat="0-active"]').inner_text() == "0 of 0"
+            # Running from Results returns to the scan and starts a fresh replay.
+            page.locator('[data-tab="tab-fom"]').click()
+            page.locator("#btn-run-sim").click()
+            page.wait_for_function(
+                "document.querySelector('#run-status').textContent === 'Playing'"
+            )
+            assert page.locator("#tab-cockpit").is_visible()
+            page.locator("#btn-play").click()
             # Alternate six/eight-band buffers and restore scenario receiver defaults.
             for preset, bands in [
                 ("mode-switch", 6),
@@ -88,10 +117,11 @@ def check(browser_path: str | None, screenshots: Path | None) -> None:
             ]:
                 page.locator("#select-preset").select_option(preset)
                 page.wait_for_function(
-                    "document.querySelector('#run-status').textContent === 'Paused' && "
+                    "document.querySelector('#run-status').textContent === 'Playing' && "
                     "!document.querySelector('#btn-run-sim').disabled"
                 )
                 assert page.locator("#waterfall-axis-y .band-label-cell").count() == bands
+                page.locator("#btn-play").click()
             duration = int(page.locator("#timeline").get_attribute("max"))
             page.locator("#timeline").evaluate(
                 "(e, v) => {e.value = v; e.dispatchEvent(new Event('input', {bubbles:true}));}",
@@ -117,6 +147,26 @@ def check(browser_path: str | None, screenshots: Path | None) -> None:
             assert "previous run" in page.locator("#error-banner").inner_text()
             assert not page.locator("#btn-play").is_disabled()
             page.unroute("**/api/run")
+            page.locator("#btn-retry").click()
+            page.wait_for_function(
+                "document.querySelector('#run-status').textContent === 'Playing'"
+            )
+            assert not page.locator("#error-banner").is_visible()
+            page.locator("#btn-play").click()
+            # A malformed successful response must also preserve the previous run.
+            previous = page.locator("#run-meta").inner_text()
+            page.route(
+                "**/api/run",
+                lambda route: route.fulfill(
+                    status=200,
+                    content_type="application/json",
+                    body='{"scenario":{"duration":2,"num_bands":8},"truth_grid":[]}',
+                ),
+            )
+            page.locator("#btn-run-sim").click()
+            page.wait_for_function("!document.querySelector('#error-banner').hidden")
+            assert page.locator("#run-meta").inner_text() == previous
+            page.unroute("**/api/run")
             for width in [1024, 768, 390]:
                 page.set_viewport_size({"width": width, "height": 900})
                 page.wait_for_timeout(100)
@@ -129,6 +179,58 @@ def check(browser_path: str | None, screenshots: Path | None) -> None:
             failed.goto(base)
             failed.wait_for_function("!document.querySelector('#error-banner').hidden")
             assert failed.locator("#btn-play").is_disabled()
+            failed.unroute("**/api/scenarios")
+            failed.locator("#btn-retry").click()
+            failed.wait_for_function(
+                "document.querySelector('#run-status').textContent === 'Paused'"
+            )
+            assert not failed.locator("#btn-play").is_disabled()
+            if any(s["id"] == "timing-trained" and s["available"]
+                   for s in page.request.get(base + "/api/schedulers").json()):
+                neural = browser.new_page(viewport={"width": 1920, "height": 1080})
+                neural.on("pageerror", lambda error: errors.append(str(error)))
+                neural.goto(base + "/?preset=periodic-timing-video&view=dual")
+                neural.wait_for_function(
+                    "document.querySelector('#run-status').textContent === 'Paused'"
+                )
+                assert neural.locator(".policy-details").get_attribute("open") is not None
+                assert neural.locator("#belief-bars-container .belief-row").count() == 8
+                assert neural.locator(".policy-details").evaluate(
+                    "e => e.getBoundingClientRect().bottom <= innerHeight"
+                ), "The trained demo must show forecasts and receiver counters on one desktop screen"
+                assert "before receiver feedback" in neural.locator("#policy-state-caption").inner_text()
+                with neural.expect_download() as download:
+                    neural.locator("#btn-export").click()
+                learned = json.loads(Path(download.value.path()).read_text())
+                assert learned["active"]["data"]["model"]["device"] == "cuda"
+                end = learned["scenario"]["duration"] - 1
+                neural.locator("#timeline").evaluate(
+                    "(e,t) => {e.value=t;e.dispatchEvent(new Event('input',{bubbles:true}));}", end
+                )
+                for key in ("baseline", "active"):
+                    metrics = learned[key]["data"]["metrics"]
+                    assert neural.locator(f'[data-stat="0-{key}"]').inner_text() == (
+                        f'{metrics["detected_transmissions"]} of {metrics["total_transmissions"]}'
+                    )
+                # Repeat a six-band request after the eight-band graph was cached.
+                neural.locator("#select-scenario").select_option("change")
+                for _ in range(2):
+                    neural.locator("#btn-run-sim").click()
+                    neural.wait_for_function(
+                        "document.querySelector('#run-status').textContent === 'Playing' && "
+                        "!document.querySelector('#btn-run-sim').disabled"
+                    )
+                    neural.locator("#btn-play").click()
+                    assert neural.locator("#belief-bars-container .belief-row").count() == 6
+                if screenshots:
+                    neural.goto(base + "/?preset=periodic-timing-video&view=dual")
+                    neural.wait_for_function(
+                        "document.querySelector('#run-status').textContent === 'Paused'"
+                    )
+                    neural.locator("#timeline").evaluate(
+                        "e => {e.value=300;e.dispatchEvent(new Event('input',{bubbles:true}));}"
+                    )
+                    neural.screenshot(path=str(screenshots / "trained-comparison.png"), full_page=True)
             assert not errors, errors
             browser.close()
         print(
@@ -145,5 +247,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--browser", help="Chromium-compatible executable")
     parser.add_argument("--screenshots", type=Path)
+    parser.add_argument("--timing-model", type=Path)
+    parser.add_argument("--planner-library", type=Path)
+    parser.add_argument("--cuda-graph", action="store_true")
     args = parser.parse_args()
+    if args.timing_model:
+        os.environ["SPECTRA_TIMING_CHECKPOINT"] = str(args.timing_model.resolve())
+    if args.planner_library:
+        os.environ["SPECTRA_PLANNER_LIBRARY"] = str(args.planner_library.resolve())
+    if args.cuda_graph:
+        os.environ["SPECTRA_CUDA_GRAPH"] = "1"
     check(args.browser, args.screenshots)

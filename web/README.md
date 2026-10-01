@@ -13,6 +13,11 @@ Open `http://127.0.0.1:8080`. Install the CUDA environment using the [runbook](.
 
 The `timing-trained` policy uses the selected timing forecaster and its saved planning settings. `--timing-model` overrides `SPECTRA_TIMING_CHECKPOINT`; otherwise the adapter checks `artifacts/timing-console-v1/best.pt`, then `artifacts/timing-refine-v1/seed-0/best.pt`. Missing weights or CUDA make the policy unavailable, without a substitute. The periodic video preset compares it with `dwell-sweep-50`; see [recording instructions](video/README.md) for the selected example and its limits.
 
+For the measured accelerated runtime, build the optional library and add
+`--planner-library build/timing_planner.so --cuda-graph`; the
+[runbook](../docs/runbook.md#accelerated-runtime-and-serial-latency) gives the build
+command and serial latency scope. Exports retain these settings and the library hash.
+
 ## HTTP API
 
 | Method | Path | Response |
@@ -38,9 +43,15 @@ Errors return JSON with `error` and `status`: invalid inputs use HTTP 400, overs
 
 Choose a demonstration or adjust the scenario, policies, and seed, then run a comparison. Presets start a new comparison automatically. Receiver overrides apply to the next run; presets restore the receiver defaults for their scenario. Environment variations alter simulated activity for both policies before the run starts.
 
-Playback starts paused. Use Play, the timeline, or the arrow controls to inspect the receiver observations. Space toggles playback, and the left/right arrow keys step through observations when a form control is not focused. Changing views or hiding the browser tab pauses playback.
+The first run starts paused, with both receiver paths visible. When the trained timing model is available, the periodic video preset is selected; otherwise the statistical behavior-change demonstration is selected. Run comparison and preset changes start playback automatically. Use Play, the timeline, or the arrow controls to inspect observations. Space toggles playback, and the left/right arrow keys step through observations when a form control is not focused. Changing views or hiding the browser tab pauses playback. Failed requests preserve the previous run and expose a Retry button.
 
-The scan includes simulation truth for the demonstration. Disable **Show simulation truth** to inspect measured observations alone. Truth is never passed to a policy. The Results view shows complete-run measurements, with explicit missing values for prediction evaluation that this adapter does not implement. Signal tracks are the comparison policy's final snapshot, not a live track history. Export run downloads the full GUI payload as JSON; this is separate from the CLI report schema.
+The scan includes simulation truth for the demonstration. Disable **Show simulation truth** to inspect measured observations alone. Truth is never passed to a policy. Capture counters beneath the scan follow playback, including when rewinding; the Results view always reports the complete run. Secondary receiver and tracking metrics appear under Receiver and tracking details. Prediction metrics appear when a policy supplies forecasts, and forecast bars identify the decision tick before feedback. Signal tracks are the comparison policy's final snapshot, not a live track history. Export run downloads the full GUI payload, including model provenance, as JSON; this is separate from the CLI report schema.
+
+The trained policy opens its forecast panel automatically. It shows the saved
+80-tick prediction horizon, clipped at the episode end. Desktop layout keeps the
+scan, receiver counters and forecasts together; smaller screens stack the panels.
+
+Round robin with a one-tick dwell requests a band change every tick. With a one-tick retune cost this leaves almost no listening time. The fixed-sweep options hold each band for the stated number of listening ticks and provide a useful baseline for these receiver settings.
 
 The DQN and supervised hit policies are experimental frozen baselines. They require compatible artifacts in `artifacts/` and are marked unavailable when loading fails. The GUI does not train models or substitute another policy if an artifact is missing.
 
@@ -60,3 +71,14 @@ node web/check_frontend.mjs
 ```
 
 Supply the path to any installed Chromium-compatible browser, or omit `--browser` to use Playwright's installed Chromium. The checks cover playback, preset changes, seek, both receiver views, truth visibility, results, tracks, exports, loading failures, and narrow layouts.
+
+For neural browser verification, install Playwright in the CUDA environment and
+run the same checker there. It also exercises repeated six/eight-band graph shapes:
+
+```bash
+uv pip install --python .venv-rl/bin/python playwright
+.venv-rl/bin/python web/check_browser.py --browser /opt/brave-bin/brave \
+  --timing-model artifacts/timing-refine-v1/seed-0/best.pt \
+  --planner-library build/timing_planner.so --cuda-graph \
+  --screenshots artifacts/gui-review
+```

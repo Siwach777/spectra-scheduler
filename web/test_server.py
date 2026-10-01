@@ -220,6 +220,9 @@ class TestSpectraConsoleHTTP(unittest.TestCase):
         for payload in (
             [1],
             {"seed": -1},
+            {"seed": 42.5},
+            {"seed": True},
+            {"retune_steps": 1.5},
             {"sensitivity_dbm": -999},
             {"perturbation": "unknown"},
             {"active": "unknown"},
