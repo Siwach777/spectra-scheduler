@@ -28,6 +28,17 @@ See [docs/plan.md](docs/plan.md) for the working plan and
 what each part is for. The implementation-facing literature review is in
 [docs/related-work.md](docs/related-work.md).
 
+## Architecture
+
+![Spectra Scheduler architecture: independent CLI and GUI, causal receiver scheduling, separate evaluation and offline workflows](docs/assets/architecture.svg)
+
+Receiver observations feed a bounded history, learned temporal forecasts and a
+planner that selects the next band and listening dwell. Simulator truth stays
+separate from scheduling and supports evaluation. The CLI and browser independently
+use the Python core; CUDA training and recorded-pulse processing run as separate
+workflows. See the [architecture guide](docs/architecture.md) for module links and
+the observation boundary.
+
 ## Run the trained timing scheduler
 
 The current selected checkpoint is `artifacts/timing-refine-v1/seed-0/best.pt`
