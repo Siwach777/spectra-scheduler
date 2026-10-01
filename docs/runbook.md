@@ -190,6 +190,13 @@ hashed reporting seed namespace, so their CLI seed is not a raw scenario-builder
 For a small scan-strategy screening run, select candidates before evaluating them
 on separate seeds. This reuses trained weights and does not retrain the model:
 
+The study includes native-dwell UCB, sliding UCB, Bayesian occupancy, Thompson
+sampling and discounted Thompson sampling as well as Whittle and golden sweep.
+For a larger comparison, use `--selection-runs 32 --report-runs 100` and declare
+a fresh `--report-seed`. Control dwell settings are selected globally, not per
+reporting scenario. `--coverage-selection PATH` can include the frozen coverage
+study alongside the incumbent; use the same option in both stages.
+
 ```bash
 .venv-rl/bin/python -m spectra_scheduler.experiments.scan_strategy_study \
   --checkpoint artifacts/timing-refine-v1/seed-0/best.pt \

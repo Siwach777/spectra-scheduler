@@ -16,7 +16,51 @@ development selection results, not fresh holdout comparisons. The second seed
 was stopped after epoch 14. The main simulator CLI loads this checkpoint with
 `--timing-model`; see [runbook.md](runbook.md) for the command and paired controls.
 
-## Scan-strategy screening
+## Fresh comparison of the selected checkpoint
+
+Settings were frozen on 32 development worlds per scenario before evaluating
+100 fresh worlds per scenario, seeds 48000–48099. Every policy received the same
+eight bands, 512 physical ticks, truth and stochastic receiver realization.
+Adaptive controls select their complete 1/10/50-tick listening dwell globally on
+selection worlds; retuning is additional elapsed time. This compares the configured
+implementations, without claiming optimal tuning of every algorithm.
+
+Mean per-world true capture:
+
+| Policy | Frequency-agile | Spatial scan | Periodic scan |
+| --- | ---: | ---: | ---: |
+| Round-robin, 50-tick listening dwell | 11.10% | 11.17% | 10.87% |
+| UCB, 50-tick dwell | 11.17% | 17.59% | 18.91% |
+| Sliding UCB, 10-tick dwell | 9.66% | 10.48% | 11.18% |
+| Bayesian occupancy, 10-tick dwell | 10.40% | 11.34% | 10.65% |
+| Thompson sampling, 10-tick dwell | 9.80% | 23.62% | 30.07% |
+| Discounted Thompson sampling, 10-tick dwell | 9.94% | 10.90% | 12.49% |
+| Beta-rate Whittle, 50-tick dwell, age bonus | 11.08% | 9.31% | 8.99% |
+| Markov Whittle, 1-tick dwell | 9.62% | 25.24% | 32.86% |
+| Golden sweep, 50-tick dwell | 10.89% | 10.84% | 10.37% |
+| Non-neural phase planner | 27.57% | 45.85% | 64.15% |
+| Saved PUCT MPC | 11.14% | 11.17% | 8.26% |
+| Saved Gumbel MPC | 10.54% | 10.12% | 9.84% |
+| Selected timing forecaster and planner | **34.37%** | **51.56%** | **67.66%** |
+
+Paired capture gains over round-robin-50 are +23.26 [22.12, 24.34],
++40.39 [37.11, 43.49] and +56.79 [53.17, 60.09] percentage points,
+with 95% world-bootstrap intervals. Periodic capture has 99 supported worlds;
+one world contains no truth pulses. The periodic gain over the phase planner
+is +3.51 points with interval [-0.07, 7.05], so it is not an established gain.
+
+Discovery is 100%/86%/97%, versus round-robin's 100%/97.5%/98%.
+Spatial discovery loss is -11.5 points [-16, -7]; first-detection delays are
+24.21/184.95/99.91 ms versus 14.4/182.39/194.11 ms. Strong capture therefore
+coexists with a real spatial discovery weakness. These remain synthetic
+development holdout results, not final-test or hardware results.
+
+The public [summary and provenance](../reports/timing-selected-summary.json)
+contains checkpoint/source hashes, settings and paired intervals. Full local
+results are `artifacts/scan-comprehensive-report-v1/comparison.json`; its frozen
+selection is `artifacts/scan-comprehensive-selection-v1/selection.json`.
+
+## Coverage and earlier screening
 
 ### Coverage selection
 

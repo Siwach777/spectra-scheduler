@@ -14,12 +14,14 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from ..adaptive_scan import AdaptiveDwellScheduler
 from ..policy_benchmark import PolicySpec, _run_jobs, summarize
 from ..scan_handover import PhasedTimingPlanner
 from ..scenarios import REQUIREMENT_SCENARIOS
 from ..synthetic_evaluation import evaluate_scheduler
 from ..timing_belief import BeliefPolicyConfig
 from ..timing_cli import ListeningRoundRobin, PhasePlannerControl
+from ..timing_coverage import RecoveryConfig, RecoveryTimingPlanner
 from ..timing_ensemble import load_predictor
 from ..timing_planner import CalibratedTimingPlannerPolicy
 from ..whittle_policy import ScanStrategyConfig, WhittleScanScheduler
@@ -34,6 +36,9 @@ from .timing_report import reporting_world, reward
 def candidates(policy):
     statistical = {}
     for dwell in (1, 10, 50):
+        for kind in ("ucb", "sliding-ucb", "bayesian", "thompson", "discounted-thompson"):
+            statistical[f"{kind}-{dwell}"] = {"kind": "adaptive", "learner": kind,
+                                             "dwell": dwell}
         statistical[f"round-robin-{dwell}"] = {"kind": "round-robin", "dwell": dwell}
         statistical[f"golden-{dwell}"] = {
             "kind": "scan-strategy", "config": asdict(
@@ -65,7 +70,9 @@ def candidates(policy):
     return statistical, neural
 
 
-def factory(definition):
+def factory(definition, seed=0):
+    if definition["kind"] == "adaptive":
+        return partial(AdaptiveDwellScheduler, definition["learner"], definition["dwell"], seed)
     if definition["kind"] == "scan-strategy":
         return partial(WhittleScanScheduler, ScanStrategyConfig(**definition["config"]))
     if definition["kind"] == "round-robin":
@@ -81,7 +88,7 @@ def control_job(job):
     truth = world.generate_truth()
     policies = {}
     for name, definition in definitions.items():
-        scheduler = factory(definition)()
+        scheduler = factory(definition, world_seed)()
         if hasattr(scheduler, "set_observation_probabilities"):
             scheduler.set_observation_probabilities(world.receiver.detection_probability,
                                                     world.receiver.false_alarm_probability)
@@ -109,6 +116,10 @@ def value(evaluation):
 
 
 def neural_factory(acquisition):
+    if acquisition is not None and "recovery" in acquisition:
+        recovery = acquisition["recovery"]
+        return (CalibratedTimingPlannerPolicy if recovery is None else
+                partial(RecoveryTimingPlanner, recovery=RecoveryConfig(**recovery)))
     return (CalibratedTimingPlannerPolicy if acquisition is None else
             partial(PhasedTimingPlanner, acquisition=ScanStrategyConfig(**acquisition)))
 
@@ -158,6 +169,7 @@ def verify_neural(model, policy, acquisition):
 def sources():
     package = Path(__file__).resolve().parent.parent
     names = ("whittle_policy.py", "scan_handover.py", "timing_planner.py", "timing_belief.py",
+             "adaptive_scan.py", "timing_coverage.py", "schedulers.py",
              "scenarios.py", "simulation.py", "receiver.py", "emitters.py", "timing_cli.py",
              "experiments/scan_strategy_study.py", "experiments/planner_study.py",
              "experiments/timing_report.py", "experiments/timing_mpc_compare.py")
@@ -170,6 +182,8 @@ def main(arguments=None):
     parser.add_argument("--run-dir", type=Path, required=True)
     parser.add_argument("--stage", choices=("select", "report"), default="select")
     parser.add_argument("--selection", type=Path)
+    parser.add_argument("--coverage-selection", type=Path,
+                        help="frozen coverage study; evaluated alongside the incumbent")
     parser.add_argument("--workers", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=20)
     parser.add_argument("--selection-runs", type=int, default=32)
@@ -192,9 +206,27 @@ def main(arguments=None):
     settings["dwells"] = tuple(settings["dwells"])
     policy = BeliefPolicyConfig(**settings)
     statistical, neural = candidates(policy)
+    coverage_policy = policy
+    coverage_digest = None
+    if args.coverage_selection:
+        coverage_document = json.loads(args.coverage_selection.read_text())
+        if coverage_document["checkpoint_sha256"] != fingerprint(args.checkpoint):
+            raise ValueError("coverage selection belongs to a different checkpoint")
+        if coverage_document["source_sha256"] != fingerprint(
+            Path(__file__).parent.parent / "timing_coverage.py"
+        ):
+            raise ValueError("coverage implementation changed after selection")
+        choice = coverage_document["candidates"][coverage_document["selected"]]
+        coverage_settings = dict(choice["policy"])
+        coverage_settings["dwells"] = tuple(coverage_settings["dwells"])
+        coverage_policy = BeliefPolicyConfig(**coverage_settings)
+        neural["timing-coverage"] = {"recovery": choice["recovery"]}
+        coverage_digest = fingerprint(args.coverage_selection)
     if args.verify_only:
         for name, acquisition in neural.items():
-            verify_neural(model, policy, acquisition)
+            verify_neural(
+                model, coverage_policy if name == "timing-coverage" else policy, acquisition
+            )
             print(json.dumps({"policy": name, "serial_cuda_parity": True,
                               "multi_batch_worlds": 3}), flush=True)
         return 0
@@ -209,13 +241,16 @@ def main(arguments=None):
               "reporting_seeds": report_seeds, "scenarios": list(REQUIREMENT_SCENARIOS),
               "adaptation": "single-band native listening dwell after retune; online noisy hits",
               "neural_candidates": neural, "statistical_candidates": statistical,
+              "coverage_selection_sha256": coverage_digest,
+              "coverage_policy": asdict(coverage_policy),
               "selection_rule": (
                   "neural mean capture with no scenario discovery loss; fallback incumbent"),
               "control_selection_rule": "capture + 0.15 discovery, equal scenario weights",
               "mpc_sha256": {str(p): fingerprint(p) for p in args.mpc}}
     if args.stage == "report":
         selection = json.loads(args.selection.read_text())
-        for key in ("checkpoint_sha256", "policy", "source_sha256", "mpc_sha256"):
+        for key in ("checkpoint_sha256", "policy", "source_sha256", "mpc_sha256",
+                    "coverage_selection_sha256"):
             if selection["frozen"][key] != frozen[key]:
                 raise ValueError(f"frozen selection changed: {key}")
         frozen = selection["frozen"]
@@ -236,7 +271,8 @@ def main(arguments=None):
         profiles = {}
         for name, acquisition in neural.items():
             rows, profiles[name] = batched_planned_results(
-                model, policy, jobs, args.batch_size,
+                model, coverage_policy if name == "timing-coverage" else policy,
+                jobs, args.batch_size,
                 scheduler_factory=neural_factory(acquisition))
             for row in rows:
                 by_group[row["group"]]["policies"][name] = value(row["value"]["evaluation"])
@@ -284,13 +320,15 @@ def main(arguments=None):
                               key=lambda n: score(report["means"][n]))
             controls = ["round-robin-1", "round-robin-10", "round-robin-50", "phase-planner"]
             for family in ("whittle-", "markov-whittle-", "golden-", "phased-whittle-",
-                           "adaptive-whittle-"):
+                           "adaptive-whittle-", "ucb-", "sliding-ucb-", "bayesian-",
+                           "thompson-", "discounted-thompson-"):
                 controls.append(max((n for n in statistical if n.startswith(family)),
                                     key=lambda n: score(report["means"][n])))
             report.update(selected_neural=selected, discovery_eligible=eligible,
                           report_controls=controls,
                           report_neural=list(dict.fromkeys(
-                              ["timing-trained", selected, best_hybrid])))
+                              ["timing-trained", selected, best_hybrid,
+                               *(["timing-coverage"] if args.coverage_selection else [])])))
             write_json(args.run_dir / "selection.json", report)
         else:
             write_json(args.run_dir / "comparison.json", report)
